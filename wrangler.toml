@@ -1,0 +1,13 @@
+name = "sat-question-bank"
+main = "src/index.js"
+compatibility_date = "2024-12-16"
+
+[env.production]
+name = "sat-question-bank-prod"
+route = "https://sat.yourdomain.com/*"
+zone_id = "YOUR_ZONE_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sat_question_bank"
+database_id = "bb6bfa7f-2687-4e52-94e7-eedccd1fa05b"
