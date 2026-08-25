@@ -7,3 +7,9 @@ public/qimg/
 seed.sql
 gen_seed.cjs
 seed_local.cjs
+ocr_stems.cjs
+check_ocr_status.cjs
+sample_ocr.cjs
+clean_ocr.cjs
+export_stemtext.cjs
+eng.traineddata

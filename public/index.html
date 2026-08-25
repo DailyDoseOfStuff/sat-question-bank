@@ -24,7 +24,6 @@
   --red-bg: #fef2f2;
   --orange: #ea580c;
   --orange-bg: #fff7ed;
-  --yellow: #fef08a;
   --sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 * { box-sizing: border-box; }
@@ -85,20 +84,25 @@ input:checked + .slider:before { transform: translateX(18px); }
 .top-l, .top-r { display: flex; align-items: center; gap: 10px; }
 .sec-pill { font-size: 13.5px; font-weight: 600; background: var(--blue-bg); color: var(--blue-dark); padding: 6px 14px; border-radius: 999px; border: 0; }
 .tbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; padding: 7px 13px; }
-.tbtn.on { background: var(--yellow); border-color: #eab308; }
 .timer-box { display: flex; align-items: center; gap: 10px; }
 .timer { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+.q-timer { font-size: 14px; color: var(--dim); font-weight: 500; }
 .timer.warn { color: var(--red); }
 .tdiv { width: 1px; height: 22px; background: var(--border); }
 
 .work { flex: 1; min-height: 0; display: flex; position: relative; background: var(--bg); }
-.panes { display: flex; flex: 1; min-width: 0; }
+.panes { display: flex; flex: 1; min-width: 0; transition: all .2s ease; }
 .pane { overflow-y: auto; padding: 28px 36px 60px; }
-.pane-l { flex: 1 1 50%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); position: relative; }
-.pane-r { flex: 1 1 50%; min-width: 0; }
+.pane-q { flex: 1 1 35%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
+.pane-a { flex: 1 1 35%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
+.pane-p { flex: 1 1 30%; min-width: 0; background: #fafbfc; }
 .panes.solo { justify-content: center; }
-.panes.solo .pane-l { display: none; }
-.panes.solo .pane-r { flex: 0 1 860px; background: var(--panel); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.panes.solo .pane-q { display: none; }
+.panes.solo .pane-a { flex: 0 1 860px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.panes.with-exp .pane-q { flex: 1 1 25%; }
+.panes.with-exp .pane-a { flex: 1 1 25%; }
+.panes.with-exp .pane-p { flex: 0 0 0; width: 0; overflow: hidden; }
+.panes.with-exp .pane-p.open { flex: 0 0 30%; width: 30%; }
 
 .qhead { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .qnum { min-width: 34px; height: 34px; border-radius: 9px; background: var(--text); color: #fff; font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
@@ -109,18 +113,28 @@ input:checked + .slider:before { transform: translateX(18px); }
 .passage p { margin: 0 0 16px; }
 .stem { font-size: 16px; line-height: 1.6; margin-bottom: 22px; }
 .stem p { margin: 0 0 12px; }
+.stem .qimg img { display: block; margin: 16px 0; border-radius: 8px; }
+.stem-text { white-space: pre-wrap; user-select: text; }
+.img-toggle { margin-top: 14px; font-size: 12.5px; color: #555; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.img-toggle:hover { border-color: var(--border2); color: #222; }
+.stem table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+.stem table th, .stem table td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+.stem table th { background: #f9fafb; font-weight: 600; }
+.stem pre, .stem code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; background: #f6f8fa; padding: 12px 16px; border-radius: 8px; overflow-x: auto; display: block; }
 
 .choices { display: flex; flex-direction: column; gap: 12px; max-width: 640px; }
 .choice { display: flex; align-items: flex-start; gap: 14px; text-align: left; padding: 14px 16px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--panel); font-size: 15.5px; line-height: 1.5; }
 .choice:hover:not(:disabled) { border-color: var(--border2); background: #fafafa; }
 .badge { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 7px; border: 1.5px solid var(--border2); display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13.5px; color: var(--dim); margin-top: 1px; }
-.choice img { display: block; }
+.choice img { display: block; margin: 8px 0; border-radius: 6px; max-width: 100%; }
 .choice.sel { border-color: var(--blue); background: var(--blue-bg); }
 .choice.sel .badge { border-color: var(--blue); background: var(--blue); color: #fff; }
 .choice.right { border-color: var(--green); background: var(--green-bg); }
 .choice.right .badge { border-color: var(--green); background: var(--green); color: #fff; }
 .choice.wrong { border-color: var(--red); background: var(--red-bg); }
 .choice.wrong .badge { border-color: var(--red); background: var(--red); color: #fff; }
+.choice.corrected { border-color: var(--orange); background: var(--orange-bg); }
+.choice.corrected .badge { border-color: var(--orange); background: var(--orange); color: #fff; }
 .choice.dim { opacity: .55; }
 .ko-btn { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 3px; border-radius: 50%; border: 1.5px dashed var(--border2); background: transparent; color: var(--dim2); font-size: 11px; font-weight: 700; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .ko-btn:hover { border-color: var(--dim); color: var(--dim); }
@@ -137,22 +151,26 @@ input:checked + .slider:before { transform: translateX(18px); }
 .bot-l, .bot-r { display: flex; align-items: center; gap: 10px; }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; padding: 0; font-size: 16px; }
 #pos-lbl { font-size: 13.5px; color: var(--dim); font-weight: 600; }
+#btn-back { min-width: 90px; }
 #btn-next { min-width: 90px; }
+#btn-ai { display: inline-flex; align-items: center; gap: 6px; min-width: 90px; }
 
 /* question map modal */
 .modal-bg { position: fixed; inset: 0; background: rgba(17,24,39,.45); display: flex; align-items: center; justify-content: center; z-index: 60; }
 .modal { background: var(--panel); border-radius: 16px; padding: 22px; width: min(560px, 92vw); max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 .modal h3 { margin: 0 0 14px; font-size: 16px; }
 .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
-.map-cell { position: relative; height: 40px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--panel); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; justify-content: center; }
-.map-cell.answered { background: var(--blue-bg); border-color: var(--blue); color: var(--blue-dark); }
+.map-cell { position: relative; height: 40px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--panel); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.map-cell.correct { background: var(--green-bg); border-color: var(--green); color: var(--green); }
+.map-cell.wrong { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+.map-cell.corrected { background: var(--orange-bg); border-color: var(--orange); color: var(--orange); }
 .map-cell.current { outline: 2.5px solid var(--text); outline-offset: 1px; }
-.map-cell.flagged { border-color: var(--orange); }
 .map-cell.flagged::after { content: "⚑"; position: absolute; top: -7px; right: -4px; font-size: 11px; color: var(--orange); }
 .map-legend { display: flex; gap: 16px; margin-top: 14px; font-size: 12.5px; color: var(--dim); }
 .map-legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 6px; vertical-align: -1px; border: 1.5px solid var(--border2); }
-.map-legend .l-ans::before { background: var(--blue-bg); border-color: var(--blue); }
-.map-legend .l-flag::before { border-color: var(--orange); }
+.map-legend .l-corr::before { background: var(--green-bg); border-color: var(--green); }
+.map-legend .l-wrong::before { background: var(--red-bg); border-color: var(--red); }
+.map-legend .l-corr-w::before { background: var(--orange-bg); border-color: var(--orange); }
 .map-legend .l-cur::before { outline: 2px solid var(--text); outline-offset: 1px; }
 
 /* explanation drawer */
@@ -165,18 +183,9 @@ input:checked + .slider:before { transform: translateX(18px); }
 .kv { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px dashed var(--border); font-size: 13.5px; }
 .kv span:first-child { color: var(--dim); }
 
-/* highlight overlay */
-.hl-layer { position: absolute; inset: 0; pointer-events: none; }
-.hl-rect { position: absolute; border-radius: 3px; mix-blend-mode: multiply; pointer-events: auto; }
-.pane-l.hl-mode { cursor: crosshair; }
-.pane-l.hl-mode .hl-rect { pointer-events: auto; }
-.hl-toolbar { position: fixed; z-index: 70; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.15); padding: 6px; display: flex; gap: 6px; }
-.hl-sw { width: 26px; height: 26px; border-radius: 6px; border: 1.5px solid rgba(0,0,0,.15); cursor: pointer; }
-.hl-sw.on { outline: 2px solid var(--text); outline-offset: 1px; }
-
 /* desmos */
-.desmos-panel { position: fixed; right: 18px; bottom: 74px; width: min(520px, 44vw); height: min(420px, 52vh); background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; }
-.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; background: #fafafa; }
+.desmos-panel { position: fixed; right: 18px; bottom: 74px; width: min(520px, 44vw); height: min(420px, 52vh); min-width: 280px; min-height: 200px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; resize: both; }
+.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; background: #fafafa; cursor: move; user-select: none; }
 .desmos-panel iframe { flex: 1; border: 0; width: 100%; }
 
 /* more menu */
@@ -196,6 +205,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 .pill { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
 .pill.green { background: var(--green-bg); color: var(--green); }
 .pill.red { background: var(--red-bg); color: var(--red); }
+.pill.orange { background: var(--orange-bg); color: var(--orange); }
 .pill.gray { background: #f3f4f6; color: var(--dim); }
 </style>
 </head>
@@ -303,13 +313,14 @@ input:checked + .slider:before { transform: translateX(18px); }
       <button class="tbtn" id="btn-directions">Directions</button>
     </div>
     <div class="timer-box">
+      <span class="q-timer mono" id="q-clock">Q: 0:00</span>
+      <span class="tdiv"></span>
       <span class="timer mono" id="t-clock">00:00</span>
       <span class="tdiv"></span>
       <button class="tbtn" id="btn-hide-timer">Hide</button>
       <button class="tbtn" id="btn-pause">Pause</button>
     </div>
     <div class="top-r">
-      <button class="tbtn" id="btn-highlight">Highlight</button>
       <button class="tbtn" id="btn-calc" title="Desmos calculator">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><circle cx="9" cy="12" r="0.5"/><circle cx="12" cy="12" r="0.5"/><circle cx="15" cy="12" r="0.5"/><circle cx="9" cy="16" r="0.5"/><circle cx="12" cy="16" r="0.5"/><circle cx="15" cy="16" r="0.5"/></svg>
         Calculator
@@ -320,8 +331,9 @@ input:checked + .slider:before { transform: translateX(18px); }
 
   <div class="work">
     <div class="panes" id="panes">
-      <div class="pane pane-l" id="pane-l"></div>
-      <div class="pane pane-r" id="pane-r"></div>
+      <div class="pane pane-q" id="pane-q"></div>
+      <div class="pane pane-a" id="pane-a"></div>
+      <div class="pane pane-p" id="pane-p"></div>
     </div>
     <aside class="drawer" id="drawer">
       <div class="dr-h"><span>Explanation</span><button class="icon-btn" id="dr-close">✕</button></div>
@@ -338,6 +350,7 @@ input:checked + .slider:before { transform: translateX(18px); }
     </div>
     <div class="bot-r">
       <button id="btn-back">Back</button>
+      <button id="btn-ai" title="AI Tutor">✦ AI</button>
       <button class="btn-p" id="btn-next">Next</button>
     </div>
   </div>
@@ -383,7 +396,7 @@ const LS = {
 
 let QS = [], PROG = {};
 let F = LS.get('filters', { sec:'all', dom:'all', diff:'all', src:'official' });
-let S = null; // session
+let S = null;
 let TAB = 'practice';
 
 // ---------------- data ----------------
@@ -532,10 +545,9 @@ function previewQuestion(id) {
       <strong>${esc(q.id)} · ${esc(q.section)} · ${esc(q.difficulty)}</strong>
       <button id="pv-close">Close</button>
     </div>
-    <div style="max-height:56vh; overflow-y:auto;">${q.stem_html}
+    <div style="max-height:56vh; overflow-y:auto;">${renderStem(q)}
       <div class="choices" style="margin-top:16px;">${q.choices.map(c => choiceHTML(q, c, null, true)).join('')}</div>
       ${q.qtype==='spr' ? `<div class="ans-line" style="margin-top:14px;">Answer: ${esc(q.answer)||'(see image)'}</div>` : ''}
-      ${q.answer_img ? `<div style="margin-top:12px;"><img src="${esc(q.answer_img)}"></div>` : ''}
     </div>
     <div style="margin-top:14px; color:var(--dim); font-size:13.5px;" class="cb">${q.rationale_html||''}</div>
   </div></div>`;
@@ -551,11 +563,11 @@ function start(items) {
   S = {
     items, i: 0,
     ans: {}, checked: {}, flags: {}, ko: {},
-    hl: LS.get('highlights', {}),
     started: Date.now(), ended: null,
+    qStart: Date.now(),
     timed, budget: timed ? items.length * budgetPerQ * 1000 : 0,
     remaining: timed ? items.length * budgetPerQ * 1000 : 0,
-    paused: false, timerHidden: false, hlMode: false, hlColor: LS.get('hlColor', '#fef08a'),
+    paused: false, timerHidden: false,
     fromResults: false
   };
   $('view-home').classList.add('hide');
@@ -579,6 +591,7 @@ function startTimer() {
       renderClock();
     }
     S._last = now;
+    renderQTimer();
   }, 250);
 }
 function stopTimer() { if (S && S._int) clearInterval(S._int); }
@@ -588,6 +601,12 @@ function renderClock() {
   const el = $('t-clock');
   el.textContent = S.timed ? `${mm}:${ss}` : `${mm}:${ss}`;
   el.classList.toggle('warn', S.timed && s < 60);
+}
+function renderQTimer() {
+  if (!S) return;
+  const s = Math.round((Date.now() - S.qStart) / 1000);
+  const m = Math.floor(s/60), sec = s%60;
+  $('q-clock').textContent = `Q: ${m}:${String(sec).padStart(2,'0')}`;
 }
 
 $('btn-pause').onclick = () => {
@@ -600,19 +619,78 @@ $('btn-hide-timer').onclick = () => {
   if (!S) return;
   S.timerHidden = !S.timerHidden;
   $('t-clock').style.visibility = S.timerHidden ? 'hidden' : 'visible';
+  $('q-clock').style.visibility = S.timerHidden ? 'hidden' : 'visible';
   $('btn-hide-timer').textContent = S.timerHidden ? 'Show' : 'Hide';
 };
 
 // ---------------- question rendering ----------------
+function hasStemText(q) {
+  return q.stem_text && q.stem_text.trim().length > 20;
+}
+
+function stemTextView(q) {
+  return `<div class="stemtext-wrap">
+    <div class="stem-text cb">${esc(q.stem_text.trim())}</div>
+    <button type="button" class="img-toggle">Show original image</button>
+    <div class="orig-img" hidden>${q.stem_html}</div>
+  </div>`;
+}
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.img-toggle');
+  if (!btn) return;
+  const wrap = btn.closest('.stemtext-wrap');
+  const orig = wrap.querySelector('.orig-img');
+  const txt = wrap.querySelector('.stem-text');
+  const showing = !orig.hidden;
+  orig.hidden = showing;
+  txt.style.display = showing ? '' : 'none';
+  btn.textContent = showing ? 'Show original image' : 'Show text';
+});
+
+function renderStem(q) {
+  let html = q.stem_html || '';
+  const isImg = html.includes('<div class="qimg">') || html.includes('/qimg/');
+  if (isImg) {
+    return hasStemText(q) ? stemTextView(q) : html;
+  }
+  html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '');
+  html = html.replace(/<h3>Passage<\/h3>[\s\S]*?<h3>Question<\/h3>/gi, '');
+  html = html.replace(/<h3>Question<\/h3>/gi, '');
+  html = html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, inner) => {
+    const rows = inner.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+    const lines = rows.map(tr => {
+      const cells = tr.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || [];
+      return cells.map(c => c.replace(/<[^>]+>/g, '').trim()).join(' | ');
+    });
+    return '<pre><code>' + lines.join('\n') + '</code></pre>';
+  });
+  return html;
+}
+
 function choiceHTML(q, c, picked, staticMode) {
   const letter = c.letter || '?';
-  const body = c.img ? `<img src="${esc(c.img)}" alt="Choice ${esc(letter)}">` : `<span>${c.content||''}</span>`;
+  const isGraphImg = c.img && (c.img.includes('_stem.') || c.img.includes('_a.') || c.img.includes('_b.') || c.img.includes('_c.') || c.img.includes('_d.'));
+  let body = '';
+  if (c.img && isGraphImg) {
+    body = `<img src="${esc(c.img)}" alt="Choice ${esc(letter)}">`;
+  } else if (c.img) {
+    body = `<img src="${esc(c.img)}" alt="Choice ${esc(letter)}">`;
+  } else {
+    let content = c.content || '';
+    content = content.replace(/<p>/gi, '').replace(/<\/p>/gi, '');
+    body = `<span>${content}</span>`;
+  }
   const checked = !staticMode && S.checked[q.id];
   let cls = 'choice';
   if (!staticMode) {
     if (picked === letter && !checked) cls += ' sel';
     if (checked) {
-      if (isRight(q, letter)) cls += ' right';
+      const prog = PROG[q.id];
+      const wasWrong = prog && prog.marker === 'Red';
+      const nowCorrect = isRight(q, letter);
+      if (nowCorrect && wasWrong) cls += ' corrected';
+      else if (nowCorrect) cls += ' right';
       else if (picked === letter) cls += ' wrong';
       else cls += ' dim';
     }
@@ -631,10 +709,11 @@ function loadQuestion() {
   $('pos-lbl').textContent = `${S.i+1} of ${S.items.length}`;
   $('btn-back').disabled = S.i === 0;
   $('btn-next').textContent = S.i === S.items.length - 1 ? 'Finish' : 'Next';
+  S.qStart = Date.now();
+  renderQTimer();
   renderClock();
 
   const isRW = q.section !== 'Math';
-  const panes = $('panes');
   const stem = q.stem_html || '';
   let passage = '', prompt = stem;
   const splitIdx = stem.indexOf('<h3>Prompt</h3>');
@@ -642,25 +721,32 @@ function loadQuestion() {
     passage = stem.substring(0, splitIdx).replace('<h3>Passage</h3>', '');
     prompt = stem.substring(splitIdx + 15);
   }
-  const hasSplit = isRW && passage;
-  panes.classList.toggle('solo', !hasSplit);
+  const hasPassage = isRW && (passage || stem.includes('<div class="qimg">'));
+
+  const panes = $('panes');
+  panes.classList.toggle('solo', !hasPassage);
+  panes.classList.remove('with-exp');
+  $('pane-p').classList.remove('open');
 
   const qhead = `<div class="qhead">
     <span class="qnum">${S.i+1}</span>
     <button class="flag-btn ${S.flags[q.id]?'on':''}" id="btn-flag"><span class="fi">⚑</span> Mark for Review</button>
   </div>`;
 
-  if (hasSplit) {
-    $('pane-l').innerHTML = `<div class="passage cb" id="passage-body">${passage}</div><div class="hl-layer" id="hl-layer"></div>`;
-    $('pane-r').innerHTML = `${qhead}<div class="stem cb">${prompt}</div><div class="choices" id="choices"></div>`;
+  if (hasPassage) {
+    let passageHtml = passage;
+    if (stem.includes('<div class="qimg">')) {
+      prompt = '';
+      passageHtml = hasStemText(q) ? stemTextView(q) : stem;
+    }
+    $('pane-q').innerHTML = `<div class="passage cb">${passageHtml}</div>`;
+    $('pane-a').innerHTML = `${qhead}<div class="stem cb">${prompt}</div><div id="answer-area"></div>`;
+    $('pane-q').style.display = 'block';
   } else {
-    $('pane-l').innerHTML = '';
-    $('pane-r').innerHTML = `${qhead}<div class="stem cb">${stem}</div><div id="answer-area"></div>`;
+    $('pane-q').style.display = 'none';
+    $('pane-a').innerHTML = `${qhead}<div class="stem cb">${renderStem(q)}</div><div id="answer-area"></div>`;
   }
-  $('pane-l').classList.toggle('hl-mode', S.hlMode);
-  $('pane-l').style.display = hasSplit ? 'block' : 'none';
   renderAnswerArea(q);
-  renderHighlights();
 
   $('btn-flag').onclick = () => {
     S.flags[q.id] = !S.flags[q.id];
@@ -670,8 +756,7 @@ function loadQuestion() {
 }
 
 function renderAnswerArea(q) {
-  const box = $('answer-area') || $('pane-r').querySelector('#choices') || null;
-  const target = $('choices') || $('answer-area');
+  const target = $('answer-area');
   const picked = S.ans[q.id];
   const checked = S.checked[q.id];
   let html = '';
@@ -719,7 +804,7 @@ function renderAnswerArea(q) {
 function isRight(q, val) {
   if (!val || val === 'TIMEOUT') return false;
   const a = String(q.answer||'').trim().toUpperCase();
-  if (!a) return null; // unknown — self grade
+  if (!a) return null;
   if (q.qtype === 'spr' || !q.choices.length) {
     const clean = (s) => String(s).toUpperCase().replace(/[\s,$]/g,'').replace(/\.0+$/,'');
     const av = clean(a), vv = clean(val);
@@ -736,9 +821,16 @@ function grade(q) {
   const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
   p.attempts++;
   p.corrects += (ok === true ? 1 : 0);
-  p.marker = p.corrects/p.attempts >= 0.8 ? 'Green' : p.corrects/p.attempts >= 0.5 ? 'Orange' : 'Red';
+  const wasWrong = p.marker === 'Red';
+  if (ok === true && wasWrong) {
+    p.marker = 'Orange';
+  } else if (ok === true) {
+    p.marker = 'Green';
+  } else {
+    p.marker = 'Red';
+  }
   p.last_reviewed = new Date().toISOString();
-  p.time_taken_ms = Math.round((Date.now()-S.started)/Math.max(1,Object.keys(S.checked).length));
+  p.time_taken_ms = Math.round((Date.now()-S.qStart));
   PROG[q.id] = p;
   fetch('/api/progress', { method:'POST', headers:{'Content-Type':'application/json', ...sbHeaders()}, body:JSON.stringify(p) }).catch(()=>{});
   renderAnswerArea(q);
@@ -753,7 +845,6 @@ function openDrawer() {
     <div class="ans-line" style="${ok===false?'background:var(--red-bg);border-color:var(--red);':''}">
       ${ok===false?'✗ Your answer: '+esc(S.ans[q.id])+' · ':''}Correct answer: <strong style="margin-left:4px;">${esc(q.answer)||'(below)'}</strong>
     </div>
-    ${q.answer_img ? `<div style="margin-top:12px;"><img src="${esc(q.answer_img)}" alt="Answer"></div>` : ''}
     <h4>Explanation</h4>
     <div class="cb">${q.rationale_html || '<p>No explanation available for this question.</p>'}</div>
     <h4>Question info</h4>
@@ -794,7 +885,17 @@ $('btn-map').onclick = () => {
   const root = $('modal-root');
   const cells = S.items.map((q, idx) => {
     const cls = ['map-cell'];
-    if (S.checked[q.id]) cls.push('answered');
+    const prog = PROG[q.id];
+    const checked = S.checked[q.id];
+    const ok = checked && isRight(q, S.ans[q.id]);
+    if (checked) {
+      if (ok) {
+        if (prog && prog.marker === 'Orange') cls.push('corrected');
+        else cls.push('correct');
+      } else {
+        cls.push('wrong');
+      }
+    }
     if (S.flags[q.id]) cls.push('flagged');
     if (idx === S.i) cls.push('current');
     return `<button class="${cls.join(' ')}" data-idx="${idx}">${idx+1}</button>`;
@@ -802,7 +903,7 @@ $('btn-map').onclick = () => {
   root.innerHTML = `<div class="modal-bg"><div class="modal">
     <h3>Questions</h3>
     <div class="map-grid">${cells}</div>
-    <div class="map-legend"><span class="l-ans">Answered</span><span class="l-flag">Marked for review</span><span class="l-cur">Current</span></div>
+    <div class="map-legend"><span class="l-corr">Correct</span><span class="l-wrong">Wrong</span><span class="l-corr-w">Corrected (was wrong)</span><span class="l-cur">Current</span></div>
     <div class="frow" style="margin-top:16px; justify-content:flex-end;"><button id="map-close">Close</button></div>
   </div></div>`;
   root.querySelectorAll('.map-cell').forEach(b => b.onclick = () => { S.i = parseInt(b.dataset.idx); root.innerHTML=''; loadQuestion(); });
@@ -832,17 +933,15 @@ $('btn-more').onclick = (e) => {
   m.style.top = '52px';
   m.style.right = '18px';
   m.innerHTML = `
-    <button id="mm-clear-hl">Clear highlights</button>
     <button id="mm-clear-ko">Clear eliminations</button>
     <button id="mm-explanation">Show explanation</button>
     <button id="mm-quit" style="color:var(--red);">End session</button>`;
   $('overlay-root').appendChild(m);
-  $('mm-clear-hl').onclick = () => { S.hl[curQ().id] = []; LS.set('highlights', S.hl); renderHighlights(); closeMenus(); };
   $('mm-clear-ko').onclick = () => { S.ko[curQ().id] = []; loadQuestion(); closeMenus(); };
   $('mm-explanation').onclick = () => { if (S.checked[curQ().id]) openDrawer(); closeMenus(); };
   $('mm-quit').onclick = () => { confirmModal('End this practice session? Progress on answered questions is saved.', () => { stopTimer(); S=null; showHome(); }); closeMenus(); };
 };
-function closeMenus(){ document.querySelectorAll('.more-menu,.hl-toolbar').forEach(x=>x.remove()); }
+function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.more-menu')) closeMenus(); });
 
 function confirmModal(msg, onYes) {
@@ -855,86 +954,10 @@ function confirmModal(msg, onYes) {
   $('cm-yes').onclick = () => { root.innerHTML=''; onYes(); };
 }
 
-// ---------------- highlighting (rectangle overlay) ----------------
-$('btn-highlight').onclick = () => {
-  if (!S) return;
-  S.hlMode = !S.hlMode;
-  $('btn-highlight').classList.toggle('on', S.hlMode);
-  $('pane-l').classList.toggle('hl-mode', S.hlMode);
-  if (S.hlMode) showHlToolbar();
-  else closeMenus();
-};
-
-function showHlToolbar() {
-  closeMenus();
-  const colors = ['#fef08a','#bbf7d0','#bfdbfe','#fbcfe8'];
-  const t = document.createElement('div');
-  t.className = 'hl-toolbar';
-  t.style.top = '52px';
-  t.style.right = '130px';
-  t.innerHTML = colors.map(c => `<div class="hl-sw ${S.hlColor===c?'on':''}" data-c="${c}" style="background:${c}"></div>`).join('') +
-    `<div class="hl-sw" data-c="erase" style="background:#fff; font-size:10px; display:flex; align-items:center; justify-content:center;">⌫</div>`;
-  $('overlay-root').appendChild(t);
-  t.querySelectorAll('.hl-sw').forEach(sw => sw.onclick = (e) => {
-    e.stopPropagation();
-    S.hlColor = sw.dataset.c;
-    LS.set('hlColor', S.hlColor);
-    t.querySelectorAll('.hl-sw').forEach(x=>x.classList.toggle('on', x===sw && sw.dataset.c!=='erase'));
-  });
-}
-
-function renderHighlights() {
-  const layer = $('hl-layer');
-  if (!layer) return;
-  const q = curQ();
-  const list = S.hl[q.id] || [];
-  layer.innerHTML = list.map((r, i) =>
-    `<div class="hl-rect" data-i="${i}" style="left:${r.x}%; top:${r.y}%; width:${r.w}%; height:${r.h}%; background:${r.c}; opacity:.55; ${S.hlMode&&S.hlColor==='erase'?'outline:1.5px dashed #ef4444;':''}"></div>`).join('');
-  if (S.hlMode && S.hlColor === 'erase') {
-    layer.querySelectorAll('.hl-rect').forEach(el => el.onclick = () => {
-      list.splice(parseInt(el.dataset.i), 1);
-      S.hl[q.id] = list; LS.set('highlights', S.hl); renderHighlights();
-    });
-  }
-}
-
-(() => {
-  const pane = $('pane-l');
-  let drawing = null;
-  pane.addEventListener('mousedown', (e) => {
-    if (!S || !S.hlMode || S.hlColor === 'erase') return;
-    if (e.target.closest('.hl-rect')) return;
-    const rect = pane.getBoundingClientRect();
-    drawing = { sx: (e.clientX-rect.left)/rect.width, sy: (e.clientY-rect.top)/rect.height, c: S.hlColor, el: null };
-    e.preventDefault();
-  });
-  pane.addEventListener('mousemove', (e) => {
-    if (!drawing) return;
-    const rect = pane.getBoundingClientRect();
-    const cx = (e.clientX-rect.left)/rect.width, cy = (e.clientY-rect.top)/rect.height;
-    const x = Math.min(drawing.sx, cx), y = Math.min(drawing.sy, cy);
-    const w = Math.abs(cx-drawing.sx), h = Math.abs(cy-drawing.sy);
-    if (!drawing.el) { drawing.el = document.createElement('div'); drawing.el.className='hl-rect'; drawing.el.style.background=drawing.c; drawing.el.style.opacity='.55'; $('hl-layer').appendChild(drawing.el); }
-    Object.assign(drawing.el.style, { left:(x*100)+'%', top:(y*100)+'%', width:(w*100)+'%', height:(h*100)+'%' });
-  });
-  document.addEventListener('mouseup', (e) => {
-    if (!drawing) return;
-    const rect = pane.getBoundingClientRect();
-    const cx = (e.clientX-rect.left)/rect.width, cy = (e.clientY-rect.top)/rect.height;
-    const r = { x: Math.min(drawing.sx,cx)*100, y: Math.min(drawing.sy,cy)*100, w: Math.abs(cx-drawing.sx)*100, h: Math.abs(cy-drawing.sy)*100, c: drawing.c };
-    drawing = null;
-    if (r.w > 0.5 && r.h > 0.3) {
-      const q = curQ();
-      S.hl[q.id] = S.hl[q.id] || [];
-      S.hl[q.id].push(r);
-      LS.set('highlights', S.hl);
-      renderHighlights();
-    } else renderHighlights();
-  });
-})();
-
 // ---------------- desmos ----------------
 let desmosOpen = false;
+let desmosPanel = null;
+let desmosDrag = null;
 $('btn-calc').onclick = () => {
   desmosOpen = !desmosOpen;
   let dp = $('desmos-panel');
@@ -946,7 +969,24 @@ $('btn-calc').onclick = () => {
       dp.innerHTML = `<div class="dp-h"><span>Desmos Graphing Calculator</span><button class="icon-btn" id="dp-close" style="width:28px;height:28px;">✕</button></div>
         <iframe src="https://www.desmos.com/calculator?embed" allow="fullscreen"></iframe>`;
       document.body.appendChild(dp);
+      desmosPanel = dp;
       $('dp-close').onclick = () => { desmosOpen = false; dp.remove(); };
+      const header = dp.querySelector('.dp-h');
+      header.onmousedown = (e) => {
+        e.preventDefault();
+        const rect = dp.getBoundingClientRect();
+        desmosDrag = { startX: e.clientX, startY: e.clientY, origLeft: rect.left, origTop: rect.top };
+        document.onmousemove = (ev) => {
+          if (!desmosDrag) return;
+          const dx = ev.clientX - desmosDrag.startX;
+          const dy = ev.clientY - desmosDrag.startY;
+          dp.style.left = (desmosDrag.origLeft + dx) + 'px';
+          dp.style.top = (desmosDrag.origTop + dy) + 'px';
+          dp.style.right = 'auto';
+          dp.style.bottom = 'auto';
+        };
+        document.onmouseup = () => { desmosDrag = null; document.onmousemove = null; document.onmouseup = null; };
+      };
     }
   } else if (dp) dp.remove();
 };
@@ -973,14 +1013,22 @@ function finish() {
   $('res-list').innerHTML = S.items.map((q, idx) => {
     const checked = S.checked[q.id];
     const ok = checked && isRight(q, S.ans[q.id]) === true;
-    const ico = !checked ? '<span style="color:var(--dim2)">—</span>' : ok ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">✗</span>';
+    const prog = PROG[q.id];
+    const wasWrong = prog && prog.marker === 'Orange';
+    let status = 'gray', ico = '<span style="color:var(--dim2)">—</span>', pillText = 'Skipped';
+    if (checked) {
+      if (ok) {
+        if (wasWrong) { status = 'orange'; ico = '<span style="color:var(--orange)">✓</span>'; pillText = 'Corrected'; }
+        else { status = 'green'; ico = '<span style="color:var(--green)">✓</span>'; pillText = 'Correct'; }
+      } else { status = 'red'; ico = '<span style="color:var(--red)">✗</span>'; pillText = 'Wrong'; }
+    }
     return `<div class="res-item" data-idx="${idx}">
       <div class="res-ico">${ico}</div>
       <div style="flex:1; min-width:0;">
         <div style="font-weight:600; font-size:14px;">${idx+1}. ${esc(q.domain||q.section)}</div>
         <div style="font-size:12.5px; color:var(--dim);">${esc(q.skill||'')} · ${esc(q.difficulty||'')}</div>
       </div>
-      <span class="pill ${!checked?'gray':ok?'green':'red'}">${!checked?'Skipped':ok?'Correct':'Wrong'}</span>
+      <span class="pill ${status}">${pillText}</span>
     </div>`;
   }).join('');
   $('res-list').querySelectorAll('.res-item').forEach(el => el.onclick = () => {
@@ -1011,35 +1059,30 @@ function showHome() {
 (function(){
   const st = document.createElement('style');
   st.textContent = `
-  #ai-fab{position:fixed;right:22px;bottom:22px;z-index:9000;width:56px;height:56px;border-radius:50%;
-    background:#8b5cf6;color:#fff;border:none;font-size:24px;box-shadow:0 4px 16px rgba(139,92,246,.45);cursor:pointer}
-  #ai-fab:hover{transform:scale(1.06)}
-  #ai-panel{position:fixed;right:22px;bottom:88px;z-index:9001;width:min(400px,calc(100vw - 32px));height:min(520px,70vh);
-    background:var(--bb-panel,#fff);border:1px solid var(--bb-panel-border,#ddd);border-radius:16px;display:none;
+  #ai-panel{position:fixed;right:22px;bottom:74px;z-index:9001;width:min(400px,calc(100vw - 32px));height:min(520px,70vh);
+    background:var(--panel);border:1px solid var(--border);border-radius:16px;display:none;
     flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden}
   #ai-panel.open{display:flex}
   #ai-head{padding:14px 18px;background:#8b5cf6;color:#fff;font-weight:600;display:flex;justify-content:space-between;align-items:center}
   #ai-close{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
   #ai-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
   .ai-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
-  .ai-msg.user{align-self:flex-end;background:var(--bb-blue-bg,#e5f1fb);color:var(--bb-text,#111)}
-  .ai-msg.bot{align-self:flex-start;background:var(--bb-bg,#f4f4f6);color:var(--bb-text,#111)}
-  #ai-form{display:flex;gap:8px;padding:12px;border-top:1px solid var(--bb-panel-border,#ddd)}
-  #ai-in{flex:1;padding:10px 12px;border:1px solid var(--bb-panel-border,#ccc);border-radius:10px;font-size:14px;background:var(--bb-bg,#fff);color:var(--bb-text,#111)}
+  .ai-msg.user{align-self:flex-end;background:var(--blue-bg);color:var(--text)}
+  .ai-msg.bot{align-self:flex-start;background:var(--bg);color:var(--text)}
+  #ai-form{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
+  #ai-in{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--panel);color:var(--text)}
   #ai-send{background:#8b5cf6;color:#fff;border:none;border-radius:10px;padding:0 18px;font-weight:600;cursor:pointer}`;
   document.head.appendChild(st);
 
-  const fab = document.createElement('button');
-  fab.id = 'ai-fab'; fab.textContent = '✦'; fab.title = 'AI Tutor';
   const panel = document.createElement('div');
   panel.id = 'ai-panel';
   panel.innerHTML = `
     <div id="ai-head"><span>AI Tutor ✦</span><button id="ai-close">✕</button></div>
     <div id="ai-msgs"></div>
     <form id="ai-form"><input id="ai-in" placeholder="Ask about this question..." autocomplete="off"><button id="ai-send">Send</button></form>`;
-  document.body.append(fab, panel);
+  document.body.appendChild(panel);
 
-  fab.onclick = () => panel.classList.toggle('open');
+  $('btn-ai').onclick = () => panel.classList.toggle('open');
   panel.querySelector('#ai-close').onclick = () => panel.classList.remove('open');
 
   const msgs = panel.querySelector('#ai-msgs');
@@ -1066,7 +1109,7 @@ function showHome() {
       const cq = (typeof curQ === 'function') ? curQ() : null;
       if (cq) {
         const strip = h => (h||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        context = `The student is working on this question.\nSection: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
+        context = `The student is working on this question.\nSection: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}${cq.stem_text ? '\nText: ' + cq.stem_text.slice(0,2000) : ''}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
       }
     } catch(_) {}
 
@@ -1080,8 +1123,7 @@ function showHome() {
     add('bot', '…');
     try {
       const r = await fetch('/api/chat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ messages: [...sysMsgs, ...history] })
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages: [...sysMsgs, ...history] })
       });
       const data = await r.json();
       msgs.lastChild.remove();
