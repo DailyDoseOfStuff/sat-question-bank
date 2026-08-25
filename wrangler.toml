@@ -1,0 +1,16 @@
+name = "sat-question-bank"
+main = "src/index.js"
+compatibility_date = "2024-12-16"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+GEMINI_MODEL = "gemini-3.6-flash"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "sat_question_bank"
+database_id = "bb6bfa7f-2687-4e52-94e7-eedccd1fa05b"

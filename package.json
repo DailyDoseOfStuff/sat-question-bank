@@ -1,0 +1,17 @@
+{
+  "name": "sat-question-bank",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "latest"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3"
+  }
+}
