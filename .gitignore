@@ -13,3 +13,7 @@ sample_ocr.cjs
 clean_ocr.cjs
 export_stemtext.cjs
 eng.traineddata
+check_empty.cjs
+check_images.cjs
+fill_text_stems.cjs
+sample_img.cjs
