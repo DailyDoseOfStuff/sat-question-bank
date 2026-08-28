@@ -231,12 +231,40 @@ resolve to files on disk.
   and are now reported as "Not auto-scored" and excluded from the score,
   the markers, the question map and the results tally.
 
+**Answerability pass (same day).** Clicking through every multiple-choice
+question in the player and asserting exactly one choice comes back marked
+correct found 103 that could never be answered right:
+
+- 65 rows have blank choice letters, so every badge rendered "?" and the click
+  recorded an empty letter that no stored answer could match. All 65 have
+  exactly four non-empty choices, so the letter now falls back to position.
+- 22 rows store the answer as `B - <the full text of choice B>`. `isRight()`
+  compares the whole string, so it never matched. Now reduced to the leading
+  letter; all 22 were validated by checking that the trailing text matches the
+  text of the choice at that letter.
+- 16 rows lost choices in extraction and the choice recorded as correct is one
+  of the missing ones. These are unanswerable, so `isRight()` returns null for
+  them and they are reported as "Not auto-scored" rather than marking every
+  attempt wrong.
+
+Re-verified end to end: 3,356 multiple-choice questions, 3,340 grade correctly,
+16 report as not scored, 0 misbehave. Full render sweep after the change is
+still 0 empty / 0 scaffolding / 0 leaks / 0 broken images / 0 "?" badges.
+
 Data defects left alone (cannot be fixed without re-extraction):
 - 22 grid-ins still have no machine-readable answer (answer is a figure).
 - 104 rows have no `explanation_html` (the 50 `Reading and Writing` legacy
   rows plus 27 RW + 27 Math).
 - 3 rows read a variable `x` as `i` (`d4d513ff`, `2e8cc1c0`, `6fa593f1`).
 - `1efd7ef3` stem is garbled (`What is the value ofS(n42π?`).
+- 33 rows have fewer than four choices; 16 of those are the unanswerable ones
+  above, the rest merely offer a short list.
+- 2 rows contradict themselves: the rationale names a different choice than
+  `correct_answer` (`bf5f80c6` stores A, rationale says D; `1e11190a` stores B,
+  rationale says C). Both stems depend on notation that only exists as images,
+  so neither can be resolved here without the source PDF. Left as stored.
+- 36 rows have no choices but store a bare letter as the answer, i.e. the
+  choice list was lost entirely. They render as grid-ins and are not scored.
 
 Note: `questions` has no `qtype` or `label` column, but the frontend reads
 `q.qtype` and `q.label`. Both are always undefined — the grid-in branch works

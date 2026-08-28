@@ -451,7 +451,15 @@ async function load() {
       } catch(e){ q.answer = q.correct_answer || ''; }
       q.stem_html = demoji(q.stem_html).replace(LEAKED_RATIONALE, '');
       q.explanation_html = demoji(q.explanation_html);
-      q.choices.forEach(c => { if (c.content) c.content = demoji(c.content); });
+      q.answer = demoji(q.answer);
+      q.choices.forEach((c, i) => {
+        if (c.content) c.content = demoji(c.content);
+        if (!String(c.letter == null ? '' : c.letter).trim()) c.letter = 'ABCD'[i] || String(i + 1);
+      });
+      if (q.choices.length) {
+        const m = q.answer.match(/^\s*([A-D])\s*[\u2014\u2013-]\s*\S/);
+        if (m) q.answer = m[1];
+      }
       if (!q.answer && !q.choices.length) {
         const m = q.explanation_html.replace(/<[^>]+>/g, ' ')
           .match(/correct answer is\s*:?\s*([0-9]+(?:\.[0-9]+)?(?:\/[0-9]+)?)(?=[\s.,]|$)/i);
@@ -731,7 +739,8 @@ function choiceHTML(q, c, picked, staticMode) {
       const prog = PROG[q.id];
       const wasWrong = prog && prog.marker === 'Red';
       const nowCorrect = isRight(q, letter);
-      if (nowCorrect && wasWrong) cls += ' corrected';
+      if (nowCorrect === null) cls += (picked === letter ? ' sel' : ' dim');
+      else if (nowCorrect && wasWrong) cls += ' corrected';
       else if (nowCorrect) cls += ' right';
       else if (picked === letter) cls += ' wrong';
       else cls += ' dim';
@@ -811,6 +820,7 @@ function renderAnswerArea(q) {
   } else {
     html += `<div class="choices" id="choices">${q.choices.map(c => choiceHTML(q, c, picked, false)).join('')}</div>`;
     if (!checked) html += `<div style="margin-top:14px; color:var(--dim2); font-size:13px;">Choose one answer</div>`;
+    else if (isRight(q, picked) === null) html += `<div class="verdict" style="color:var(--dim);">Not auto-scored \u2014 this question is missing the choice recorded as correct. See the explanation.</div>`;
   }
   target.innerHTML = html;
 
@@ -856,6 +866,7 @@ function isRight(q, val) {
     if (!isNaN(af) && !isNaN(vf)) return Math.abs(af-vf) < 1e-9;
     return av === vv;
   }
+  if (!q.choices.some(c => String(c.letter||'').trim().toUpperCase() === a)) return null;
   return a === String(val).trim().toUpperCase();
 }
 
