@@ -80,16 +80,10 @@ img { max-width: 100%; height: auto; }
 .frow:last-child { margin-bottom: 0; }
 .lbl { font-size: 13px; color: var(--dim); font-weight: 600; width: 86px; flex: 0 0 86px; }
 .chip { padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; background: var(--panel); }
-.chip.on { background: var(--text); border-color: var(--text); color: #fff; }
+.chip.on { background: transparent; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); color: var(--text); font-weight: 600; }
 .startbar { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
 #btn-start { font-size: 16px; padding: 13px 34px; border-radius: 12px; }
 select, input[type=number], input[type=text] { font-family: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
-.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex: 0 0 40px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background: var(--border2); border-radius: 999px; transition: .2s; }
-.slider:before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
-input:checked + .slider { background: var(--blue); }
-input:checked + .slider:before { transform: translateX(18px); }
 
 .prog-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
 .prog-bar-bg { flex: 0 1 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 0 16px; }
@@ -114,19 +108,14 @@ input:checked + .slider:before { transform: translateX(18px); }
 .panes { display: flex; flex: 1; min-width: 0; transition: all .2s ease; }
 .work.desmos-shift .panes { margin-right: 540px; }
 .pane { overflow-y: auto; padding: 28px 36px 60px; }
-.pane-q { flex: 1 1 35%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
-.pane-a { flex: 1 1 35%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
-.pane-p { flex: 1 1 30%; min-width: 0; background: var(--bg2); }
+.pane-q { flex: 1 1 50%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
+.pane-a { flex: 1 1 50%; min-width: 0; background: var(--panel); }
 .panes.solo { justify-content: center; }
 .panes.solo .pane-q { display: none; }
 .panes.solo .pane-a { flex: 0 1 860px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
-.panes.with-exp .pane-q { flex: 1 1 25%; }
-.panes.with-exp .pane-a { flex: 1 1 25%; }
-.panes.with-exp .pane-p { flex: 0 0 0; width: 0; overflow: hidden; }
-.panes.with-exp .pane-p.open { flex: 0 0 30%; width: 30%; }
 
 .qhead { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.qnum { min-width: 34px; height: 34px; border-radius: 9px; background: var(--text); color: #fff; font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+.qnum { min-width: 34px; height: 34px; border-radius: 9px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
 .flag-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 500; color: var(--dim); border: 0; background: transparent; padding: 6px 8px; }
 .flag-btn .fi { font-size: 15px; }
 .flag-btn.on { color: var(--orange); font-weight: 600; }
@@ -135,6 +124,9 @@ input:checked + .slider:before { transform: translateX(18px); }
 .stem { font-size: 16px; line-height: 1.6; margin-bottom: 22px; }
 .stem p { margin: 0 0 12px; }
 .stem .qimg img { display: block; margin: 16px 0; border-radius: 8px; }
+.cb img.minl { display: inline-block; vertical-align: middle; max-height: 2.4em; width: auto; margin: 2px 1px; }
+.cb .qfig { margin: 16px 0; }
+.cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
 .stem-text { white-space: pre-wrap; user-select: text; }
 .img-toggle { margin-top: 14px; font-size: 12.5px; color: #555; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .img-toggle:hover { border-color: var(--border2); color: #222; }
@@ -197,9 +189,7 @@ input:checked + .slider:before { transform: translateX(18px); }
 .map-legend .l-corr-w::before { background: var(--orange-bg); border-color: var(--orange); }
 .map-legend .l-cur::before { outline: 2px solid var(--text); outline-offset: 1px; }
 
-/* explanation drawer */
-.drawer { flex: 0 0 0; width: 0; overflow: hidden; background: var(--panel); border-left: 1px solid var(--border); transition: flex-basis .18s ease, width .18s ease; display: flex; flex-direction: column; }
-.drawer.open { flex: 0 0 430px; width: 430px; }
+/* explanation popup */
 .dr-h { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); font-weight: 700; }
 .dr-b { padding: 20px; overflow-y: auto; font-size: 14.5px; line-height: 1.65; }
 .dr-b h4 { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); }
@@ -297,8 +287,6 @@ input:checked + .slider:before { transform: translateX(18px); }
             <option value="50">50</option>
             <option value="0">All</option>
           </select>
-          <span class="lbl" style="width:auto;flex:none;margin-left:18px;">Calculator</span>
-          <label class="switch"><input type="checkbox" id="calc-toggle" checked><span class="slider"></span></label>
         </div>
         <div class="startbar">
           <button class="btn-p" id="btn-start">Start practice</button>
@@ -311,6 +299,10 @@ input:checked + .slider:before { transform: translateX(18px); }
       <div class="cards" id="db-overview"></div>
       <h3 style="font-size:15px; margin:26px 0 10px;">Performance by section</h3>
       <div id="db-sections"></div>
+      <h3 style="font-size:15px; margin:26px 0 10px;">Performance by subsection</h3>
+      <div id="db-domains"></div>
+      <h3 style="font-size:15px; margin:26px 0 10px;">Performance by skill</h3>
+      <div id="db-skills"></div>
     </div>
 
     <div id="tab-browse" class="hide">
@@ -339,9 +331,9 @@ input:checked + .slider:before { transform: translateX(18px); }
       <button class="tbtn" id="btn-directions">Directions</button>
     </div>
     <div class="timer-box">
-      <span class="timer mono" id="q-clock">0:00</span>
-      <span class="tdiv"></span>
       <button class="tbtn" id="btn-hide-timer">Hide</button>
+      <span class="tdiv"></span>
+      <span class="timer mono" id="q-clock">0:00</span>
       <button class="tbtn" id="btn-pause">Pause</button>
     </div>
     <div class="top-r">
@@ -358,12 +350,7 @@ input:checked + .slider:before { transform: translateX(18px); }
     <div class="panes" id="panes">
       <div class="pane pane-q" id="pane-q"></div>
       <div class="pane pane-a" id="pane-a"></div>
-      <div class="pane pane-p" id="pane-p"></div>
     </div>
-    <aside class="drawer" id="drawer">
-      <div class="dr-h"><span>Explanation</span><button class="icon-btn" id="dr-close">✕</button></div>
-      <div class="dr-b" id="dr-body"></div>
-    </aside>
   </div>
 
   <div class="bot">
@@ -374,6 +361,7 @@ input:checked + .slider:before { transform: translateX(18px); }
       <span id="pos-lbl">1 of 1</span>
     </div>
     <div class="bot-r">
+      <button id="btn-expl" title="Show explanation">Explanation</button>
       <button id="btn-ai" title="AI Tutor">✦ AI</button>
       <button id="btn-back">Back</button>
       <button class="btn-p" id="btn-next">Next</button>
@@ -436,6 +424,20 @@ document.querySelectorAll('[data-theme-toggle]').forEach(b => b.onclick = () => 
 applyTheme(LS.get('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
 // ---------------- data ----------------
+// The PDF extractor wrote some text as UTF-8 bytes decoded through CP437.
+const MOJIBAKE = [
+  ['\u0393\u00ea\u00c6', '\u2212'], ['\u0393\u00e5\u00c6', '\u2192'], ['\u0393\u00ea\u00dc', '\u221a'],
+  ['\u0393\u00c7\u00f6', '\u2014'], ['\u0393\u00c7\u00f4', '\u2013'], ['\u0393\u00c7\u00d6', '\u2019'],
+  ['\u0393\u00c7\u00a3', '\u201c'], ['\u0393\u00c7\u00a5', '\u201d'], ['\u0393\u00c7\u00aa', '\u2026'],
+  ['\u0393\u00eb\u00f1', '\u2264'], ['\u0393\u00eb\u00d1', '\u2265'], ['\u0393\u00eb\u00e1', '\u2260'],
+  ['\u0393\u00eb\u00ea', '\u2248'], ['\u00a4\u00c7', '\u03c0'], ['\u251c\u00f9', '\u00d7'],
+  ['\u252c\u00b0', '\u00b0'], ['\u252c\u2557', '\u00b7']
+];
+const demoji = (h) => MOJIBAKE.reduce((a, [bad, good]) => a.split(bad).join(good), h || '');
+// Some stems have the rationale appended to them. It is already in explanation_html,
+// and leaving it in the stem prints the answer above the choices.
+const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
+
 async function load() {
   try {
     const [qRes, pRes] = await Promise.all([fetch('/api/questions'), fetch('/api/progress', { headers: sbHeaders() })]);
@@ -447,6 +449,14 @@ async function load() {
         const a = typeof q.correct_answer === 'string' ? JSON.parse(q.correct_answer) : (q.correct_answer || []);
         q.answer = Array.isArray(a) ? a.join('') : String(a);
       } catch(e){ q.answer = q.correct_answer || ''; }
+      q.stem_html = demoji(q.stem_html).replace(LEAKED_RATIONALE, '');
+      q.explanation_html = demoji(q.explanation_html);
+      q.choices.forEach(c => { if (c.content) c.content = demoji(c.content); });
+      if (!q.answer && !q.choices.length) {
+        const m = q.explanation_html.replace(/<[^>]+>/g, ' ')
+          .match(/correct answer is\s*:?\s*([0-9]+(?:\.[0-9]+)?(?:\/[0-9]+)?)(?=[\s.,]|$)/i);
+        if (m) q.answer = m[1];
+      }
     });
     const progRows = pRes.ok ? await pRes.json() : [];
     PROG = {};
@@ -526,23 +536,39 @@ $('btn-start').onclick = () => start(pool());
 function drawDash() {
   let att=0, corr=0, ms=0;
   const bySec = { 'Math':{a:0,c:0,n:0}, 'Reading & Writing':{a:0,c:0,n:0} };
-  QS.forEach(q => { if (bySec[q.section]) bySec[q.section].n++; });
+  const byDom = {}, bySkill = {};
+  const bucket = (map, key) => (map[key] = map[key] || { a:0, c:0, n:0 });
+  QS.forEach(q => {
+    if (bySec[q.section]) bySec[q.section].n++;
+    bucket(byDom, q.domain || 'Other').n++;
+    bucket(bySkill, q.skill || 'Other').n++;
+  });
   Object.entries(PROG).forEach(([id,p]) => {
     if (!p.attempts) return;
-    att++; if (p.marker==='Green') corr++; ms += p.time_taken_ms||0;
+    const right = p.marker === 'Green' || p.marker === 'Orange';
+    att++; if (right) corr++; ms += p.time_taken_ms||0;
     const q = QS.find(x=>x.id===id);
-    if (q && bySec[q.section]) { bySec[q.section].a++; if (p.marker==='Green') bySec[q.section].c++; }
+    if (!q) return;
+    [bySec[q.section], byDom[q.domain || 'Other'], bySkill[q.skill || 'Other']].forEach(b => {
+      if (!b) return;
+      b.a++; if (right) b.c++;
+    });
   });
   $('db-overview').innerHTML = `
     <div class="card"><div class="k">Questions attempted</div><div class="v mono">${att}</div></div>
     <div class="card"><div class="k">Accuracy</div><div class="v mono">${att?Math.round(corr/att*100):0}%</div></div>
     <div class="card"><div class="k">Avg time / question</div><div class="v mono">${att?Math.round(ms/att/1000):0}s</div></div>`;
-  $('db-sections').innerHTML = Object.entries(bySec).map(([s,v]) => {
-    const pct = v.a ? Math.round(v.c/v.a*100) : 0;
-    return `<div class="prog-item"><div style="flex:0 0 150px;font-weight:600;">${s}</div>
-      <div class="prog-bar-bg"><div class="prog-bar-fg" style="width:${pct}%"></div></div>
-      <div class="mono" style="flex:0 0 110px;text-align:right;color:var(--dim);">${pct}% · ${v.a}/${v.n}</div></div>`;
-  }).join('');
+  const bars = (map, labelWidth) => Object.entries(map)
+    .sort((a,b) => b[1].a - a[1].a || a[0].localeCompare(b[0]))
+    .map(([k,v]) => {
+      const pct = v.a ? Math.round(v.c/v.a*100) : 0;
+      return `<div class="prog-item"><div style="flex:0 0 ${labelWidth}px;font-weight:600;font-size:13.5px;">${esc(k)}</div>
+        <div class="prog-bar-bg"><div class="prog-bar-fg" style="width:${pct}%"></div></div>
+        <div class="mono" style="flex:0 0 120px;text-align:right;color:var(--dim);">${v.a?pct+'%':'—'} · ${v.a}/${v.n}</div></div>`;
+    }).join('') || '<div style="color:var(--dim);font-size:13.5px;padding:6px 2px;">No attempts yet.</div>';
+  $('db-sections').innerHTML = bars(bySec, 150);
+  $('db-domains').innerHTML = bars(byDom, 230);
+  $('db-skills').innerHTML = bars(bySkill, 260);
 }
 
 // ---------------- browse ----------------
@@ -605,7 +631,6 @@ function start(items) {
   $('view-home').classList.add('hide');
   $('view-results').classList.add('hide');
   $('view-test').classList.remove('hide');
-  $('btn-calc').classList.toggle('hide', items[0].section !== 'Math' && !items.some(x=>x.section==='Math'));
   loadQuestion();
   startTimer();
 }
@@ -664,6 +689,8 @@ document.addEventListener('click', e => {
   btn.textContent = showing ? 'Show original image' : 'Show text';
 });
 
+const H3_LABEL = /<h3>\s*(?:Passage|Prompt|Question)\s*<\/h3>/gi;
+
 function renderStem(q) {
   let html = q.stem_html || '';
   const isImg = html.includes('<div class="qimg">');
@@ -671,8 +698,7 @@ function renderStem(q) {
     return hasStemText(q) ? stemTextView(q) : html;
   }
   html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '');
-  html = html.replace(/<h3>Passage<\/h3>[\s\S]*?<h3>Question<\/h3>/gi, '');
-  html = html.replace(/<h3>Question<\/h3>/gi, '');
+  html = html.replace(H3_LABEL, '');
   html = html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, inner) => {
     const rows = inner.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
     const lines = rows.map(tr => {
@@ -721,6 +747,9 @@ function choiceHTML(q, c, picked, staticMode) {
 
 function loadQuestion() {
   const q = curQ();
+  const isMath = q.section === 'Math';
+  $('btn-calc').classList.toggle('hide', !isMath);
+  if (!isMath) closeDesmos();
   $('t-sec').textContent = q.domain && q.domain !== 'General' ? q.domain : q.section;
   $('pos-lbl').textContent = `${S.i+1} of ${S.items.length}`;
   $('btn-back').disabled = S.i === 0;
@@ -733,15 +762,13 @@ function loadQuestion() {
   let passage = '', prompt = stem;
   const splitIdx = stem.indexOf('<h3>Prompt</h3>');
   if (splitIdx !== -1) {
-    passage = stem.substring(0, splitIdx).replace('<h3>Passage</h3>', '');
+    passage = stem.substring(0, splitIdx).replace(H3_LABEL, '');
     prompt = stem.substring(splitIdx + 15);
   }
   const hasPassage = isRW && (passage || stem.includes('<div class="qimg">'));
 
   const panes = $('panes');
   panes.classList.toggle('solo', !hasPassage);
-  panes.classList.remove('with-exp');
-  $('pane-p').classList.remove('open');
 
   const qhead = `<div class="qhead">
     <span class="qnum">${S.i+1}</span>
@@ -767,7 +794,7 @@ function loadQuestion() {
     S.flags[q.id] = !S.flags[q.id];
     $('btn-flag').classList.toggle('on', !!S.flags[q.id]);
   };
-  closeDrawer();
+  $('modal-root').innerHTML = '';
 }
 
 function renderAnswerArea(q) {
@@ -796,9 +823,11 @@ function renderAnswerArea(q) {
     } else {
       const ok = isRight(q, picked);
       const v = $('spr-verdict');
-      if (v) v.innerHTML = ok
+      if (v) v.innerHTML = ok === null
+        ? '<div class="verdict" style="color:var(--dim);">Not auto-scored — this question has no stored answer. See the explanation.</div>'
+        : ok
         ? '<div class="verdict ok">✓ Correct</div>'
-        : `<div class="verdict bad">✗ Incorrect — correct answer: ${esc(q.answer)||'(shown in explanation)'}</div>`;
+        : `<div class="verdict bad">✗ Incorrect — correct answer: ${esc(q.answer)}</div>`;
     }
   } else {
     target.querySelectorAll('.choice').forEach(el => {
@@ -833,6 +862,7 @@ function isRight(q, val) {
 function grade(q) {
   S.checked[q.id] = true;
   const ok = isRight(q, S.ans[q.id]);
+  if (ok === null) { renderAnswerArea(q); return; }  // no stored answer: scoring it would be a guess
   const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
   p.attempts++;
   p.corrects += (ok === true ? 1 : 0);
@@ -849,29 +879,38 @@ function grade(q) {
   PROG[q.id] = p;
   fetch('/api/progress', { method:'POST', headers:{'Content-Type':'application/json', ...sbHeaders()}, body:JSON.stringify(p) }).catch(()=>{});
   renderAnswerArea(q);
-  openDrawer();
 }
 
-// ---------------- explanation drawer ----------------
-function openDrawer() {
+// ---------------- explanation popup ----------------
+function openExplanation() {
+  if (!S) return;
   const q = curQ();
-  const ok = isRight(q, S.ans[q.id]);
-  $('dr-body').innerHTML = `
-    <div class="ans-line" style="${ok===false?'background:var(--red-bg);border-color:var(--red);':''}">
-      ${ok===false?'✗ Your answer: '+esc(S.ans[q.id])+' · ':''}Correct answer: <strong style="margin-left:4px;">${esc(q.answer)||'(below)'}</strong>
+  const answered = !!S.checked[q.id];
+  const ok = answered && isRight(q, S.ans[q.id]);
+  const root = $('modal-root');
+  const head = answered
+    ? `<div class="ans-line" style="${ok===false?'background:var(--red-bg);border-color:var(--red);':''}">
+        ${ok===false?'✗ Your answer: '+esc(S.ans[q.id])+' · ':''}Correct answer: <strong style="margin-left:4px;">${esc(q.answer)||'(below)'}</strong>
+      </div>`
+    : `<div class="ans-line" style="background:var(--bg2);border-color:var(--border);color:var(--dim);">Answer the question first to reveal the correct answer.</div>`;
+  root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(680px,94vw)">
+    <div class="dr-h" style="padding:0 0 14px;"><span>Explanation</span><button class="icon-btn" id="ex-close">✕</button></div>
+    <div class="dr-b" style="padding:0;overflow:visible;">
+      ${head}
+      <h4>Explanation</h4>
+      <div class="cb">${answered ? (q.explanation_html || '<p>No explanation available for this question.</p>') : '<p style="color:var(--dim);">Hidden until you answer.</p>'}</div>
+      <h4>Question info</h4>
+      <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
+      <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
+      <div class="kv"><span>Difficulty</span><span>${esc(q.difficulty||'—')}</span></div>
+      <div class="kv"><span>Source</span><span>${esc(q.source||'CollegeBoard')} ${q.label&&q.label.startsWith('PT')?'· '+esc(q.label):''}</span></div>
+      <div class="kv"><span>ID</span><span class="mono">${esc(q.id)}</span></div>
     </div>
-    <h4>Explanation</h4>
-    <div class="cb">${q.explanation_html || '<p>No explanation available for this question.</p>'}</div>
-    <h4>Question info</h4>
-    <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
-    <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
-    <div class="kv"><span>Difficulty</span><span>${esc(q.difficulty||'—')}</span></div>
-    <div class="kv"><span>Source</span><span>${esc(q.source||'CollegeBoard')} ${q.label&&q.label.startsWith('PT')?'· '+esc(q.label):''}</span></div>
-    <div class="kv"><span>ID</span><span class="mono">${esc(q.id)}</span></div>`;
-  $('drawer').classList.add('open');
+  </div></div>`;
+  $('ex-close').onclick = () => root.innerHTML = '';
+  root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML=''; };
 }
-function closeDrawer(){ $('drawer').classList.remove('open'); }
-$('dr-close').onclick = closeDrawer;
+$('btn-expl').onclick = openExplanation;
 
 // ---------------- navigation ----------------
 $('btn-next').onclick = () => {
@@ -902,8 +941,9 @@ $('btn-map').onclick = () => {
     const cls = ['map-cell'];
     const prog = PROG[q.id];
     const checked = S.checked[q.id];
-    const ok = checked && isRight(q, S.ans[q.id]);
-    if (checked) {
+    const verdict = checked ? isRight(q, S.ans[q.id]) : null;
+    const ok = verdict === true;
+    if (checked && verdict !== null) {
       if (ok) {
         if (prog && prog.marker === 'Orange') cls.push('corrected');
         else cls.push('correct');
@@ -953,7 +993,7 @@ $('btn-more').onclick = (e) => {
     <button id="mm-quit" style="color:var(--red);">End session</button>`;
   $('overlay-root').appendChild(m);
   $('mm-clear-ko').onclick = () => { S.ko[curQ().id] = []; loadQuestion(); closeMenus(); };
-  $('mm-explanation').onclick = () => { if (S.checked[curQ().id]) openDrawer(); closeMenus(); };
+  $('mm-explanation').onclick = () => { openExplanation(); closeMenus(); };
   $('mm-quit').onclick = () => { confirmModal('End this practice session? Progress on answered questions is saved.', () => { stopTimer(); S=null; showHome(); }); closeMenus(); };
 };
 function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
@@ -977,6 +1017,12 @@ const DESMOS_SRC = {
 let desmosOpen = false;
 let desmosPanel = null;
 let desmosDrag = null;
+function closeDesmos() {
+  const dp = $('desmos-panel');
+  if (dp) dp.remove();
+  desmosOpen = false;
+  $('work').classList.remove('desmos-shift');
+}
 $('btn-calc').onclick = () => {
   desmosOpen = !desmosOpen;
   let dp = $('desmos-panel');
@@ -996,7 +1042,7 @@ $('btn-calc').onclick = () => {
         <iframe src="${DESMOS_SRC.graphing}" allow="fullscreen"></iframe>`;
       document.body.appendChild(dp);
       desmosPanel = dp;
-      $('dp-close').onclick = () => { desmosOpen = false; dp.remove(); $('work').classList.remove('desmos-shift'); };
+      $('dp-close').onclick = closeDesmos;
       dp.querySelectorAll('.dp-tab').forEach(tab => tab.onclick = () => {
         dp.querySelectorAll('.dp-tab').forEach(t => t.classList.toggle('on', t === tab));
         dp.querySelector('iframe').src = DESMOS_SRC[tab.dataset.mode];
@@ -1026,9 +1072,13 @@ $('btn-calc').onclick = () => {
 function finish() {
   stopTimer();
   S.ended = Date.now();
-  const done = Object.keys(S.checked).length;
-  let right = 0;
-  S.items.forEach(q => { if (S.checked[q.id] && isRight(q, S.ans[q.id]) === true) right++; });
+  let done = 0, right = 0;
+  S.items.forEach(q => {
+    if (!S.checked[q.id]) return;
+    const ok = isRight(q, S.ans[q.id]);
+    if (ok === null) return;
+    done++; if (ok === true) right++;
+  });
   const secs = Math.round((S.ended - S.started)/1000);
   S.results = { done, right, secs };
   S.wrongIds = S.items.filter(q => S.checked[q.id] && isRight(q, S.ans[q.id]) !== true).map(q=>q.id);
@@ -1043,11 +1093,13 @@ function finish() {
   $('res-time').textContent = `${Math.floor(secs/60)}m ${secs%60}s`;
   $('res-list').innerHTML = S.items.map((q, idx) => {
     const checked = S.checked[q.id];
-    const ok = checked && isRight(q, S.ans[q.id]) === true;
+    const verdict = checked ? isRight(q, S.ans[q.id]) : null;
+    const ok = verdict === true;
     const prog = PROG[q.id];
     const wasWrong = prog && prog.marker === 'Orange';
     let status = 'gray', ico = '<span style="color:var(--dim2)">—</span>', pillText = 'Skipped';
-    if (checked) {
+    if (checked && verdict === null) { pillText = 'Not scored'; }
+    else if (checked) {
       if (ok) {
         if (wasWrong) { status = 'orange'; ico = '<span style="color:var(--orange)">✓</span>'; pillText = 'Corrected'; }
         else { status = 'green'; ico = '<span style="color:var(--green)">✓</span>'; pillText = 'Correct'; }
@@ -1082,9 +1134,7 @@ function showHome() {
   $('view-test').classList.add('hide');
   $('view-results').classList.add('hide');
   $('view-home').classList.remove('hide');
-  const dp = $('desmos-panel'); if (dp) dp.remove();
-  desmosOpen = false;
-  $('work').classList.remove('desmos-shift');
+  closeDesmos();
   load();
 }
 

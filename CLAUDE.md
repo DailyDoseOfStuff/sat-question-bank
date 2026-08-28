@@ -190,6 +190,59 @@ not touched.
 Not done: the `.choice table` CSS path has no live question to exercise it
 yet (no re-extracted choice happens to contain a table in the current data).
 
+### UI + data verification pass (2026-08-28)
+
+`public/index.html` only. Verified by walking all 3,874 questions through the
+real test player in a browser and asserting on the rendered DOM (not on the
+DB): 0 render empty, 0 leave Passage/Prompt scaffolding, 0 leak the rationale,
+0 lack a choice list or grid-in, 0 broken `<img>`. All 17,495 `/qimg/` refs
+resolve to files on disk.
+
+- **Practice chips:** `.chip.on` was `background: var(--text); color:#fff`,
+  which is white-on-near-white in dark mode. Now transparent with a blue
+  border + inset ring; label keeps `var(--text)`.
+- **Calculator:** dropped the home-screen toggle switch (and the now-orphaned
+  `.switch`/`.slider` CSS). `#btn-calc` is shown per question, on Math only,
+  and the Desmos panel auto-closes when you move onto a Reading question.
+- **Dashboard:** added per-domain and per-skill breakdowns beside the existing
+  per-section one. `Orange` (corrected) now counts as correct, as it already
+  did on the results screen.
+- **Third pane removed.** `.pane-p` was never written to after the explanation
+  drawer landed, but it still claimed 30% of the row in `solo` mode — that is
+  the empty dark column on the right of the question screen.
+- **Explanation** moved from a docked drawer to a modal opened by a new
+  `#btn-expl` next to the AI button (also in the More menu). It no longer
+  opens itself on submit; the inline verdict already reports right/wrong.
+- **Top bar:** Hide and the clock swapped.
+- **Question number** uses `color: var(--bg)`, so it is dark on the light
+  badge in dark mode instead of white-on-white.
+- **Passage/Prompt headings** are extractor scaffolding and are stripped at
+  render (`H3_LABEL`). The old rule deleted everything between `<h3>Passage</h3>`
+  and `<h3>Question</h3>`, which threw away the question body on the rows that
+  used that pairing.
+- **Mojibake:** 27 rows carry UTF-8 read back through CP437 (`ΓêÆ` for `−`,
+  `ΓåÆ` for `→`, …). Mapped back at load time via `demoji()`.
+- **Leaked rationale:** 70 stems had the rationale appended, printing the
+  answer above the choices. Stripped at load (`LEAKED_RATIONALE`); all 70 keep
+  a separate populated `explanation_html`, and none render empty afterwards.
+- **Unanswerable grid-ins:** 81 SPR rows had an empty `correct_answer`, and
+  `grade()` marked every attempt Red. 59 state the answer plainly in their own
+  rationale and are recovered at load; the other 22 state it only as an image
+  and are now reported as "Not auto-scored" and excluded from the score,
+  the markers, the question map and the results tally.
+
+Data defects left alone (cannot be fixed without re-extraction):
+- 22 grid-ins still have no machine-readable answer (answer is a figure).
+- 104 rows have no `explanation_html` (the 50 `Reading and Writing` legacy
+  rows plus 27 RW + 27 Math).
+- 3 rows read a variable `x` as `i` (`d4d513ff`, `2e8cc1c0`, `6fa593f1`).
+- `1efd7ef3` stem is garbled (`What is the value ofS(n42π?`).
+
+Note: `questions` has no `qtype` or `label` column, but the frontend reads
+`q.qtype` and `q.label`. Both are always undefined — the grid-in branch works
+only because it also tests `!q.choices.length`, and the "My PT Mistakes"
+filter can therefore never match anything.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a
