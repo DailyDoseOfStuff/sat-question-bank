@@ -17,3 +17,10 @@ check_empty.cjs
 check_images.cjs
 fill_text_stems.cjs
 sample_img.cjs
+.claude/
+.superpowers/
+d1_chunks/
+extract_math/
+extract_rw/
+test_out/
+tools/
