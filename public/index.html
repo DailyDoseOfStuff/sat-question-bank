@@ -124,7 +124,10 @@ select, input[type=number], input[type=text] { font-family: inherit; font-size: 
 .stem { font-size: 16px; line-height: 1.6; margin-bottom: 22px; }
 .stem p { margin: 0 0 12px; }
 .stem .qimg img { display: block; margin: 16px 0; border-radius: 8px; }
-.cb img.minl { display: inline-block; vertical-align: middle; max-height: 2.4em; width: auto; margin: 2px 1px; }
+img.minl, .choice img.minl { display: inline-block; vertical-align: middle; max-height: 2.4em; width: auto; margin: 2px 1px; }
+/* the notation crops are black on white; in dark mode invert them so they
+   are not white boxes floating in the page. Figures keep their colours. */
+:root[data-theme="dark"] img.minl { filter: invert(1); }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
 .stem-text { white-space: pre-wrap; user-select: text; }
@@ -491,8 +494,9 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
 
 function pool() {
   let a = QS.filter(q => {
-    if (F.src === 'mistakes') return ['PT4','PT6','PT8','PT10','mistake'].includes(q.label);
-    return !['PT4','PT6','PT8','PT10','mistake'].includes(q.label);
+    // `label` is not a column; the practice-test rows are the ones the import
+    // tagged source Bluebook, so filter on that instead of on undefined.
+    return (q.source === 'Bluebook') === (F.src === 'mistakes');
   });
   if (F.sec !== 'all') a = a.filter(q => q.section === F.sec);
   if (F.dom !== 'all') a = a.filter(q => q.domain === F.dom);

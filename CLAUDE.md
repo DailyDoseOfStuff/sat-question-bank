@@ -271,6 +271,81 @@ Note: `questions` has no `qtype` or `label` column, but the frontend reads
 only because it also tests `!q.choices.length`, and the "My PT Mistakes"
 filter can therefore never match anything.
 
+### Extractor root-cause pass (2026-08-28, later)
+
+The previous pass patched symptoms in `public/index.html`. This one fixed the
+three extractor bugs that produced them and re-imported all 3,770 CollegeBoard
+rows. Verified by walking every question through the real player.
+
+**1. Figures were not assigned to a section.** `build()` handed *every* vector
+cluster on the page to `to_html(stem, figs)`. A cluster in the choices band or
+the rationale band therefore printed as a picture above the question, and -
+worse - `fill_math(skip=figs)` then refused to decode that region, so those
+choices lost their notation entirely (`bdb0aa23` rendered as `['4','x C.','']`
+with all four real choices glued into one image in the stem). **545 Math
+questions** hit this; RW, scanned the same way, has none. `build()` now buckets
+each cluster by `section_end()` and only stem-band clusters become figures;
+rationale-band ones go to `explanation_html`, and choice-band notation is left
+for `fill_math` to crop per choice.
+
+**2. Seven wrong entries in `glyph_labels.json`.** A five-shape rotation plus
+two case errors: `x`->`i`, `i`->`(`, `)`->`x`, `r`->`)`, `(`->`r`, `s`->`S`,
+`o`->`O`. That is where `If 4i = 3`, `What is the value ofS(n42pi?` and the 8
+rows reading `cOS` came from. Verified by rendering five occurrences of each
+signature out of the PDF and reading them (`labels_check` contact sheet).
+
+**3. `fill_math` dropped word spaces.** It rebuilt each line by concatenating
+run texts with no separator, throwing away the space `lines_of` had already
+inferred from geometry - hence `wsquare feet`, `Iff(x)`, `ofS(n`. Parts now
+carry their x-extents and are rejoined wherever the measured gap exceeds
+`SPACE_GAP` (1pt), the same threshold `lines_of` uses.
+
+**4. `sections()` dropped whole choice blocks.** Some pages print no
+`Correct Answer:` line. `choices = lines[ia+1:ic]` needed both markers, so all
+four choices were discarded and the row rendered as an answerless grid-in -
+that is what the "36 rows lost the choice list entirely" note was. Choices now
+run to the `Rationale` marker when `ic` is missing, and `answer_from_rationale()`
+recovers the answer from `Choice X is correct` / `The correct answer is N`.
+
+Measured before -> after, over all 3,874 rows:
+
+| | before | after |
+|---|---|---|
+| multiple-choice rows | 3,356 | 3,391 |
+| ... that grade correctly | 3,340 | **3,391** |
+| rows with fewer than 4 choices | 33 | **0** |
+| rows with an empty or junk choice | 11 | **0** |
+| grid-ins with no machine-readable answer | 81 | **11** |
+| stems rendering with no text and no image | 0 | 0 |
+| broken `<img>` | 0 | 0 |
+
+The 11 remaining grid-ins state their answer only as a notation image in the
+rationale; they still report "Not auto-scored". The 104 rows with no
+`explanation_html` are all `source='Bluebook'` - they are not in either PDF, so
+there is nothing to re-extract from.
+
+**Frontend, same pass** (`public/index.html`):
+- `pool()` filtered on `q.label`, which is not a column, so "My PT Mistakes"
+  could never match anything and "Question Bank" returned the legacy rows too.
+  It now filters on `source`, which is exactly the split (3,770 CollegeBoard /
+  104 Bluebook).
+- `img.minl` was scoped to `.cb`, so the notation crops inside a `.choice` were
+  unscaled - one rendered 407px wide. Now capped everywhere.
+- Dark mode inverts `img.minl`; the crops are black-on-white and were showing as
+  white boxes. Figures keep their colours.
+
+**Housekeeping:** re-extraction wrote 38,248 files into `public/qimg` (old crops
+plus new). The 17,265 orphans are deleted; 20,983 remain, all referenced. Note
+that is over Cloudflare's 20,000-file limit for Worker static assets, so a
+`wrangler deploy` will now be rejected - `/qimg` needs to move to R2, or the
+crops need to be fewer, before the next deploy. `wrangler dev` also hangs
+silently when that directory is very large; if the server never answers, check
+the file count first.
+
+**Not versioned:** `tools/` is in `.gitignore`, so the extractor fixes above
+live only on disk, and the data itself lives only in the local D1 file under
+`.wrangler/`. Neither is in git.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a
