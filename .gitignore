@@ -23,4 +23,8 @@ d1_chunks/
 extract_math/
 extract_rw/
 test_out/
-tools/
+# The extractor is the only way to rebuild the bank from the PDFs, so keep its
+# source. The blobs it reads and writes (glyph index, jsonl dumps) stay out.
+tools/*
+!tools/*.py
+!tools/glyph_labels.json
