@@ -342,6 +342,20 @@ crops need to be fewer, before the next deploy. `wrangler dev` also hangs
 silently when that directory is very large; if the server never answers, check
 the file count first.
 
+**31 authored reconstructions deleted.** Bank is 3,843 rows (3,770 CollegeBoard
++ 73 Bluebook). The removed rows all declared themselves in their own stem -
+"Authored replacement. The original question's passage and choices were never
+logged", "Reconstructed question. The original source page was not stored. This
+is an authored reconstruction built from the logged sentence, the correct answer
+and the saved rule - not the original wording", "Passage stored in abbreviated
+form". They were not College Board questions and the home pill counts every row
+as one. No `progress` row referenced any of them. Full rows are backed up to
+`tools/deleted_reconstructed_rows.json` if they are ever wanted back.
+
+Two false leads while doing this: matching on "reconstruct"/"authored" alone
+hits seven real passages (the Globe Theatre, Zelda Fitzgerald, the
+Reconstruction period). Match the boilerplate sentences, not the words.
+
 **Not versioned:** `tools/` is in `.gitignore`, so the extractor fixes above
 live only on disk, and the data itself lives only in the local D1 file under
 `.wrangler/`. Neither is in git.
