@@ -80,6 +80,21 @@ def is_prose(ln):
     return ln["x0"] <= PROSE_X and width > PROSE_W
 
 
+def raster_figures(page):
+    """Bitmap illustrations embedded in the page.
+
+    Some pages carry no vector art at all - the diagram is a bitmap, and
+    P.figures() (which clusters drawings) sees nothing. Left alone they fall
+    through to fill_math as unidentifiable notation and get cropped inline, so
+    a whole triangle printed at x-height in the middle of the sentence. Size
+    tells them apart: notation crops here are never more than ~25pt tall.
+    """
+    return [pymupdf.Rect(i["bbox"]) for i in page.get_image_info()
+            if i["bbox"][1] >= P.BANNER_BOTTOM
+            and i["bbox"][2] - i["bbox"][0] >= P.FIG_MIN_W
+            and i["bbox"][3] - i["bbox"][1] >= P.FIG_MIN_H]
+
+
 def figure_blocks(page, lines):
     """Figure rects grown to include their own labels.
 
@@ -88,7 +103,7 @@ def figure_blocks(page, lines):
     prose. Absorb every neighbouring non-prose line, stopping at body text.
     """
     blocks = []
-    for fig in P.figures(page):
+    for fig in list(P.figures(page)) + raster_figures(page):
         rect = pymupdf.Rect(fig)
         changed = True
         while changed:
@@ -96,6 +111,8 @@ def figure_blocks(page, lines):
             for ln in lines:
                 if ln["page"] != page.number or ln["x0"] < LABEL_X:
                     continue
+                if ln["y1"] <= P.BANNER_BOTTOM:
+                    continue          # a metadata banner cell, not a caption
                 box = pymupdf.Rect(ln["x0"], ln["y"],
                                    max(r["bbox"][2] for r in ln["runs"]), ln["y1"])
                 if box in rect:
@@ -104,6 +121,9 @@ def figure_blocks(page, lines):
                 if near.intersects(box):
                     rect |= box
                     changed = True
+        # never let a block reach up into the banner: cropping one printed the
+        # question's own metadata across the top of the figure
+        rect.y0 = max(rect.y0, P.BANNER_BOTTOM)
         blocks.append(rect)
     # two clusters (plot + its legend) usually grow into the same region
     merged = []
@@ -123,6 +143,9 @@ def save_figure(page, rect, path, zoom=3, pad=4):
 
 
 BAR_MAX_H = 1.5          # a fraction bar is a thin wide fill
+FIG_PAD = 22.0           # a chart's own labels sit this far outside its box
+RULE_MIN_L = 30.0        # a stroke this long is a table rule, not a dash
+CELL_GAP = 4.0           # glyphs this far apart in a cell are separate runs
 ROW_TOL = 2.0            # glyph centres this close share a baseline
 SPACE_FRAC = 0.35        # glyph gap / font size above which a space is real
 SPACE_GAP = 1.0          # pt between a run and its neighbour that reads as a space
@@ -146,50 +169,181 @@ def math_page(page):
     return glyphs, bars
 
 
-def decode_slot(group, bars, labels):
-    """Text for one run of drawn glyphs, or None if it must stay an image.
+TEX = {
+    "%": r"\%", "$": r"\$", "&": r"\&", "#": r"\#",
+    "°": r"^{\circ}", "π": r"\pi ", "×": r"\times ", "÷": r"\div ",
+    "±": r"\pm ", "≥": r"\ge ", "≤": r"\le ", "≠": r"\neq ",
+    "∞": r"\infty ", "△": r"\triangle ", "−": "-",
+    "√": r"\sqrt ", "∛": r"\sqrt[3] ",
+}
 
-    Anything stacked - a fraction, a radical, a matrix - is refused and cropped
-    by the caller; a single row of labelled glyphs decodes exactly.
+# A comma sits below the baseline and a degree sign above it; neither is a
+# script. Without this list every "f(x), where" turned into "f(x)_{,}".
+NOSCRIPT = set(",.;:'\"-−+=<>≤≥≠×÷±/()[]|°%$")
+
+SUP_GAP = 0.25           # glyph bottom this far above the baseline = exponent
+SUB_GAP = 0.18           # glyph top this far below it = index
+SCRIPT_H = 0.85          # ...and a script is never full height
+STACK_TOL = 0.35         # a baseline glyph never sits further off than this
+
+
+def tex_escape(s):
+    """LaTeX for a decoded run, leaving any command already in it alone."""
+    out, i = [], 0
+    while i < len(s):
+        if s[i] == "\\":
+            j = i + 1
+            while j < len(s) and (s[j].isalpha() or s[j] in "[]"):
+                j += 1
+            out.append(s[i:j])
+            i = j
+            continue
+        out.append(TEX.get(s[i], s[i]))
+        i += 1
+    return "".join(out)
+
+
+def as_math(raw):
+    """Wrap a decoded run in math delimiters, or leave it as prose.
+
+    A bare quantity ("210", "3.5") reads better as text and keeps the sentence
+    searchable; anything with a variable or structure is real notation.
     """
-    box = pymupdf.Rect(group[0][1])
-    for _, r in group:
-        box |= r
-    if any(box.intersects(b) for b in bars):
+    if raw is None:
         return None
-    rows = []
-    for s, r in group:
-        mid = (r.y0 + r.y1) / 2
-        for row in rows:
-            if abs(row[0] - mid) <= ROW_TOL:
-                row[1].append((s, r))
-                break
+    if not re.search(r"[A-Za-z^_\\]", raw):
+        return raw
+    return r"\(" + tex_escape(raw) + r"\)"
+
+
+def _box(items):
+    b = pymupdf.Rect(items[0][1])
+    for _, r in items:
+        b |= r
+    return b
+
+
+def _midy(r):
+    return (r.y0 + r.y1) / 2
+
+
+def decode_slot(group, bars, labels):
+    """LaTeX for one run of drawn glyphs, or None if a shape is unknown.
+
+    Stacked notation is not refused any more: a bar with ink above and below is
+    a fraction, a bar with a radical to its left is a root, and anything sitting
+    off the baseline is an exponent or an index. Only an unlabelled shape still
+    forces the caller to crop a picture.
+    """
+    if not group:
+        return ""
+    if any(labels.get(s) is None for s, _ in group):
+        return None
+    box = _box(group)
+    # A fraction bar is drawn a little wider than the digits it separates, so
+    # containment is the wrong test - overlap is.
+    mine = [b for b in bars
+            if b.x1 > box.x0 and b.x0 < box.x1 and b.width <= box.width + 8
+            and box.y0 - 1 <= _midy(b) <= box.y1 + 1]
+    return _tex(sorted(group, key=lambda g: g[1].x0), mine, labels)
+
+
+def _split_at(items, bar):
+    """items left of the bar, under/over it, and right of it."""
+    left = [g for g in items if g[1].x1 <= bar.x0 + 0.5]
+    right = [g for g in items if g[1].x0 >= bar.x1 - 0.5]
+    seen = {id(g[1]) for g in left} | {id(g[1]) for g in right}
+    return left, [g for g in items if id(g[1]) not in seen], right
+
+
+def _tex(items, bars, labels):
+    if not items:
+        return ""
+    box = _box(items)
+    best = None
+    for b in bars:
+        _, inner, _ = _split_at(items, b)
+        num = [g for g in inner if _midy(g[1]) < _midy(b)]
+        den = [g for g in inner if _midy(g[1]) > _midy(b)]
+        if num and den and (best is None or b.width > best[0].width):
+            best = (b, num, den)
+    if best:
+        bar, num, den = best
+        rest = [b for b in bars if b is not bar]
+        left, _, right = _split_at(items, bar)
+        # a radical sign printed flush against the bar owns what is under it
+        rad = [g for g in left if labels[g[0]] in ("√", "∛")
+               and bar.x0 - g[1].x1 < 3]
+        head = _tex([g for g in left if g not in rad], rest, labels)
+        tail = _tex(right, rest, labels)
+        if rad:
+            body = _tex(num + den, rest, labels)
+            cmd = r"\sqrt[3]" if labels[rad[-1][0]] == "∛" else r"\sqrt"
+            mid = None if body is None else cmd + "{" + body + "}"
         else:
-            rows.append((mid, [(s, r)]))
-    if len(rows) > 1:
-        return None                # stacked notation
-    ordered = sorted(group, key=lambda g: g[1].x0)
-    if any(labels.get(s) is None for s, _ in ordered):
-        return None                # unlabelled shape - keep the picture
-    # Normalise by the tallest glyph, not the previous one: "=" and "-" are
-    # only a point or two high and would make every following gap look huge.
-    em = max(r.y1 - r.y0 for _, r in ordered) or 1.0
-    out = labels[ordered[0][0]]
-    for (s, r), (_, prev) in zip(ordered[1:], ordered):
-        # digits of one number sit flush; operands are spaced further apart
-        if r.x0 - prev.x1 > SPACE_FRAC * em:
+            top, bot = _tex(num, rest, labels), _tex(den, rest, labels)
+            mid = (None if top is None or bot is None
+                   else r"\frac{" + top + "}{" + bot + "}")
+        if head is None or mid is None or tail is None:
+            return None
+        return head + mid + tail
+    # a bar with ink on one side only is the overline of a root
+    for b in bars:
+        left, inner, right = _split_at(items, b)
+        rad = [g for g in left if labels[g[0]] in ("√", "∛") and b.x0 - g[1].x1 < 3]
+        if rad and inner:
+            rest = [x for x in bars if x is not b]
+            cmd = r"\sqrt[3]" if labels[rad[-1][0]] == "∛" else r"\sqrt"
+            head = _tex([g for g in left if g not in rad], rest, labels)
+            body = _tex(inner, rest, labels)
+            tail = _tex(right, rest, labels)
+            if None in (head, body, tail):
+                return None
+            return head + cmd + "{" + body + "}" + tail
+    return _linear(items, labels)
+
+
+def _linear(items, labels):
+    """One baseline run, with exponents and indices lifted into ^{} and _{}."""
+    em = max(r.y1 - r.y0 for _, r in items) or 1.0
+    base = sorted(r.y1 for _, r in items)[len(items) // 2]
+    out, mode, prev = "", "", None
+    for s, r in items:
+        ch = labels[s]
+        kind = ""
+        if ch not in NOSCRIPT and (r.y1 - r.y0) < SCRIPT_H * em:
+            if r.y1 <= base - SUP_GAP * em:
+                kind = "^"
+            elif r.y0 >= base - SUB_GAP * em:
+                kind = "_"
+        if kind == "" and ch not in NOSCRIPT and abs(r.y1 - base) > STACK_TOL * em:
+            # full height and well off the baseline: a numerator or a radicand
+            # whose structure was not recognised. Reading it left to right
+            # turned "1 over 71" into "171", so refuse and keep the picture.
+            return None
+        if kind != mode:
+            out += "}" if mode else ""
+            out += kind + "{" if kind else ""
+            mode = kind
+        elif prev is not None and not kind and r.x0 - prev.x1 > SPACE_FRAC * em:
             out += " "
-        out += labels[s]
-    return out
+        out += ch
+        prev = r
+    return out + ("}" if mode else "")
 
 
-def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=()):
+def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=(), near=()):
     """Rewrite each line's text with its drawn notation put back in place.
 
     Every glyph is assigned to a slot on its line - before the first run,
     between two runs, or after the last - so notation that lands at a line
     break is not lost. Simple runs become real characters; stacked notation
     becomes a small inline image, so nothing is silently dropped.
+
+    `skip` is the figure rects on this page, whose notation belongs to the
+    picture. `near` is those rects with a margin: a chart's rotated axis title
+    is drawn just outside its own box, and cropping each of its letters was
+    what put a column of one-letter pictures under every graph.
     """
     glyphs, bars = math_page(page)
     glyphs = [(s, r) for s, r in glyphs if not any(r in f for f in skip)]
@@ -240,10 +394,14 @@ def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=()):
     # Display equations are drawn with no text at all, so no line exists for
     # them and they would vanish. Emit each leftover row as its own block.
     extra = []
+    pad = [pymupdf.Rect(f.x0 - FIG_PAD, f.y0 - FIG_PAD,
+                        f.x1 + FIG_PAD, f.y1 + FIG_PAD) for f in near]
     for row in _rows([(s, r) for s, r in glyphs if id(r) not in used]):
         box = pymupdf.Rect(row[0][1])
         for _, r in row:
             box |= r
+        if any(box in f for f in pad):
+            continue
         text = _slot_html(page, row, bars, labels, img_dir, qid, out_imgs)
         extra.append({
             "y": box.y0, "y1": box.y1, "x0": box.x0, "bullet": False,
@@ -270,7 +428,7 @@ def _rows(glyphs):
 
 
 def _slot_html(page, group, bars, labels, img_dir, qid, out_imgs):
-    text = decode_slot(group, bars, labels)
+    text = as_math(decode_slot(group, bars, labels))
     if text:
         return text
     box = pymupdf.Rect(group[0][1])
@@ -416,6 +574,221 @@ def parse_choices(lines):
     return out
 
 
+def _grid_lines(page, rect):
+    """Thin horizontal and vertical strokes inside a block - a table's ruling.
+
+    Measured against the strokes themselves, never against the block: figure
+    blocks grow to swallow their own captions, so "spans most of the block" is
+    not a test a real table rule can pass. The metadata banner is ruled like a
+    table too, so it is excluded the same way it is everywhere else.
+    """
+    hs, vs = [], []
+    for d in page.get_drawings():
+        r = d["rect"]
+        if r.y0 < P.BANNER_BOTTOM:
+            continue
+        if not (rect.y0 - 2 <= r.y0 and r.y1 <= rect.y1 + 2
+                and rect.x0 - 4 <= r.x0 and r.x1 <= rect.x1 + 4):
+            continue
+        if glyphmap.signature(d):
+            continue
+        if r.height <= BAR_MAX_H and r.width >= RULE_MIN_L:
+            hs.append(r)
+        elif r.width <= BAR_MAX_H and r.height >= 8:
+            vs.append(r)
+    return hs, vs
+
+
+def _merge(values, tol=2.5):
+    """Sorted coordinates with near-duplicates collapsed."""
+    out = []
+    for v in sorted(values):
+        if out and v - out[-1] <= tol:
+            continue
+        out.append(v)
+    return out
+
+
+def _uniform(vals):
+    gaps = [b - a for a, b in zip(vals, vals[1:])]
+    return len(gaps) > 2 and max(gaps) - min(gaps) <= 1.5
+
+
+def _is_art(page, box):
+    """True if anything in the box is drawn rather than printed.
+
+    A bar, a pie slice, a plotted curve or an axis all leave a mark that is
+    wide and tall at once; a table is only rules and characters. Getting this
+    wrong the safe way means a picture, not an invented grid.
+    """
+    for d in page.get_drawings():
+        r = d["rect"]
+        if not (box.y0 - 2 <= r.y0 and r.y1 <= box.y1 + 2
+                and box.x0 - 2 <= r.x0 and r.x1 <= box.x1 + 2):
+            continue
+        if glyphmap.signature(d):
+            continue
+        if r.width > 3 and r.height > 3:
+            return True
+    return False
+
+
+def _band(cuts, lines, pos, across):
+    """Index of the band `pos` falls in, counting only the rules that reach it.
+
+    A header cell spanning two rows has no rule under it, so the rule that
+    splits its neighbours must not split it: the band is the last cut actually
+    drawn across this column, which puts "Hours" and "practiced" in one cell.
+    """
+    best = None
+    for r, cut in zip(lines, cuts):
+        if r[0] - 2 <= across <= r[1] + 2 and cut <= pos + 1:
+            if best is None or cut > best:
+                best = cut
+    if best is None:
+        return None
+    for i, c in enumerate(cuts):
+        if abs(c - best) <= 0.01:
+            return i
+    return None
+
+
+def table_of(page, rect, labels):
+    """(rect, html) for a ruled data table inside a block, or None.
+
+    The ruling defines the cells, so the table's own bounds are returned too:
+    they are far tighter than the block, which keeps the sentence printed above
+    the table in the prose instead of swallowing it into a picture.
+    """
+    if not labels:
+        return None
+    hs, vs = _grid_lines(page, rect)
+    ycuts, xcuts = [], []
+    yspan, xspan = [], []
+    for y in _merge([_midy(r) for r in hs]):
+        reach = [r for r in hs if abs(_midy(r) - y) <= 2.5]
+        ycuts.append(y)
+        yspan.append((min(r.x0 for r in reach), max(r.x1 for r in reach)))
+    for x in _merge([(r.x0 + r.x1) / 2 for r in vs]):
+        reach = [r for r in vs if abs((r.x0 + r.x1) / 2 - x) <= 2.5]
+        xcuts.append(x)
+        xspan.append((min(r.y0 for r in reach), max(r.y1 for r in reach)))
+    if len(ycuts) < 3 or len(xcuts) < 3:
+        return None
+    box = pymupdf.Rect(xcuts[0], ycuts[0], xcuts[-1], ycuts[-1])
+    if box.width < 60 or box.height < 20:
+        return None
+    if _is_art(page, box):
+        return None
+    if _uniform(ycuts) and _uniform(xcuts):
+        return None                     # evenly ruled both ways: a plot grid
+
+    def cell_of(b):
+        cx, cy = (b.x0 + b.x1) / 2, _midy(b)
+        if not (box.x0 - 2 <= cx <= box.x1 + 2 and box.y0 - 2 <= cy <= box.y1 + 2):
+            return None, None
+        row = _band(ycuts, yspan, cy, cx)
+        col = _band(xcuts, xspan, cx, cy)
+        if row is None or row >= len(ycuts) - 1:
+            return None, None
+        if col is None or col >= len(xcuts) - 1:
+            return None, None
+        return row, col
+
+    grid = [[[] for _ in xcuts[:-1]] for _ in ycuts[:-1]]
+    for run in P._runs(page):
+        if not run["text"].strip():
+            continue
+        b = pymupdf.Rect(run["bbox"])
+        row, col = cell_of(b)
+        if row is not None:
+            grid[row][col].append((b.y0, b.y1, b.x0, b.x1, run["text"]))
+    inner = [d["rect"] for d in page.get_drawings()
+             if d["rect"].height <= BAR_MAX_H and 3 < d["rect"].width < RULE_MIN_L
+             and box.x0 - 2 <= d["rect"].x0 and d["rect"].x1 <= box.x1 + 2
+             and box.y0 - 2 <= d["rect"].y0 and d["rect"].y1 <= box.y1 + 2]
+    cells = {}
+    for sig, g in glyphmap.glyphs_on(page):
+        gr = pymupdf.Rect(g)
+        row, col = cell_of(gr)
+        if row is not None:
+            cells.setdefault((row, col), []).append((sig, gr))
+    for (row, col), gs in cells.items():
+        for line in _rows(gs):
+            for group in _cell_runs(line):
+                text = as_math(decode_slot(group, inner, labels))
+                if text is None:
+                    return None         # an unknown shape: keep the picture
+                b = _box(group)
+                grid[row][col].append((b.y0, b.y1, b.x0, b.x1, text))
+    grid = _trim(grid)
+    if not grid or len(grid) < 2 or len(grid[0]) < 2:
+        return None
+    html = ""
+    for i, row in enumerate(grid):
+        tag = "th" if i == 0 else "td"
+        html += "<tr>" + "".join(f"<{tag}>{esc(_cell(c))}</{tag}>"
+                                 for c in row) + "</tr>"
+    return (pymupdf.Rect(box.x0 - 3, box.y0 - 3, box.x1 + 3, box.y1 + 3),
+            '<div class="qtable"><table>' + html + "</table></div>")
+
+
+def _cell_runs(line):
+    """One row of a cell's glyphs, split where a word-sized gap sits.
+
+    Left whole, "50%" and "80%" decode as a single piece spanning the words
+    printed between them, and the cell reads "50% 80%to".
+    """
+    out, group = [], []
+    for g in line:
+        if group and g[1].x0 - group[-1][1].x1 > CELL_GAP:
+            out.append(group)
+            group = []
+        group.append(g)
+    if group:
+        out.append(group)
+    return out
+
+
+def _cell(pieces):
+    """One cell's text: pieces banded into lines, then read left to right.
+
+    Sorting on y alone scrambled cells that mix prose with drawn notation -
+    "Less than 50%" came out "50% Less than" because the glyphs sat a fraction
+    of a point higher than the words beside them.
+    """
+    bands = []
+    for y0, y1, x0, x1, text in sorted(pieces):
+        mid = (y0 + y1) / 2
+        for b in bands:
+            if b[0] - 1 <= mid <= b[1] + 1:
+                b[0], b[1] = min(b[0], y0), max(b[1], y1)
+                b[2].append((x0, x1, text))
+                break
+        else:
+            bands.append([y0, y1, [(x0, x1, text)]])
+    out = ""
+    for i, band in enumerate(sorted(bands, key=lambda b: b[0])):
+        if i:
+            out += " "
+        prev = None
+        for x0, x1, text in sorted(band[2]):
+            if prev is not None and x0 - prev > 1.0:
+                out += " "
+            out += text
+            prev = x1
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def _trim(grid):
+    """Drop the empty rows and columns the outer border adds."""
+    grid = [r for r in grid if any(c for c in r)]
+    if not grid:
+        return grid
+    keep = [i for i in range(len(grid[0])) if any(r[i] for r in grid)]
+    return [[r[i] for i in keep] for r in grid]
+
+
 def build(doc, qid, pages, labels, img_dir, nfig_box):
     """One question -> row dict, or None if the page has no Question marker."""
     lines = collect(doc, pages)
@@ -427,6 +800,10 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     for pno in pages:
         for rect in figure_blocks(doc[pno], lines):
             bucket = figs if (pno, (rect.y0 + rect.y1) / 2) < stem_end else tail_figs
+            tab = table_of(doc[pno], rect, labels)
+            if tab:
+                bucket.append((tab[0], pno, tab[1]))
+                continue
             name = f"{qid}_fig{len(figs) + len(tail_figs)}.webp"
             save_figure(doc[pno], rect, os.path.join(img_dir, name))
             bucket.append((rect, pno, f'<div class="qfig"><img src="/qimg/{name}" alt="Figure"></div>'))
@@ -435,7 +812,9 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
         for pno in pages:
             # notation inside a figure belongs to the picture, not the prose
             skip = [rect for rect, p, _ in figs if p == pno]
-            lines += fill_math(doc[pno], lines, labels, img_dir, qid, imgs, skip)
+            near = [rect for rect, p, _ in figs + tail_figs if p == pno]
+            lines += fill_math(doc[pno], lines, labels, img_dir, qid, imgs,
+                               skip, near)
         order = {p: i for i, p in enumerate(pages)}
         lines.sort(key=lambda l: (order[l["page"]], l["y"]))
     parsed = sections(lines)

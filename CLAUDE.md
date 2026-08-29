@@ -356,9 +356,118 @@ Two false leads while doing this: matching on "reconstruct"/"authored" alone
 hits seven real passages (the Globe Theatre, Zelda Fitzgerald, the
 Reconstruction period). Match the boilerplate sentences, not the words.
 
-**Not versioned:** `tools/` is in `.gitignore`, so the extractor fixes above
-live only on disk, and the data itself lives only in the local D1 file under
-`.wrangler/`. Neither is in git.
+**Partly versioned:** `tools/*.py`, `tools/glyph_labels.json` and
+`tools/apply_math.cjs` are tracked (`.gitignore` negations); the build outputs
+(`glyphs.json`, the jsonl, `d1_chunks/`) and the data itself - the local D1 file
+under `.wrangler/` and the crops under `public/qimg/` - are not.
+
+### Math as text, not pictures (2026-08-28, night)
+
+Notation is now LaTeX in the row and KaTeX in the page. Before this pass 1,610
+of 1,925 Math questions showed at least one cropped picture in the stem or the
+choices, and 20,279 crops existed in total; after it, 439 questions
+and 4,339 crops. 1,215 questions now carry real `\( ... \)`
+notation, and 105 tables that used to be pictures are `<table>`.
+
+**Why it was pictures.** `decode_slot()` refused three things and cropped them:
+a glyph run crossing a fraction bar, a run on more than one visual row, and any
+run containing an unlabelled shape. That is most notation. It now builds LaTeX
+instead:
+
+* a bar with ink above and below is `\frac{}{}`, recursively, outermost (widest)
+  bar first;
+* a bar with a radical flush to its left is `\sqrt{}` / `\sqrt[3]{}`;
+* a short glyph off the baseline is `^{}` or `_{}`, with punctuation and the
+  degree sign excluded (`NOSCRIPT`) - without that list every "f(x), where"
+  became `f(x)_{,}`.
+
+Two calibration bugs found by reading the output, both of which produce
+*plausible wrong* math rather than an obvious failure, so both are worth
+remembering:
+
+1. **The bar test was containment, not overlap.** A fraction bar is drawn a
+   point or two wider than its digits, so `b.x0 >= box.x0 - 1.5` rejected it,
+   the fraction fell through to the linear reader and "1 over 71" came out as
+   `171`. Nine choices in four sampled questions were wrong this way.
+2. **The linear reader had no way to refuse.** Anything it could not structure
+   it read left to right. `_linear()` now returns `None` when a full-height
+   glyph sits more than `STACK_TOL` off the baseline - a numerator is full
+   height, a script never is - so unrecognised stacking keeps its picture
+   instead of inventing digits. Wrong notation is worse than a crop.
+
+**Glyph labels: 93 -> 332**, covering 98.6% of glyph occurrences (was 94.1%).
+`tools/sheet.py` renders the most frequent unlabelled shapes as a contact sheet
+and `tools/addlabels.py` merges the readings back. The ~630 shapes still
+unlabelled are chart furniture - scatter markers, arrowheads, rotated axis
+titles - not characters.
+
+**Tables.** `table_of()` reconstructs a `<table>` from the ruling: horizontal
+and vertical strokes give the cell grid, and a cell's text comes from the page's
+own runs plus the decoded glyphs inside it. Guards, in order of how much they
+matter: the block must have >= 3 rules each way; nothing inside may be drawn
+*and* wide *and* tall (that is a bar, a pie slice or a plot frame, so the block
+is a chart); an evenly-ruled grid both ways is a coordinate plane, not a table.
+Row and column bands are taken per-cell from the rules that actually reach that
+cell, which is what keeps a two-row header ("Hours practiced") in one cell.
+Verified by arithmetic: of the reconstructed tables with a Total row, 20 of 21
+add up, and the one that does not is wrong in the source PDF (`d89c1513`:
+60 + 35 = 95, the table prints 90).
+
+Two things the first attempt got wrong here. Measuring rule length against the
+*block* found no rules at all - `figure_blocks()` grows a block to swallow its
+own captions, so a real rule never spans 70% of it; measure the strokes
+themselves. And a cell's pieces sorted by y alone scrambled prose against
+notation: "Less than 50%" came out "50% Less than", because the glyphs sit a
+fraction of a point above the words. Band the pieces into lines first.
+
+**Three sources of stray one-letter pictures, all fixed.** A chart's rotated
+axis title is drawn just outside its own box, so `fill_math` treated each letter
+as loose notation and cropped it - hence the column of black letter-tiles under
+every graph. Leftover glyph rows inside a figure grown by `FIG_PAD` are now
+dropped. Blocks no longer reach up into the metadata banner (they were cropping
+"Trigonometry" into the top of the picture). And a page whose diagram is a
+*bitmap* has no vector cluster for `P.figures()` to find, so the whole diagram
+was cropped inline at x-height in the middle of the sentence; `raster_figures()`
+promotes any embedded image at least 80x40pt to a figure.
+
+**The ceiling: raster pages.** 434 of the 2,030 Math pages draw no vectors at
+all - College Board embedded the notation as bitmaps, which carry no glyph
+identity, so hashing cannot decode them. Those 439 questions keep their
+crops. Closing that gap needs template matching: render each labelled glyph to a
+bitmap, segment the embedded image into components, match, and feed the results
+through the same `_tex()` layout. A probe says it is feasible - the bitmaps are
+clean and high-contrast, and "3/4" separates into three row bands (numerator,
+bar, denominator) with one column run - but matching is approximate where
+hashing is exact, so it can produce plausible wrong math and needs a confidence
+floor with a fall back to the crop.
+
+**Frontend** (`public/index.html`):
+
+* KaTeX auto-render on `\( \)` and `\[ \]`, loaded *without* `defer` - the page
+  renders from an inline script that runs before deferred ones, and `mathify()`
+  silently no-ops if the library is not there yet. `$` is deliberately not a
+  delimiter; money appears all over these questions.
+* Math uses the Reading two-pane layout. `splitContext()` pulls `.qfig`,
+  `.qtable` and `.qimg` out of the stem into the left pane; a question with none
+  of those renders one full-width pane. That pane fills the window and holds its
+  measure with `max-width` on its children - a centred *pane* left bare strips of
+  page background down both sides, which read as black gutters in dark mode.
+* Desmos docks left (`margin-left: 540px`) and the question drops back to one
+  column with the figure inline, because the split has nowhere to go.
+  `renderPanes()` is split out of `loadQuestion()` so toggling the calculator
+  re-lays out without restarting the question timer.
+* Figures and tables open in a full-screen viewer: wheel or buttons to zoom,
+  drag to pan, Escape or click-outside to close. Answer choices are deliberately
+  excluded - clicking a choice is how you answer it, and a viewer opening over
+  that would hijack the click.
+* The crops that remain blend into the page instead of sitting in white or
+  black chips (`mix-blend-mode: multiply`, and `invert` + `screen` in dark).
+* `renderStem()` no longer flattens `<table>` into `<pre>`; the tables are real.
+
+**Applying a re-extraction:** `node tools/apply_math.cjs tools/math_new.jsonl`
+updates the local D1 sqlite in place and writes `d1_chunks/` for the remote.
+Then delete the crops nothing references any more - the re-extraction leaves
+about 15k orphans, and `public/qimg` went 136M -> 68M.
 
 ### Known Bugs
 

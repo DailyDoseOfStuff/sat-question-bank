@@ -28,3 +28,6 @@ test_out/
 tools/*
 !tools/*.py
 !tools/glyph_labels.json
+!tools/apply_math.cjs
+!tools/audit_math.cjs
+backup/

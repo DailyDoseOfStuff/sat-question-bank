@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAT Question Bank — Official College Board</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
 :root {
   color-scheme: light;
@@ -106,13 +109,16 @@ select, input[type=number], input[type=text] { font-family: inherit; font-size: 
 
 .work { flex: 1; min-height: 0; display: flex; position: relative; background: var(--bg); }
 .panes { display: flex; flex: 1; min-width: 0; transition: all .2s ease; }
-.work.desmos-shift .panes { margin-right: 540px; }
+.work.desmos-shift .panes { margin-left: 540px; }
 .pane { overflow-y: auto; padding: 28px 36px 60px; }
 .pane-q { flex: 1 1 50%; min-width: 0; background: var(--panel); border-right: 1px solid var(--border); }
 .pane-a { flex: 1 1 50%; min-width: 0; background: var(--panel); }
-.panes.solo { justify-content: center; }
+/* One column fills the window: a centred column left bare strips of page
+   background down both sides, which read as black gutters in dark mode.
+   The panel runs edge to edge and the text keeps its measure inside it. */
 .panes.solo .pane-q { display: none; }
-.panes.solo .pane-a { flex: 0 1 860px; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+.panes.solo .pane-a { flex: 1 1 auto; border: 0; }
+.panes.solo .pane-a > * { max-width: 920px; margin-left: auto; margin-right: auto; }
 
 .qhead { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
 .qnum { min-width: 34px; height: 34px; border-radius: 9px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
@@ -125,11 +131,26 @@ select, input[type=number], input[type=text] { font-family: inherit; font-size: 
 .stem p { margin: 0 0 12px; }
 .stem .qimg img { display: block; margin: 16px 0; border-radius: 8px; }
 img.minl, .choice img.minl { display: inline-block; vertical-align: middle; max-height: 2.4em; width: auto; margin: 2px 1px; }
-/* the notation crops are black on white; in dark mode invert them so they
-   are not white boxes floating in the page. Figures keep their colours. */
-:root[data-theme="dark"] img.minl { filter: invert(1); }
+/* The notation crops are black ink on an opaque white square. Blending drops
+   the square either way round - multiply keeps the ink over a light page,
+   invert-then-screen keeps it over a dark one - so what is left of the
+   cropped notation sits in the sentence as text rather than as a chip. */
+img.minl { mix-blend-mode: multiply; }
+:root[data-theme="dark"] img.minl { filter: invert(1); mix-blend-mode: screen; }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
+.cb .qfig img, .cb .qimg img, .orig-img img { cursor: zoom-in; }
+.qtable { margin: 16px 0; overflow-x: auto; }
+.qtable table, .cb table { border-collapse: collapse; font-size: 14.5px; }
+.qtable table th, .qtable table td, .cb table th, .cb table td { border: 1px solid var(--border2); padding: 8px 14px; text-align: left; }
+.qtable table th, .cb table th { background: var(--bg2); font-weight: 600; }
+
+/* full-screen viewer: wheel or the buttons to magnify, drag to pan */
+.lb { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.82); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.lb img { max-width: 92vw; max-height: 88vh; border-radius: 6px; background: #fff; transform-origin: center; cursor: grab; transition: transform .08s linear; }
+.lb img.drag { cursor: grabbing; transition: none; }
+.lb-bar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; }
+.lb-bar button { width: 38px; height: 38px; padding: 0; font-size: 17px; }
 .stem-text { white-space: pre-wrap; user-select: text; }
 .img-toggle { margin-top: 14px; font-size: 12.5px; color: #555; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .img-toggle:hover { border-color: var(--border2); color: #222; }
@@ -201,7 +222,7 @@ img.minl, .choice img.minl { display: inline-block; vertical-align: middle; max-
 .kv span:first-child { color: var(--dim); }
 
 /* desmos */
-.desmos-panel { position: fixed; right: 18px; bottom: 74px; width: min(520px, 44vw); height: min(560px, 68vh); min-width: 340px; min-height: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; resize: both; }
+.desmos-panel { position: fixed; left: 18px; bottom: 74px; width: min(520px, 44vw); height: min(560px, 68vh); min-width: 340px; min-height: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; resize: both; }
 .desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; background: var(--bg2); cursor: move; user-select: none; }
 .desmos-panel .dp-tabs { display: flex; gap: 6px; }
 .desmos-panel .dp-tab { border: 1px solid var(--border); background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; }
@@ -625,6 +646,7 @@ function previewQuestion(id) {
     </div>
     <div style="margin-top:14px; color:var(--dim); font-size:13.5px;" class="cb">${q.explanation_html||''}</div>
   </div></div>`;
+  mathify(root);
   $('pv-close').onclick = () => root.innerHTML = '';
   root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML=''; };
 }
@@ -677,6 +699,73 @@ $('btn-hide-timer').onclick = () => {
 };
 
 // ---------------- question rendering ----------------
+function mathify(root) {
+  if (!window.renderMathInElement) return;
+  try {
+    renderMathInElement(root || document.body, {
+      delimiters: [
+        { left: '\\(', right: '\\)', display: false },
+        { left: '\\[', right: '\\]', display: true },
+      ],
+      throwOnError: false,
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option'],
+    });
+  } catch (e) { /* a malformed run should never blank the question */ }
+}
+
+// Graphs, tables and figures are context: they belong beside the question the
+// way a Reading passage does, not stacked above the answer choices.
+function splitContext(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  const ctx = document.createElement('div');
+  d.querySelectorAll('.qfig, .qtable, .qimg').forEach(n => ctx.appendChild(n));
+  return { context: ctx.innerHTML.trim(), body: d.innerHTML.trim() };
+}
+
+let lbScale = 1, lbX = 0, lbY = 0;
+function openLightbox(src) {
+  lbScale = 1; lbX = 0; lbY = 0;
+  const lb = document.createElement('div');
+  lb.className = 'lb';
+  lb.innerHTML = `<img src="${src}" alt="">
+    <div class="lb-bar">
+      <button data-z="-1" title="Zoom out">−</button>
+      <button data-z="1" title="Zoom in">+</button>
+      <button data-z="0" title="Reset">⟲</button>
+      <button data-z="x" title="Close">✕</button>
+    </div>`;
+  const img = lb.querySelector('img');
+  const apply = () => { img.style.transform = `translate(${lbX}px, ${lbY}px) scale(${lbScale})`; };
+  const zoom = (f) => { lbScale = Math.min(8, Math.max(1, lbScale * f)); if (lbScale === 1) { lbX = lbY = 0; } apply(); };
+  lb.onwheel = (e) => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15); };
+  lb.onclick = (e) => { if (e.target === lb) lb.remove(); };
+  lb.querySelectorAll('.lb-bar button').forEach(b => b.onclick = () => {
+    const z = b.dataset.z;
+    if (z === 'x') lb.remove();
+    else if (z === '0') { lbScale = 1; lbX = lbY = 0; apply(); }
+    else zoom(z === '1' ? 1.4 : 1 / 1.4);
+  });
+  img.onmousedown = (e) => {
+    e.preventDefault();
+    const sx = e.clientX - lbX, sy = e.clientY - lbY;
+    img.classList.add('drag');
+    const move = (ev) => { lbX = ev.clientX - sx; lbY = ev.clientY - sy; apply(); };
+    const up = () => { img.classList.remove('drag'); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  };
+  document.addEventListener('keydown', function esc(e) {
+    if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', esc); }
+  });
+  document.body.appendChild(lb);
+}
+
+document.addEventListener('click', e => {
+  const img = e.target.closest('.qfig img, .qimg img, .orig-img img');
+  if (img) openLightbox(img.getAttribute('src'));
+});
+
 function hasStemText(q) {
   return q.stem_text && q.stem_text.trim().length > 20;
 }
@@ -711,14 +800,6 @@ function renderStem(q) {
   }
   html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '');
   html = html.replace(H3_LABEL, '');
-  html = html.replace(/<table[^>]*>([\s\S]*?)<\/table>/gi, (match, inner) => {
-    const rows = inner.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
-    const lines = rows.map(tr => {
-      const cells = tr.match(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi) || [];
-      return cells.map(c => c.replace(/<[^>]+>/g, '').trim()).join(' | ');
-    });
-    return '<pre><code>' + lines.join('\n') + '</code></pre>';
-  });
   return html;
 }
 
@@ -770,44 +851,53 @@ function loadQuestion() {
   S.qStart = Date.now();
   renderQTimer();
 
+  renderPanes(q);
+  $('modal-root').innerHTML = '';
+}
+
+function renderPanes(q) {
   const isRW = q.section !== 'Math';
   const stem = q.stem_html || '';
-  let passage = '', prompt = stem;
-  const splitIdx = stem.indexOf('<h3>Prompt</h3>');
-  if (splitIdx !== -1) {
-    passage = stem.substring(0, splitIdx).replace(H3_LABEL, '');
-    prompt = stem.substring(splitIdx + 15);
+  let context = '', body = '';
+  if (isRW) {
+    const splitIdx = stem.indexOf('<h3>Prompt</h3>');
+    if (stem.includes('<div class="qimg">')) {
+      context = hasStemText(q) ? stemTextView(q) : stem;
+    } else if (splitIdx !== -1) {
+      context = stem.substring(0, splitIdx).replace(H3_LABEL, '');
+      body = stem.substring(splitIdx + 15);
+    } else {
+      body = renderStem(q);
+    }
+  } else {
+    const s = splitContext(renderStem(q));
+    context = s.context;
+    body = s.body;
   }
-  const hasPassage = isRW && (passage || stem.includes('<div class="qimg">'));
-
-  const panes = $('panes');
-  panes.classList.toggle('solo', !hasPassage);
+  // The calculator takes the left half, so the split has nowhere to go: drop
+  // back to one column with the figure inline, which is the older layout.
+  if (desmosOpen) { body = context + body; context = ''; }
 
   const qhead = `<div class="qhead">
     <span class="qnum">${S.i+1}</span>
     <button class="flag-btn ${S.flags[q.id]?'on':''}" id="btn-flag"><span class="fi">⚑</span> Mark for Review</button>
   </div>`;
 
-  if (hasPassage) {
-    let passageHtml = passage;
-    if (stem.includes('<div class="qimg">')) {
-      prompt = '';
-      passageHtml = hasStemText(q) ? stemTextView(q) : stem;
-    }
-    $('pane-q').innerHTML = `<div class="passage cb">${passageHtml}</div>`;
-    $('pane-a').innerHTML = `${qhead}<div class="stem cb">${prompt}</div><div id="answer-area"></div>`;
+  $('panes').classList.toggle('solo', !context);
+  if (context) {
+    $('pane-q').innerHTML = `<div class="passage cb">${context}</div>`;
     $('pane-q').style.display = 'block';
   } else {
     $('pane-q').style.display = 'none';
-    $('pane-a').innerHTML = `${qhead}<div class="stem cb">${renderStem(q)}</div><div id="answer-area"></div>`;
   }
+  $('pane-a').innerHTML = `${qhead}<div class="stem cb">${body}</div><div id="answer-area"></div>`;
   renderAnswerArea(q);
+  mathify();
 
   $('btn-flag').onclick = () => {
     S.flags[q.id] = !S.flags[q.id];
     $('btn-flag').classList.toggle('on', !!S.flags[q.id]);
   };
-  $('modal-root').innerHTML = '';
 }
 
 function renderAnswerArea(q) {
@@ -827,6 +917,7 @@ function renderAnswerArea(q) {
     else if (isRight(q, picked) === null) html += `<div class="verdict" style="color:var(--dim);">Not auto-scored \u2014 this question is missing the choice recorded as correct. See the explanation.</div>`;
   }
   target.innerHTML = html;
+  mathify(target);
 
   if (q.qtype === 'spr' || !q.choices.length) {
     const gi = $('gi');
@@ -922,6 +1013,7 @@ function openExplanation() {
       <div class="kv"><span>ID</span><span class="mono">${esc(q.id)}</span></div>
     </div>
   </div></div>`;
+  mathify(root);
   $('ex-close').onclick = () => root.innerHTML = '';
   root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML=''; };
 }
@@ -1035,13 +1127,18 @@ let desmosDrag = null;
 function closeDesmos() {
   const dp = $('desmos-panel');
   if (dp) dp.remove();
+  const was = desmosOpen;
   desmosOpen = false;
   $('work').classList.remove('desmos-shift');
+  // only relay out if the calculator was actually up; loadQuestion calls this
+  // on every Reading question and would otherwise render the panes twice
+  if (was && S && S.items && S.items.length) renderPanes(curQ());
 }
 $('btn-calc').onclick = () => {
   desmosOpen = !desmosOpen;
   let dp = $('desmos-panel');
   $('work').classList.toggle('desmos-shift', desmosOpen);
+  renderPanes(curQ());
   if (desmosOpen) {
     if (!dp) {
       dp = document.createElement('div');
