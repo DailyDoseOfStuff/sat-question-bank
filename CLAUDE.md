@@ -432,14 +432,8 @@ promotes any embedded image at least 80x40pt to a figure.
 
 **The ceiling: raster pages.** 434 of the 2,030 Math pages draw no vectors at
 all - College Board embedded the notation as bitmaps, which carry no glyph
-identity, so hashing cannot decode them. Those 439 questions keep their
-crops. Closing that gap needs template matching: render each labelled glyph to a
-bitmap, segment the embedded image into components, match, and feed the results
-through the same `_tex()` layout. A probe says it is feasible - the bitmaps are
-clean and high-contrast, and "3/4" separates into three row bands (numerator,
-bar, denominator) with one column run - but matching is approximate where
-hashing is exact, so it can produce plausible wrong math and needs a confidence
-floor with a fall back to the crop.
+identity, so hashing cannot decode them. Those 439 questions keep their crops.
+Template matching was built and measured against that gap; see below.
 
 **Frontend** (`public/index.html`):
 
@@ -468,6 +462,50 @@ floor with a fall back to the crop.
 updates the local D1 sqlite in place and writes `d1_chunks/` for the remote.
 Then delete the crops nothing references any more - the re-extraction leaves
 about 15k orphans, and `public/qimg` went 136M -> 68M.
+
+### Raster pages: template matching, measured and dropped (2026-08-29)
+
+`tools/rastermath.py` decodes an embedded bitmap by matching each mark against
+a bank rendered from the labelled vector glyphs, then hands the resulting
+(character, rectangle) list to the same `_tex()` layout the vector path uses, so
+a raster page would decode through the identical fraction and exponent logic.
+It works. It is not accurate enough to use, and it is **not wired into the
+extractor** - `extract.py` still crops those images.
+
+**The binding constraint is resolution.** `page.get_image_info()` reports the
+embedded bitmaps at 1.33 px/pt - about nine pixels to a digit. Rendering them at
+any zoom is pure interpolation; there is no more information to recover.
+
+Measured two independent ways, because "it looks right on the examples I tried"
+is exactly how a silent corruption ships:
+
+1. **Against exact ground truth.** `tools/rastersweep.py` takes the *vector*
+   pages, where the glyph hash decodes exactly, renders those expressions down
+   to 1.33 px/pt, and decodes them back. Over 534 expressions the best precision
+   at any threshold is 67%, at 4% coverage; at 22% coverage it is 45%. The curve
+   is nearly flat, which is the important part - tightening the accept
+   thresholds does not buy precision, so the errors are confident, not marginal.
+2. **Against real bitmaps, read by eye.** `tools/rastercheck.py` renders real
+   embedded images beside the decoder's answer. Loosened to 12% coverage, 34
+   sampled expressions came back 32% correct, and the misreads are the ones that
+   would quietly break a question: `a` -> `c7`, `7` -> `f`, `b` -> `6`,
+   `(5,5)` -> `(525)`, a square root -> `^{\circ}m`. At the conservative
+   thresholds the file ships with it is ~96% right but reads 0.9% of the
+   notation (`tools/rastercover.py`), all of it one or two characters.
+
+So there is no operating point: precise enough to trust means reading almost
+nothing, and reading a useful fraction means a third of it is wrong. A crop is
+correct and legible; a wrong equation is neither, and the student cannot tell.
+
+Things that made the matcher itself much better along the way, in case anyone
+revisits this with a higher-resolution source: match density profiles rather
+than binary stencils (crisp templates against blurry queries punish a correct
+match for stroke weight), blur both by 3x3 before comparing (0.79 -> 0.91 on a
+correct `x`), build the template bank through the *same* low-resolution path as
+the queries, keep the aspect ratio as a separate penalty (it is the only thing
+that separates `=` from `:` once both are squashed into a square grid), and
+raise the ink threshold to 195 so an italic `p`'s hairline join survives
+thresholding instead of splitting into three components.
 
 ### Known Bugs
 
