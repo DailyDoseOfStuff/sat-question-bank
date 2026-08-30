@@ -711,6 +711,30 @@ with percentage heights — no chart library, nothing new on the CDN allowlist. 
 past ~12 get their x-axis label thinned out; the label spans overflow into their
 empty neighbours rather than being clipped to 10px of "Aug".
 
+**Both charts are labelled, because a bar with no scale beside it means nothing.**
+The activity chart has a y-axis (0 / half / max) with a gridline at each, drawn in
+CSS off `.chart`'s two borders and one background gradient. The max is rounded up
+through `niceMax()` to 4, 5, 6, 8, 10, 20, 30 and so on rather than sitting at
+whatever the tallest day happened to be, so the halfway label is always a whole
+number and the height of a bar can be read off the axis. Under it a caption names
+what each axis carries and the date range in full ("Sat, Aug 1, 2026 – Sun, Aug 30,
+2026"). The heatmap gained a weekday strip down the left (Mon / Wed / Fri, lined up
+because the grid runs to the end of this week and therefore starts on a Sunday), a
+month row across the top placed by grid column, and a Fewer → More key.
+
+Hovering a bar or a square shows the day, the number answered, the right / wrong
+split and the accuracy. One `.tip` node lives on `document.body` and follows the
+pointer; the two panels delegate `mousemove` to it, so redrawing their innerHTML
+rebinds nothing. It replaced `title=` attributes, which could not show a date the
+axis had thinned away.
+
+The by-section / by-domain / by-skill bars were drawing coverage (attempted out of
+the bank) next to an accuracy percentage — one number under the bar, a different
+one beside it, and a scale that looked broken because it was measuring something
+else. Both are accuracy now, the row reads `72% · 86/119` (right / answered), and a
+skill with no attempts is left out rather than shown as an empty bar. The panel
+headings say so. Domain headings and panel titles went up to 23px / 19px.
+
 Mistakes page: every question with `marker` Red (still wrong) or Orange (corrected
 since), as cards carrying section, difficulty, status and topic, filtered by
 section / difficulty / topic and a Needs work / Corrected / All switch. The topic
@@ -722,13 +746,57 @@ filtered set into the player.
 Not built, not asked for: the per-question notes that sit in the OnePrep screenshot
 this page is modelled on.
 
-### Known Bugs
+### Extraction repairs — `tools/fix_math_text.cjs`
 
-- **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a
-  variable glyph directly followed by a word loses its space — `"wsquare
-  feet"` instead of `"w square feet"`. Same PDF-extraction spacing heuristic
-  documented above (real-space vs artifact by glyph width), miscalibrated for
-  some italic single-letter variables. Not yet root-caused or fixed.
-- Tesseract `stem_text` (legacy OCR column) quality is mediocre: `Itfeatures`/
-  `Itincludes` (lost spaces), `«` for bullets, mangled smart quotes. Still used
-  as the "original image" toggle fallback for the 104 untouched Bluebook rows.
+Both bugs that stood here are closed. What the audit actually found, once the
+detector stopped firing on ordinary English (`for` is not `f` + `or`, `land` is not
+`l` + `and`), was four defects, all inside or beside inline maths, and all of them
+rendering in KaTeX as a row of italic single letters:
+
+1. **A function name that lost its backslash** — `sinQ`, `tan(x)`, `cos6`, 70+
+   spans. A run that is itself an English word is skipped, which is what keeps
+   `cost` from becoming `\cos t` and `seconds` from becoming `\sec onds`. The one
+   place the bank means `\cos t` (`\(sinp = cost\)`, complementary angles p and t)
+   is why `cost` is off the word list.
+2. **A unit or noun typeset as maths** — `\frac{42 posters}{1 minute}`. Wrapped in
+   `\text{}`, one box per run of words, with the space in front swallowed and a
+   space added behind when the next thing along is a digit or a command.
+3. **A number or variable fused to a word** — `3hours`, `xhours`, `8squareinches`.
+   This is the spacing artifact the old note described; it survived in 1 row as
+   `xhours`, not the ~4% estimated, the rest having gone with the LaTeX pass.
+4. **Mojibake** — UTF-8 punctuation read back as code page 437, so an em dash
+   arrives as `ΓÇö` and a radical as `ΓêÜ`. 13 rows, seven sequences, a table.
+
+Plus three named one-offs the rules cannot reach: two scraps the glyph extraction
+emitted as maths, and a quadratic formula that had lost its discriminant (the lines
+around it work out to 64 + 56, so what it should say is not in doubt).
+
+Geometry labels (`ABCD`), variable products (`xyz`, `kab`) and anything already in
+`\text{}` are left alone — the fixer only rewrites what one of its rules names.
+`choices_json` goes through parse / fix / stringify, because its backslashes are
+JSON-escaped and rewriting the raw string would drop them.
+
+140 rows repaired, then 2 more for the one-offs. **Every one of the 1,390 questions
+with maths in it now renders with zero KaTeX errors** (checked by putting each into
+the DOM and calling `renderMathInElement`, which is the path the app uses — checking
+the raw HTML instead reports false failures, because `&lt;` is still an entity until
+the parser has had it).
+
+`--test` runs the self-check, `--write` fixes the local D1, `--emit` writes
+`migrations/0002_math_text_fix.sql` for the remote. `--emit` reads the repaired
+table rather than the run's diff, so it still produces the whole migration after
+the local rows have already been fixed.
+
+### The OCR text column is gone from the wire
+
+`stem_text` was Tesseract's read of the question image, shown in place of the image
+with a "Show original image" toggle. Two things were true: no row's `stem_html` has
+carried `<div class="qimg">` since the figures were re-extracted, so the branch that
+would show it had been unreachable; and for the 241 figure-heavy rows the text is
+noise (`2. . 1s 16 Pp Life 12 . 0f «`), with 15 more rows whose `stem_text` belongs
+to a different question entirely. It was also being pasted into the tutor's prompt.
+
+`hasStemText`, `stemTextView`, the toggle, the `qimg` branches and the CSS are
+deleted, and `/api/questions` selects its columns instead of `SELECT *`. The column
+stays in the table as the raw record. **The payload went from 9.44 MB to 7.99 MB**,
+15% off every cold load.

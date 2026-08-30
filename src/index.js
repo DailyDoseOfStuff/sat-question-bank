@@ -34,7 +34,12 @@ export default {
     const p = new URL(req.url).pathname;
 
     if (p === '/api/questions' && req.method === 'GET') {
-      const r = await env.DB.prepare('SELECT * FROM questions').all();
+      // Not SELECT *: stem_text is a legacy OCR column nothing renders, and it
+      // is 15% of a payload the client downloads whole.
+      const r = await env.DB.prepare(
+        'SELECT id, external_id, section, domain, difficulty, skill, stem_html,' +
+        ' choices_json, correct_answer, explanation_html, source, source_page,' +
+        ' has_figure FROM questions').all();
       return json(r.results || []);
     }
 

@@ -15,6 +15,7 @@ tools/*
 !tools/glyph_labels.json
 !tools/apply_math.cjs
 !tools/audit_math.cjs
+!tools/fix_math_text.cjs
 !tools/d1_dump.cjs
 tools/templates.npz
 backup/
