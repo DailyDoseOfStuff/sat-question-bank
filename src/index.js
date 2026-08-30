@@ -3,6 +3,32 @@
 const json = (body, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+// Resolve the caller from their Supabase access token. The old code trusted an
+// X-User-Id header, which let any client read or overwrite any account's progress.
+// Asking Supabase to validate the token costs one fetch and no crypto here, and it
+// works for both the Google and the email/password sign-ins.
+async function whoami(req, env) {
+  const t = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!t) return null;
+  const r = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${t}`, apikey: env.SUPABASE_ANON_KEY }
+  });
+  if (!r.ok) return null;
+  const u = await r.json().catch(() => null);
+  return u && u.id ? u : null;
+}
+
+// Every account that signs in gets a row, so progress has an owner to hang off and
+// the account survives a Supabase-side name or email change.
+async function touchUser(env, u) {
+  const name = u.user_metadata?.full_name || u.user_metadata?.name || '';
+  await env.DB.prepare(
+    `INSERT INTO users (id, email, name) VALUES (?,?,?)
+     ON CONFLICT(id) DO UPDATE SET email=excluded.email,
+       name=CASE WHEN excluded.name<>'' THEN excluded.name ELSE users.name END`
+  ).bind(u.id, u.email || '', name).run();
+}
+
 export default {
   async fetch(req, env) {
     const p = new URL(req.url).pathname;
@@ -12,25 +38,38 @@ export default {
       return json(r.results || []);
     }
 
+    if (p === '/api/account' && req.method === 'GET') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
+      await touchUser(env, u);
+      const r = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(u.id).first();
+      return json(r || {});
+    }
+
     if (p === '/api/progress' && req.method === 'GET') {
-      const uid = req.headers.get('X-User-Id');
-      const r = await env.DB.prepare('SELECT * FROM progress WHERE user_id = ?').bind(uid || '').all();
+      const u = await whoami(req, env);
+      if (!u) return json([]);
+      await touchUser(env, u);
+      const r = await env.DB.prepare('SELECT * FROM progress WHERE user_id = ?').bind(u.id).all();
       return json(r.results || []);
     }
 
     if (p === '/api/progress' && req.method === 'POST') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
       const b = await req.json();
-      const uid = req.headers.get('X-User-Id') || b.user_id || '';
-      if (!uid) return json({ error: 'missing user' }, 401);
-      await env.DB.prepare(
+      const rows = Array.isArray(b) ? b : [b];
+      const stmt = env.DB.prepare(
         `INSERT INTO progress VALUES(?,?,?,?,?,?,?,?)
          ON CONFLICT(user_id, question_id) DO UPDATE SET
            attempts=excluded.attempts, corrects=excluded.corrects, marker=excluded.marker,
            last_reviewed=excluded.last_reviewed, time_taken_ms=excluded.time_taken_ms,
            stars=MAX(progress.stars, excluded.stars)`
-      ).bind(uid, b.question_id, b.attempts || 0, b.corrects || 0, b.marker || 'Red',
-             b.last_reviewed, b.time_taken_ms || 0, b.stars || 0).run();
-      return json({ ok: true });
+      );
+      await env.DB.batch(rows.map(r => stmt.bind(
+        u.id, r.question_id, r.attempts || 0, r.corrects || 0, r.marker || 'Red',
+        r.last_reviewed, r.time_taken_ms || 0, r.stars || 0)));
+      return json({ ok: true, saved: rows.length });
     }
 
     if (p === '/api/chat' && req.method === 'POST') {
@@ -49,13 +88,12 @@ export default {
       }
     }
 
+    // OAuth and the email-confirmation link both land here with the session in the
+    // URL fragment. Serving the app itself lets supabase-js parse and persist it
+    // under its own storage key; the previous hand-rolled page stashed the token
+    // under "sb_token", which supabase-js never reads, so the session was dropped.
     if (p === '/auth/callback') {
-      return new Response(`<html><head><script>
-        const h = new URLSearchParams(location.hash.slice(1));
-        const a = h.get('access_token'), r = h.get('refresh_token');
-        if (a) localStorage.setItem('sb_token', JSON.stringify({access_token:a,refresh_token:r}));
-        location.href='/';
-      </script></head><body></body></html>`, { headers: { 'Content-Type': 'text/html' } });
+      return env.ASSETS.fetch(new Request(new URL('/', req.url), req));
     }
 
     return env.ASSETS.fetch(req);

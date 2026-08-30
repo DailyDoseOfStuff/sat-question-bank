@@ -20,7 +20,10 @@ Live: https://sat-question-bank.liuallen1209.workers.dev
 - **Dashboard** — accuracy by section, domain and skill
 - **Browse** — search every question by domain, skill or id and preview it
 - **AI explanations** via a Gemini proxy on the Worker
-- **Google sign-in** through Supabase, so progress follows the account
+- **Accounts** through Supabase — Google or email and password. Every answer,
+  marker and star is written to D1 under the account, so progress follows you to
+  any device. Practice signed out and it is kept locally, then merged into the
+  account the first time you sign in
 
 ## Running it
 
@@ -49,6 +52,12 @@ vector paths, why the raster pages could not be decoded, and the recipe for
 rebuilding the remote D1 from the local one.
 
 ## Schema
+
+`users` — `id` (the Supabase user id), `email`, `name`, `created_at`. A row is
+written the first time an account touches the API.
+
+`progress` — `user_id`, `question_id`, `attempts`, `corrects`, `marker`,
+`last_reviewed`, `time_taken_ms`, `stars`, keyed on the first two.
 
 `questions` — `id`, `external_id`, `section`, `domain`, `difficulty`, `skill`,
 `stem_html`, `choices_json`, `correct_answer`, `explanation_html`, `source`,

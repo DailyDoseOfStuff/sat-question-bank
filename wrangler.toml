@@ -9,6 +9,10 @@ binding = "ASSETS"
 [vars]
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
 GEMINI_MODEL = "gemini-3.6-flash"
+# Publishable key — same pair the browser already ships; used only to call
+# Supabase's /auth/v1/user so the Worker can verify who a request belongs to.
+SUPABASE_URL = "https://lbwxzcdmhyhgtscthnaq.supabase.co"
+SUPABASE_ANON_KEY = "sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr"
 
 [[d1_databases]]
 binding = "DB"
