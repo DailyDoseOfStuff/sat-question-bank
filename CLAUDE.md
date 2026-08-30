@@ -673,6 +673,55 @@ disagree. The dashboard calls the same `tally()` over the whole bank. That
 replaced the copy of the counting loop that used to live in `drawDash`, and its
 `QS.find` per progress row, with one `Map` lookup.
 
+### An attempt log, a mistakes page, and graphs that mean something (2026-08-30)
+
+**The source dropdown's "My PT Mistakes" never filtered a mistake.** It read
+`(q.source === 'Bluebook') !== (F.src === 'mistakes')`, so picking it showed every
+practice-test question in the bank and picking the other option hid them. Source is
+now three real options: `official` (bank), `pt` (the Bluebook practice-test rows),
+and `mistakes`, which is not a source at all and cuts across both. Section,
+difficulty and the topic ticks narrow it the same as any other source, which is what
+"only choose mistakes by section/topic" needs and takes no extra code.
+
+**The home cards and the dashboard reported different numbers for the same thing.**
+`drawHomeStats()` counted `Object.keys(PROG).length` (every row, including ones with
+no attempt) and scored only `marker === 'Green'`; `tally()` requires `p.attempts` and
+counts `Orange` — wrong once, right since — as correct. Answer one question wrong and
+then right and the two screens disagreed. `drawHomeStats()` now reads `tally()`.
+
+**Progress could not answer "how many questions did I do on Tuesday".** `progress`
+holds one `last_reviewed` per question and overwrites it on every answer, so
+re-drilling an old question silently moved it out of the day it was first done and
+the count for that day went down. New `attempts` table — `(user_id, question_id, ts,
+correct, time_taken_ms)`, `UNIQUE` on the first three, append-only, `INSERT OR
+IGNORE`. `GET/POST /api/attempts` mirror the progress routes, including the
+signed-out-in-localStorage-then-merged-on-sign-in path (`satq_log`). Every graph is
+drawn from this; `progress` is still the per-question state the topic list reads.
+
+**Coming back from practice refetched all 3,843 questions.** `showHome()` called
+`load()`. It calls `refresh()` now, which redraws the four screens off the data
+already in memory. `refresh()` also exists so no caller can redraw three screens and
+forget the fourth.
+
+Dashboard: a 7 / 30 / 12-month / all-time range picker, KPI cards, a stacked bar per
+bucket (green correct on the bottom, red wrong above), a 26-week calendar heatmap,
+and accuracy by difficulty. Days are keyed on the local calendar, not UTC, so an
+11pm answer belongs to the day you were sitting there. The charts are flex columns
+with percentage heights — no chart library, nothing new on the CDN allowlist. Bars
+past ~12 get their x-axis label thinned out; the label spans overflow into their
+empty neighbours rather than being clipped to 10px of "Aug".
+
+Mistakes page: every question with `marker` Red (still wrong) or Orange (corrected
+since), as cards carrying section, difficulty, status and topic, filtered by
+section / difficulty / topic and a Needs work / Corrected / All switch. The topic
+dropdown is built with every filter applied except the topic one, so picking a topic
+cannot empty the dropdown it came from and no topic is offered with nothing behind
+it. Clicking a card drills that one question; **Drill these** shuffles the whole
+filtered set into the player.
+
+Not built, not asked for: the per-question notes that sit in the OnePrep screenshot
+this page is modelled on.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a

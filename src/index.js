@@ -72,6 +72,33 @@ export default {
       return json({ ok: true, saved: rows.length });
     }
 
+    // The attempt log. `progress` is overwritten on every answer, so it cannot say
+    // how many questions were done on a given day; these rows can. Append-only:
+    // a repeat of the same (question, timestamp) is ignored rather than updated.
+    if (p === '/api/attempts' && req.method === 'GET') {
+      const u = await whoami(req, env);
+      if (!u) return json([]);
+      const r = await env.DB.prepare(
+        'SELECT question_id, ts, correct, time_taken_ms FROM attempts WHERE user_id = ? ORDER BY ts'
+      ).bind(u.id).all();
+      return json(r.results || []);
+    }
+
+    if (p === '/api/attempts' && req.method === 'POST') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
+      const b = await req.json();
+      const rows = (Array.isArray(b) ? b : [b]).filter(r => r && r.question_id && r.ts);
+      if (!rows.length) return json({ ok: true, saved: 0 });
+      const stmt = env.DB.prepare(
+        `INSERT OR IGNORE INTO attempts (user_id, question_id, ts, correct, time_taken_ms)
+         VALUES (?,?,?,?,?)`
+      );
+      await env.DB.batch(rows.map(r => stmt.bind(
+        u.id, r.question_id, r.ts, r.correct ? 1 : 0, r.time_taken_ms || 0)));
+      return json({ ok: true, saved: rows.length });
+    }
+
     if (p === '/api/chat' && req.method === 'POST') {
       try {
         const { messages } = await req.json();
