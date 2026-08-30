@@ -593,6 +593,56 @@ crops) are the extractor's output and the only copy of it short of re-running
 the PDFs; `backup/` holds the pre-rebuild remote dump; the raster-matching
 harness stays for the reasons recorded above.
 
+### Accounts: email/password, and progress that actually saves (2026-08-30)
+
+Asked for account data save for Google **and** email/password sign-ins. Two of the
+three pieces were broken before the feature was even added.
+
+**Progress never loaded for a signed-in user.** `initAuth()` is `async`; `load()`
+was called on the line after it without an `await`, so `load()`'s
+`fetch('/api/progress', { headers: sbHeaders() })` ran while `uid` was still
+`null` and asked for the progress of user `''`. Nothing in
+`onAuthStateChange` refetched it either, so signing in changed the header text and
+nothing else. Now `(async () => { await initAuth(); await load(); })()`, and an
+account change re-runs `loadProgress()` on its own.
+
+**Google sign-in dropped the session.** `/auth/callback` served a hand-rolled page
+that read the URL fragment and stashed the token under `localStorage['sb_token']`,
+then redirected to `/`. supabase-js stores its session under
+`sb-<project-ref>-auth-token` and never reads `sb_token`, and the redirect stripped
+the fragment before supabase-js could parse it. The route now serves the app
+itself, so supabase-js's own `detectSessionInUrl` handles it; the client tidies the
+address bar afterwards. The email-confirmation link lands on the same route.
+
+**`X-User-Id` was a client-supplied header.** Any caller could read or overwrite any
+account's progress by naming its user id. The Worker now takes the Supabase access
+token off `Authorization` and resolves the caller through
+`GET {SUPABASE_URL}/auth/v1/user`. One extra fetch, no crypto in the Worker, and it
+works whether the project signs JWTs with HS256 or an asymmetric key. `SUPABASE_URL`
+and `SUPABASE_ANON_KEY` are `[vars]` in `wrangler.toml` — both are the publishable
+pair the browser already ships, not secrets.
+
+**The `users` table existed in the schema and had never been written to.** Any
+authenticated request now upserts the row. The name is only overwritten when the new
+one is non-empty, so signing in with email/password after Google does not blank out
+the Google display name.
+
+Other pieces:
+- `/api/progress` POST accepts a row or an array and uses `DB.batch`, which is what
+  lets the sign-in merge go up in one request.
+- Signed out, answers are kept in `localStorage` under `satq_progress` rather than
+  evaporating on reload. On sign-in, rows the account does not already have are
+  pushed up and the local copy is cleared. Server rows win a collision — the
+  account is the record, the local copy is a holding pen.
+- `authModal()` carries Google, email/password sign-in and sign-up in one modal.
+  The project has `mailer_autoconfirm: false`, so a sign-up returns a user with no
+  session; that branch says to check the inbox instead of pretending to sign in.
+
+Supabase project settings this depends on (checked via `/auth/v1/settings`):
+`email: true`, `google: true`, `disable_signup: false`. The redirect allowlist must
+contain `<origin>/auth/callback` for both the OAuth return and the confirmation
+link.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a

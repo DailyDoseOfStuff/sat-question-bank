@@ -86,7 +86,7 @@ img { max-width: 100%; height: auto; }
 .chip.on { background: transparent; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); color: var(--text); font-weight: 600; }
 .startbar { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
 #btn-start { font-size: 16px; padding: 13px 34px; border-radius: 12px; }
-select, input[type=number], input[type=text] { font-family: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
+select, input[type=number], input[type=text], input[type=email], input[type=password] { font-family: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
 
 .prog-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
 .prog-bar-bg { flex: 0 1 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 0 16px; }
@@ -275,7 +275,7 @@ img.minl { mix-blend-mode: multiply; }
       </div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
         <span id="user-name" class="sub" style="font-weight:600;display:none"></span>
-        <button id="btn-auth" class="btn-p">Sign in with Google</button>
+        <button id="btn-auth" class="btn-p">Sign in</button>
         <button class="theme-toggle" data-theme-toggle title="Toggle dark mode">🌙</button>
       </div>
     </div>
@@ -437,6 +437,9 @@ img.minl { mix-blend-mode: multiply; }
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+const SUPABASE_URL = 'https://lbwxzcdmhyhgtscthnaq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr';
+
 const LS = {
   get(k,d){ try{ const v=localStorage.getItem('satq_'+k); return v?JSON.parse(v):d; }catch(e){ return d; } },
   set(k,v){ try{ localStorage.setItem('satq_'+k, JSON.stringify(v)); }catch(e){} }
@@ -473,9 +476,41 @@ const demoji = (h) => MOJIBAKE.reduce((a, [bad, good]) => a.split(bad).join(good
 // and leaving it in the stem prints the answer above the choices.
 const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 
+// Progress is fetched on its own so a sign-in or sign-out can swap accounts
+// without pulling all 3,843 questions down again.
+async function loadProgress() {
+  const local = LS.get('progress', {});
+  PROG = authToken ? {} : local;
+  if (!authToken) { if (QS.length) { drawHomeStats(); drawDash(); } return; }
+  try {
+    const r = await fetch('/api/progress', { headers: sbHeaders() });
+    if (r.ok) (await r.json()).forEach(p => PROG[p.question_id] = p);
+  } catch (e) {}
+  // Anything answered before signing in is this person's work too: hand the rows
+  // the account has not seen to the server, then keep the merged set.
+  const orphans = Object.values(local).filter(p => !PROG[p.question_id]);
+  if (orphans.length) {
+    orphans.forEach(p => PROG[p.question_id] = p);
+    saveProgress(orphans);
+  }
+  LS.set('progress', {});
+  if (QS.length) { drawHomeStats(); drawDash(); }
+}
+
+// One row or many. Signed out there is no account to put it in, so it waits in
+// localStorage for a sign-in instead of being dropped on reload.
+function saveProgress(rows) {
+  if (!authToken) { LS.set('progress', PROG); return; }
+  fetch('/api/progress', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+    body: JSON.stringify(rows)
+  }).catch(() => {});
+}
+
 async function load() {
   try {
-    const [qRes, pRes] = await Promise.all([fetch('/api/questions'), fetch('/api/progress', { headers: sbHeaders() })]);
+    const qRes = await fetch('/api/questions');
     QS = await qRes.json();
     QS.forEach(q => {
       try { q.choices = typeof q.choices_json === 'string' ? JSON.parse(q.choices_json) : (q.choices_json || []); }
@@ -502,9 +537,7 @@ async function load() {
         if (m) q.answer = m[1];
       }
     });
-    const progRows = pRes.ok ? await pRes.json() : [];
-    PROG = {};
-    progRows.forEach(r => PROG[r.question_id] = r);
+    await loadProgress();
     $('src-pill').textContent = `${QS.length.toLocaleString()} official College Board questions · synced with Cloudflare D1`;
   } catch(e) {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
@@ -994,7 +1027,7 @@ function grade(q) {
   p.last_reviewed = new Date().toISOString();
   p.time_taken_ms = Math.round((Date.now()-S.qStart));
   PROG[q.id] = p;
-  fetch('/api/progress', { method:'POST', headers:{'Content-Type':'application/json', ...sbHeaders()}, body:JSON.stringify(p) }).catch(()=>{});
+  saveProgress([p]);
   renderAnswerArea(q);
 }
 
@@ -1343,36 +1376,88 @@ function showHome() {
 })();
 
 // ---------------- auth (Supabase) ----------------
-let sb = null, uid = null;
+// Progress belongs to the account, so requests carry the Supabase access token and
+// the Worker resolves the owner from it. uid only decides what the header shows.
+let sb = null, uid = null, authToken = null;
 const $authBtn = $('btn-auth'), $userName = $('user-name');
-function sbHeaders() { return uid ? { 'X-User-Id': uid } : {}; }
+function sbHeaders() { return authToken ? { Authorization: 'Bearer ' + authToken } : {}; }
+
 async function initAuth() {
   try {
-    sb = window.supabase.createClient('https://lbwxzcdmhyhgtscthnaq.supabase.co', 'sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr');
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   } catch (e) { console.warn('supabase client failed', e); return; }
   const { data: { session } } = await sb.auth.getSession();
   applySession(session);
-  $authBtn.onclick = async () => {
-    if (sb.auth.getSession) {
-      const { data } = await sb.auth.getSession();
-      if (data.session) { await sb.auth.signOut(); applySession(null); }
-      else await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + '/auth/callback' } });
-    }
-  };
-  sb.auth.onAuthStateChange((_e, s) => applySession(s));
+  // Google and the email-confirmation link both return to /auth/callback with the
+  // session in the fragment. supabase-js has consumed it by the await above, so
+  // put the address bar back to the app's own URL.
+  if (location.pathname !== '/') history.replaceState({}, '', '/');
+  $authBtn.onclick = () => { if (uid) sb.auth.signOut(); else authModal(); };
+  sb.auth.onAuthStateChange(async (_e, s) => {
+    const was = uid;
+    applySession(s);
+    if (uid !== was) await loadProgress();
+  });
 }
+
 function applySession(session) {
   uid = session?.user?.id || null;
+  authToken = session?.access_token || null;
   const u = session?.user;
-  const n = u?.user_metadata?.full_name || u?.email || '';
-  $userName.textContent = n;
+  $userName.textContent = u ? (u.user_metadata?.full_name || u.email || '') : '';
   $userName.style.display = u ? '' : 'none';
-  $authBtn.textContent = u ? 'Sign out' : 'Sign in with Google';
+  $authBtn.textContent = u ? 'Sign out' : 'Sign in';
 }
-initAuth();
+
+function authModal() {
+  const root = $('modal-root');
+  let signup = false;
+  const draw = () => {
+    root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(400px,92vw)">
+      <h3>${signup ? 'Create an account' : 'Sign in'}</h3>
+      <p class="sub" style="margin:-8px 0 16px">Your answers, markers and stars are saved to your account and follow you to any device.</p>
+      <button class="btn-p" id="au-g" style="width:100%">Continue with Google</button>
+      <div class="sub" style="text-align:center;margin:14px 0">or</div>
+      <form id="au-f" style="display:flex;flex-direction:column;gap:10px">
+        <input type="email" id="au-e" placeholder="Email" autocomplete="email" required>
+        <input type="password" id="au-p" placeholder="Password" minlength="6"
+               autocomplete="${signup ? 'new-password' : 'current-password'}" required>
+        <button class="btn-p" type="submit" id="au-s">${signup ? 'Create account' : 'Sign in'}</button>
+      </form>
+      <div id="au-msg" class="sub" style="margin-top:12px;min-height:18px"></div>
+      <div class="frow" style="justify-content:space-between;margin-top:6px">
+        <button id="au-t">${signup ? 'I already have an account' : 'Create an account'}</button>
+        <button id="au-x">Close</button>
+      </div>
+    </div></div>`;
+    root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML=''; };
+    $('au-x').onclick = () => root.innerHTML = '';
+    $('au-t').onclick = () => { signup = !signup; draw(); };
+    $('au-g').onclick = () => sb.auth.signInWithOAuth({
+      provider: 'google', options: { redirectTo: location.origin + '/auth/callback' } });
+    $('au-f').onsubmit = async (ev) => {
+      ev.preventDefault();
+      const email = $('au-e').value.trim(), password = $('au-p').value;
+      const msg = $('au-msg'), btn = $('au-s');
+      btn.disabled = true; msg.textContent = 'Working\u2026';
+      const { data, error } = signup
+        ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/auth/callback' } })
+        : await sb.auth.signInWithPassword({ email, password });
+      btn.disabled = false;
+      if (error) { msg.textContent = error.message; return; }
+      // A sign-up comes back with a user but no session when the project requires
+      // email confirmation; there is nothing to sign in to until they click it.
+      if (signup && !data.session) { msg.textContent = `Check ${email} for a confirmation link.`; return; }
+      root.innerHTML = '';
+    };
+  };
+  draw();
+  setTimeout(() => { const e = $('au-e'); if (e) e.focus(); }, 0);
+}
 
 // go
-load();
+(async () => { await initAuth(); await load(); })();
+
 })();
 </script>
 </body>
