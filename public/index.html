@@ -107,7 +107,7 @@ img { max-width: 100%; height: auto; }
 
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 18px; overflow: hidden; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 17px 20px; border-bottom: 1px solid var(--border); }
-.panel-h h3 { margin: 0; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.panel-h h3 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; }
 .panel-b { padding: 18px 20px; }
 .empty { color: var(--dim); font-size: 13.5px; padding: 18px 20px; }
 .theme-toggle { width: 38px; height: 38px; padding: 0; border-radius: 11px; font-size: 16px; }
@@ -135,7 +135,7 @@ select:hover { border-color: var(--border2); }
 .tl-head span + span { text-align: right; }
 .dom { border-bottom: 1px solid var(--border); }
 .dom:last-child { border-bottom: 0; }
-.dom-h { display: flex; align-items: center; gap: 13px; width: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text); padding: 17px 20px 14px; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
+.dom-h { display: flex; align-items: center; gap: 13px; width: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text); padding: 18px 20px 14px; font-size: 23px; font-weight: 700; letter-spacing: -.025em; }
 .dom-h:hover:not(:disabled) { background: var(--bg2); border-color: transparent; }
 .dom-h .cnt { margin-left: auto; font-size: 12.5px; font-weight: 500; color: var(--dim); }
 .dom-h .chev { color: var(--dim); transition: transform .15s; }
@@ -156,7 +156,7 @@ select:hover { border-color: var(--border2); }
 
 .prog-item { display: grid; grid-template-columns: 1fr 200px 140px; align-items: center; gap: 16px; padding: 11px 20px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
 .prog-item:last-child { border-bottom: 0; }
-.prog-item > b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prog-item > b { font-size: 15px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .browse-table { width: 100%; border-collapse: collapse; }
 .browse-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim2); padding: 12px 20px; border-bottom: 1px solid var(--border); font-weight: 700; }
@@ -173,7 +173,14 @@ select:hover { border-color: var(--border2); }
 
 /* activity chart. Columns are a fixed-height flex stack filled from the bottom,
    so a bar is two percentage heights and needs no library or canvas. */
-.chart { display: flex; align-items: flex-end; gap: 3px; height: 176px; padding: 20px 20px 0; }
+.chart-wrap { display: flex; gap: 10px; padding: 20px 20px 0; }
+.chart-y { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: space-between; height: 178px; text-align: right; font-size: 10.5px; font-weight: 600; color: var(--dim2); font-variant-numeric: tabular-nums; }
+.chart-y span { line-height: 1; transform: translateY(-50%); }
+.chart-y span:last-child { transform: translateY(50%); }
+.chart-plot { flex: 1 1 auto; min-width: 0; }
+.chart { display: flex; align-items: flex-end; gap: 3px; height: 178px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: linear-gradient(var(--border), var(--border)) center/100% 1px no-repeat; }
 .cbar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
 .cbar i { display: block; border-radius: 2px; }
 .cbar i + i { margin-top: 1px; }
@@ -181,19 +188,35 @@ select:hover { border-color: var(--border2); }
 .cbar .no { background: var(--red); }
 .cbar .zero { height: 3px; background: var(--border); }
 .cbar:hover i { filter: brightness(1.12); }
-.chart-x { display: flex; gap: 3px; padding: 9px 20px 18px; }
+.chart-x { display: flex; gap: 3px; padding: 9px 0 0; }
+.chart-cap { padding: 12px 20px 18px 20px; font-size: 12px; color: var(--dim2); }
 .chart-x span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 10.5px; color: var(--dim2); overflow: visible; white-space: nowrap; }
+/* one shared tooltip, positioned on the pointer, for chart bars and heat squares */
+.tip { position: fixed; z-index: 400; pointer-events: none; opacity: 0; transition: opacity .09s;
+  transform: translate(-50%, -100%); background: var(--text); color: var(--panel);
+  font-size: 12px; line-height: 1.5; font-weight: 500; padding: 7px 10px; border-radius: 9px;
+  white-space: nowrap; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.tip.on { opacity: 1; }
+.tip b { font-weight: 700; font-size: 12.5px; }
 .legend { display: flex; gap: 15px; font-size: 12px; color: var(--dim); }
 .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
 
 /* one square per day, seven rows to a column, so a column is a week */
-.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; padding: 20px; overflow-x: auto; }
-.heat i { width: 11px; height: 11px; border-radius: 3px; background: var(--border); }
+.heat-wrap { display: flex; gap: 8px; padding: 16px 20px 0; overflow-x: auto; }
+.heat-d { flex: 0 0 auto; display: grid; grid-template-rows: repeat(7, 11px); gap: 3px; margin-top: 16px; font-size: 9.5px; font-weight: 600; color: var(--dim2); }
+.heat-d span { line-height: 11px; text-align: right; }
+.heat-m { display: grid; grid-auto-flow: column; gap: 3px; height: 16px; font-size: 10.5px; font-weight: 600; color: var(--dim2); }
+.heat-m span { grid-row: 1; white-space: nowrap; }
+.heat-key { display: flex; align-items: center; gap: 4px; padding: 12px 20px 18px; font-size: 11.5px; color: var(--dim2); }
+.heat-key i { margin: 0 1px; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; }
+.heat i, .heat-key i { display: block; width: 11px; height: 11px; border-radius: 3px; background: var(--border); }
+.heat-key i { display: inline-block; }
 .heat i.fut { opacity: 0; }
-.heat i.l1 { background: #b7ecce; } .heat i.l2 { background: #79dfa8; }
-.heat i.l3 { background: #35d07f; } .heat i.l4 { background: #1a8f53; }
-:root[data-theme="dark"] .heat i.l1 { background: #143d28; } :root[data-theme="dark"] .heat i.l2 { background: #1a6640; }
-:root[data-theme="dark"] .heat i.l3 { background: #27a463; } :root[data-theme="dark"] .heat i.l4 { background: #35d07f; }
+.heat i.l1, .heat-key i.l1 { background: #b7ecce; } .heat i.l2, .heat-key i.l2 { background: #79dfa8; }
+.heat i.l3, .heat-key i.l3 { background: #35d07f; } .heat i.l4, .heat-key i.l4 { background: #1a8f53; }
+:root[data-theme="dark"] .heat i.l1, .heat-key i.l1 { background: #143d28; } :root[data-theme="dark"] .heat i.l2, .heat-key i.l2 { background: #1a6640; }
+:root[data-theme="dark"] .heat i.l3, .heat-key i.l3 { background: #27a463; } :root[data-theme="dark"] .heat i.l4, .heat-key i.l4 { background: #35d07f; }
 
 /* mistakes drill */
 .mk-card { padding: 15px 20px; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -220,8 +243,8 @@ select:hover { border-color: var(--border2); }
   .tl-head span:nth-child(2), .tl-row .bar { display: none; }
   .prog-item { grid-template-columns: 1fr 140px; }
   .prog-item .bar { display: none; }
-  .dom-h { font-size: 17px; }
-  .chart { height: 140px; }
+  .dom-h { font-size: 20px; }
+  .chart, .chart-y { height: 140px; }
 }
 
 /* ---------- TEST PLAYER ---------- */
@@ -274,7 +297,7 @@ img.minl { mix-blend-mode: multiply; }
 :root[data-theme="dark"] img.minl { filter: invert(1); mix-blend-mode: screen; }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
-.cb .qfig img, .cb .qimg img, .orig-img img { cursor: zoom-in; }
+.cb .qfig img, .cb .qimg img { cursor: zoom-in; }
 /* .cb figure carries the one HTML table in the bank; without these it takes the
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
 .qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
@@ -289,8 +312,6 @@ img.minl { mix-blend-mode: multiply; }
 .lb img.drag { cursor: grabbing; transition: none; }
 .lb-bar { position: fixed; top: 16px; right: 16px; display: flex; gap: 8px; }
 .lb-bar button { width: 38px; height: 38px; padding: 0; font-size: 17px; }
-.stem-text { white-space: pre-wrap; user-select: text; }
-.img-toggle { margin-top: 14px; font-size: 12.5px; color: #555; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .img-toggle:hover { border-color: var(--border2); color: #222; }
 .stem table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
 .stem table th, .stem table td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
@@ -496,10 +517,10 @@ img.minl { mix-blend-mode: multiply; }
           <div class="panel-h"><h3>Practice activity</h3><span class="sub" id="db-heat-sub" style="color:var(--dim);font-size:13px"></span></div>
           <div id="db-heat"></div>
         </div>
-        <div class="panel"><div class="panel-h"><h3>Accuracy by difficulty</h3></div><div id="db-diffs"></div></div>
-        <div class="panel"><div class="panel-h"><h3>By section</h3></div><div id="db-sections"></div></div>
-        <div class="panel"><div class="panel-h"><h3>By domain</h3></div><div id="db-domains"></div></div>
-        <div class="panel"><div class="panel-h"><h3>By skill</h3></div><div id="db-skills"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by difficulty</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-diffs"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by section</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-sections"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by domain</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-domains"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by skill</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-skills"></div></div>
       </div>
 
       <div id="tab-mistakes" class="hide">
@@ -953,7 +974,9 @@ function buckets(range) {
       const d = new Date(now); d.setDate(d.getDate() - i);
       out.push({ k: dkey(d), lab: range <= 7
         ? d.toLocaleDateString(undefined, { weekday: 'short' })
-        : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), ok: 0, no: 0, ms: 0 });
+        : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        full: d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        ok: 0, no: 0, ms: 0 });
     }
   } else {
     const months = range ? Math.round(range / 30) : 0;
@@ -964,7 +987,8 @@ function buckets(range) {
       const d = new Date(e); first = new Date(d.getFullYear(), d.getMonth(), 1);
     }
     for (const d = new Date(first); d <= now; d.setMonth(d.getMonth() + 1))
-      out.push({ k: mkey(d), lab: d.toLocaleDateString(undefined, { month: 'short' }), ok: 0, no: 0, ms: 0 });
+      out.push({ k: mkey(d), lab: d.toLocaleDateString(undefined, { month: 'short' }),
+        full: d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), ok: 0, no: 0, ms: 0 });
   }
   const idx = new Map(out.map(x => [x.k, x]));
   LOG.forEach(x => {
@@ -976,35 +1000,76 @@ function buckets(range) {
   return out;
 }
 
-// Correct sits at the bottom of the column, wrong stacks on top of it.
-function chartHTML(bs) {
-  const max = Math.max(1, ...bs.map(x => x.ok + x.no));
+// A bar's height has to stand for a number, so the axis runs to a rounded
+// ceiling rather than to whatever the tallest day happened to be.
+function niceMax(n) {
+  if (n <= 4) return 4;
+  const p = 10 ** Math.floor(Math.log10(n));
+  return p * ([1, 2, 3, 4, 5, 6, 8, 10].find(m => p * m >= n) || 10);
+}
+
+// Correct sits at the bottom of the column, wrong stacks on top of it. Three
+// gridlines (0, half, max) are drawn in CSS; the labels here name them.
+function chartHTML(bs, unit) {
+  const max = niceMax(Math.max(1, ...bs.map(x => x.ok + x.no)));
   const h = (n) => (n / max * 100).toFixed(2);
   const step = Math.ceil(bs.length / 12);
-  return `<div class="chart">${bs.map(x => {
+  const span = bs.length > 1 ? `${bs[0].full} \u2013 ${bs[bs.length - 1].full}` : bs[0].full;
+  const cols = bs.map(x => {
     const tot = x.ok + x.no;
     const body = tot
       ? `<i class="no" style="height:${h(x.no)}%"></i><i class="ok" style="height:${h(x.ok)}%"></i>`
       : '<i class="zero"></i>';
-    return `<span class="cbar" title="${esc(x.lab || x.k)} \u2014 ${tot} answered, ${x.ok} correct">${body}</span>`;
-  }).join('')}</div>
-  <div class="chart-x">${bs.map((x, i) => `<span>${i % step ? '' : esc(x.lab)}</span>`).join('')}</div>`;
+    const tip = tot
+      ? `${tot} answered &middot; ${x.ok} right &middot; ${x.no} wrong<br>${Math.round(x.ok / tot * 100)}% accuracy`
+      : 'No practice';
+    return `<span class="cbar" data-tip="<b>${esc(x.full)}</b><br>${tip}">${body}</span>`;
+  }).join('');
+  return `<div class="chart-wrap">
+    <div class="chart-y"><span>${max}</span><span>${max / 2}</span><span>0</span></div>
+    <div class="chart-plot">
+      <div class="chart">${cols}</div>
+      <div class="chart-x">${bs.map((x, i) => `<span>${i % step ? '' : esc(x.lab)}</span>`).join('')}</div>
+    </div>
+  </div>
+  <div class="chart-cap">Up: questions answered &nbsp;&middot;&nbsp; across: one bar per ${unit} &nbsp;&middot;&nbsp; ${esc(span)}</div>`;
 }
 
 // Half a year of squares, seven rows to a column so each column is one week.
+// The grid runs to the end of this week, so it starts on a Sunday and row 0 is
+// Sunday: that is what lets the weekday strip down the left line up.
+const HEAT_WEEKS = 26;
 function heatHTML() {
   const per = {};
-  LOG.forEach(x => { const k = dkey(new Date(x.ts)); per[k] = (per[k] || 0) + 1; });
+  LOG.forEach(x => {
+    const k = dkey(new Date(x.ts)), v = per[k] = per[k] || { ok: 0, no: 0 };
+    x.correct ? v.ok++ : v.no++;
+  });
   const today = new Date(), end = new Date(today);
   end.setDate(end.getDate() + (6 - end.getDay()));   // run to the end of this week
   const lvl = (n) => !n ? '' : n < 3 ? 'l1' : n < 8 ? 'l2' : n < 20 ? 'l3' : 'l4';
-  let out = '';
-  for (let i = 26 * 7 - 1; i >= 0; i--) {
-    const d = new Date(end); d.setDate(d.getDate() - i);
-    const k = dkey(d), n = per[k] || 0;
-    out += `<i class="${d > today ? 'fut' : lvl(n)}" title="${k} \u2014 ${n} answered"></i>`;
+  let cells = '', months = '', lastM = -1;
+  for (let j = 0; j < HEAT_WEEKS * 7; j++) {
+    const d = new Date(end); d.setDate(d.getDate() - (HEAT_WEEKS * 7 - 1 - j));
+    if (j % 7 === 0 && d.getMonth() !== lastM) {
+      lastM = d.getMonth();
+      months += `<span style="grid-column:${j / 7 + 1}">${d.toLocaleDateString(undefined, { month: 'short' })}</span>`;
+    }
+    if (d > today) { cells += '<i class="fut"></i>'; continue; }
+    const v = per[dkey(d)] || { ok: 0, no: 0 }, n = v.ok + v.no;
+    const day = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const tip = n ? `${n} answered &middot; ${v.ok} right &middot; ${v.no} wrong` : 'No practice';
+    cells += `<i class="${lvl(n)}" data-tip="<b>${day}</b><br>${tip}"></i>`;
   }
-  return `<div class="heat">${out}</div>`;
+  return `<div class="heat-wrap">
+    <div class="heat-d"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>
+    <div>
+      <div class="heat-m" style="grid-template-columns:repeat(${HEAT_WEEKS},11px)">${months}</div>
+      <div class="heat">${cells}</div>
+    </div>
+  </div>
+  <div class="heat-key">One square is one day &nbsp;&middot;&nbsp; last ${HEAT_WEEKS} weeks
+    <span style="flex:1"></span>Fewer <i></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i> More</div>`;
 }
 
 // Days in a row, counting back. Today being empty does not break yesterday's run
@@ -1018,11 +1083,16 @@ function streak() {
   return n;
 }
 
+// The bar is accuracy and so is the number beside it. It used to draw coverage
+// (attempted out of the bank) next to an accuracy percentage, so the bar and the
+// number disagreed and the scale read as broken. Rows with no attempt are out:
+// an empty bar for a skill you have never touched says nothing about accuracy.
 const bars = (map) => Object.entries(map)
+  .filter(([, v]) => v.a)
   .sort((a, b) => b[1].a - a[1].a || a[0].localeCompare(b[0]))
   .map(([k, v]) => `<div class="prog-item"><b>${esc(k)}</b>
-    <span class="bar"><i style="width:${v.n ? Math.round(v.a/v.n*100) : 0}%"></i></span>
-    <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.a}/${v.n}</span></div>`)
+    <span class="bar"><i style="width:${pctOf(v) || 0}%"></i></span>
+    <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.c}/${v.a}</span></div>`)
   .join('') || '<div class="empty">No attempts yet.</div>';
 
 function drawDash() {
@@ -1039,7 +1109,8 @@ function drawDash() {
     <div class="card"><div class="k">Day streak</div><div class="v mono">${streak()}</div></div>`;
   $('db-act-sub').textContent = `${done.toLocaleString()} answered over ${label}`;
   $('db-activity').innerHTML = LOG.length
-    ? chartHTML(bs) : '<div class="empty">Answer a question and this fills in.</div>';
+    ? chartHTML(bs, DBR === 0 || DBR > 90 ? 'month' : 'day')
+    : '<div class="empty">Answer a question and this fills in.</div>';
 
   const uniq = new Set(LOG.map(x => dkey(new Date(x.ts))));
   $('db-heat-sub').textContent = `${LOG.length.toLocaleString()} answered across ${uniq.size} day${uniq.size===1?'':'s'}`;
@@ -1068,6 +1139,24 @@ function drawDash() {
   $('db-domains').innerHTML = bars(t.dom);
   $('db-skills').innerHTML = bars(t.skill);
 }
+
+// One tooltip node for the whole dashboard, following the pointer. Delegated
+// from the panels, so a redraw of their contents rebinds nothing.
+const TIP = document.createElement('div');
+TIP.className = 'tip';
+document.body.appendChild(TIP);
+['db-activity', 'db-heat'].forEach(id => {
+  const el = $(id);
+  el.addEventListener('mousemove', (e) => {
+    const t = e.target.closest('[data-tip]');
+    if (!t) { TIP.classList.remove('on'); return; }
+    TIP.innerHTML = t.dataset.tip;
+    TIP.style.left = e.clientX + 'px';
+    TIP.style.top = (e.clientY - 14) + 'px';
+    TIP.classList.add('on');
+  });
+  el.addEventListener('mouseleave', () => TIP.classList.remove('on'));
+});
 
 document.querySelectorAll('#db-range button').forEach(b => b.onclick = () => {
   DBR = parseInt(b.dataset.r);
@@ -1310,42 +1399,14 @@ function openLightbox(src) {
 }
 
 document.addEventListener('click', e => {
-  const img = e.target.closest('.qfig img, .qimg img, .orig-img img');
+  const img = e.target.closest('.qfig img, .qimg img');
   if (img) openLightbox(img.getAttribute('src'));
-});
-
-function hasStemText(q) {
-  return q.stem_text && q.stem_text.trim().length > 20;
-}
-
-function stemTextView(q) {
-  return `<div class="stemtext-wrap">
-    <div class="stem-text cb">${esc(q.stem_text.trim())}</div>
-    <button type="button" class="img-toggle">Show original image</button>
-    <div class="orig-img" hidden>${q.stem_html}</div>
-  </div>`;
-}
-
-document.addEventListener('click', e => {
-  const btn = e.target.closest('.img-toggle');
-  if (!btn) return;
-  const wrap = btn.closest('.stemtext-wrap');
-  const orig = wrap.querySelector('.orig-img');
-  const txt = wrap.querySelector('.stem-text');
-  const showing = !orig.hidden;
-  orig.hidden = showing;
-  txt.style.display = showing ? '' : 'none';
-  btn.textContent = showing ? 'Show original image' : 'Show text';
 });
 
 const H3_LABEL = /<h3>\s*(?:Passage|Prompt|Question)\s*<\/h3>/gi;
 
 function renderStem(q) {
   let html = q.stem_html || '';
-  const isImg = html.includes('<div class="qimg">');
-  if (isImg) {
-    return hasStemText(q) ? stemTextView(q) : html;
-  }
   html = html.replace(/<blockquote[^>]*>[\s\S]*?<\/blockquote>/gi, '');
   html = html.replace(H3_LABEL, '');
   return html;
@@ -1408,9 +1469,7 @@ function renderPanes(q) {
   let context = '', body = '';
   if (isRW) {
     const splitIdx = stem.indexOf('<h3>Prompt</h3>');
-    if (stem.includes('<div class="qimg">')) {
-      context = hasStemText(q) ? stemTextView(q) : stem;
-    } else if (splitIdx !== -1) {
+    if (splitIdx !== -1) {
       context = stem.substring(0, splitIdx).replace(H3_LABEL, '');
       body = stem.substring(splitIdx + 15);
     } else {
@@ -1853,7 +1912,7 @@ function showHome() {
       const cq = (typeof curQ === 'function') ? curQ() : null;
       if (cq) {
         const strip = h => (h||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        context = `The student is working on this question.\nSection: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}${cq.stem_text ? '\nText: ' + cq.stem_text.slice(0,2000) : ''}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
+        context = `The student is working on this question.\nSection: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
       }
     } catch(_) {}
 
