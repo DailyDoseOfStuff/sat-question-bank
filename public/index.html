@@ -101,8 +101,10 @@ select, input[type=number], input[type=text] { font-family: inherit; font-size: 
 #view-test { height: 100vh; display: flex; flex-direction: column; }
 .top { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--border); }
 .top-l, .top-r { display: flex; align-items: center; gap: 10px; }
-.sec-pill { font-size: 13.5px; font-weight: 600; background: var(--blue-bg); color: var(--blue-dark); padding: 6px 14px; border-radius: 999px; border: 0; }
-.tbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; padding: 7px 13px; }
+/* KaTeX ships at 1.21em so formulae stand out in prose. Next to a 16px stem
+   that reads as a second, larger font rather than as emphasis. */
+.katex { font-size: 1.06em; }
+.tbtn { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 500; padding: 7px 13px; white-space: nowrap; }
 .timer-box { display: flex; align-items: center; gap: 10px; }
 .timer { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
 .tdiv { width: 1px; height: 22px; background: var(--border); }
@@ -130,7 +132,13 @@ select, input[type=number], input[type=text] { font-family: inherit; font-size: 
 .stem { font-size: 16px; line-height: 1.6; margin-bottom: 22px; }
 .stem p { margin: 0 0 12px; }
 .stem .qimg img { display: block; margin: 16px 0; border-radius: 8px; }
-img.minl, .choice img.minl { display: inline-block; vertical-align: middle; max-height: 2.4em; width: auto; margin: 2px 1px; }
+/* Every notation crop is rendered by tools/extract.py at zoom=5, i.e. 5 device
+   pixels to a PDF point, off an 11pt source. Scaling them all to one max-height
+   sized a lone "a" the same as a two-storey fraction, which is what made some
+   notation tower over the sentence it sits in. Dividing by that known zoom
+   restores the source proportions instead: 5px/pt / (96/72 px/pt) gives 0.267,
+   times 16/14.67 to carry 11pt up to the 16px stem. */
+img.minl, .choice img.minl { display: inline-block; vertical-align: middle; zoom: .29; margin: 2px 1px; }
 /* The notation crops are black ink on an opaque white square. Blending drops
    the square either way round - multiply keeps the ink over a light page,
    invert-then-screen keeps it over a dark one - so what is left of the
@@ -140,7 +148,10 @@ img.minl { mix-blend-mode: multiply; }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
 .cb .qfig img, .cb .qimg img, .orig-img img { cursor: zoom-in; }
-.qtable { margin: 16px 0; overflow-x: auto; }
+/* .cb figure carries the one HTML table in the bank; without these it takes the
+   UA's 0 40px margin and no scroll box, and its last column is unreachable. */
+.qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
+.cb figure figcaption { color: var(--dim); margin-top: 6px; }
 .qtable table, .cb table { border-collapse: collapse; font-size: 14.5px; }
 .qtable table th, .qtable table td, .cb table th, .cb table td { border: 1px solid var(--border2); padding: 8px 14px; text-align: left; }
 .qtable table th, .cb table th { background: var(--bg2); font-weight: 600; }
@@ -351,7 +362,7 @@ img.minl { mix-blend-mode: multiply; }
 <div id="view-test" class="hide">
   <div class="top">
     <div class="top-l">
-      <span class="sec-pill" id="t-sec">Section</span>
+      <button class="tbtn" id="btn-dash">&#8592; Dashboard</button>
       <button class="tbtn" id="btn-directions">Directions</button>
     </div>
     <div class="timer-box">
@@ -480,6 +491,7 @@ async function load() {
         if (c.content) c.content = demoji(c.content);
         if (!String(c.letter == null ? '' : c.letter).trim()) c.letter = 'ABCD'[i] || String(i + 1);
       });
+      q.spr = !q.choices.length;
       if (q.choices.length) {
         const m = q.answer.match(/^\s*([A-D])\s*[\u2014\u2013-]\s*\S/);
         if (m) q.answer = m[1];
@@ -542,7 +554,7 @@ function drawHomeStats() {
 function drawFilters() {
   document.querySelectorAll('#tab-practice .chip').forEach(b => {
     const f = b.dataset.f, v = b.dataset.v;
-    if (f !== 'dom') b.classList.toggle('on', F[f] === v);
+    b.classList.toggle('on', F[f] === v);
     b.onclick = () => {
       F[f] = v;
       if (f === 'sec') F.dom = 'all';
@@ -620,7 +632,7 @@ function drawBrowse() {
       <td>${esc(x.domain)}</td>
       <td>${esc(x.skill)}</td>
       <td>${esc(x.difficulty)}</td>
-      <td>${x.qtype==='spr'?'SPR':'MCQ'}</td>
+      <td>${x.spr?'SPR':'MCQ'}</td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--dim);padding:24px;">No matches</td></tr>';
   $('browse-page').textContent = `Page ${browsePage+1} / ${pages}`;
   $('browse-body').querySelectorAll('tr[data-id]').forEach(tr => {
@@ -640,9 +652,9 @@ function previewQuestion(id) {
       <strong>${esc(q.id)} · ${esc(q.section)} · ${esc(q.difficulty)}</strong>
       <button id="pv-close">Close</button>
     </div>
-    <div style="max-height:56vh; overflow-y:auto;">${renderStem(q)}
+    <div class="cb" style="max-height:56vh; overflow-y:auto;">${renderStem(q)}
       <div class="choices" style="margin-top:16px;">${q.choices.map(c => choiceHTML(q, c, null, true)).join('')}</div>
-      ${q.qtype==='spr' ? `<div class="ans-line" style="margin-top:14px;">Answer: ${esc(q.answer)||'(see image)'}</div>` : ''}
+      ${q.spr ? `<div class="ans-line" style="margin-top:14px;">Answer: ${esc(q.answer)||'(see image)'}</div>` : ''}
     </div>
     <div style="margin-top:14px; color:var(--dim); font-size:13.5px;" class="cb">${q.explanation_html||''}</div>
   </div></div>`;
@@ -844,7 +856,6 @@ function loadQuestion() {
   const isMath = q.section === 'Math';
   $('btn-calc').classList.toggle('hide', !isMath);
   if (!isMath) closeDesmos();
-  $('t-sec').textContent = q.domain && q.domain !== 'General' ? q.domain : q.section;
   $('pos-lbl').textContent = `${S.i+1} of ${S.items.length}`;
   $('btn-back').disabled = S.i === 0;
   $('btn-next').textContent = S.i === S.items.length - 1 ? 'Finish' : 'Next';
@@ -905,7 +916,7 @@ function renderAnswerArea(q) {
   const picked = S.ans[q.id];
   const checked = S.checked[q.id];
   let html = '';
-  if (q.qtype === 'spr' || !q.choices.length) {
+  if (q.spr) {
     html += `<div class="gridin-wrap">
       <input class="gridin" id="gi" type="text" placeholder="Enter your answer" value="${esc(picked&&picked!=='TIMEOUT'?picked:'')}" ${checked?'disabled':''}>
       ${!checked ? '<button class="btn-p" id="gi-submit" style="margin-top:12px;">Submit</button>' : ''}
@@ -919,7 +930,7 @@ function renderAnswerArea(q) {
   target.innerHTML = html;
   mathify(target);
 
-  if (q.qtype === 'spr' || !q.choices.length) {
+  if (q.spr) {
     const gi = $('gi');
     if (!checked) {
       const submit = () => { S.ans[q.id] = gi.value.trim(); grade(q); };
@@ -954,7 +965,7 @@ function isRight(q, val) {
   if (!val || val === 'TIMEOUT') return false;
   const a = String(q.answer||'').trim().toUpperCase();
   if (!a) return null;
-  if (q.qtype === 'spr' || !q.choices.length) {
+  if (q.spr) {
     const clean = (s) => String(s).toUpperCase().replace(/[\s,$]/g,'').replace(/\.0+$/,'');
     const av = clean(a), vv = clean(val);
     const af = parseFloat(av), vf = parseFloat(vv);
@@ -1009,7 +1020,7 @@ function openExplanation() {
       <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
       <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
       <div class="kv"><span>Difficulty</span><span>${esc(q.difficulty||'—')}</span></div>
-      <div class="kv"><span>Source</span><span>${esc(q.source||'CollegeBoard')} ${q.label&&q.label.startsWith('PT')?'· '+esc(q.label):''}</span></div>
+      <div class="kv"><span>Source</span><span>${esc(q.source||'CollegeBoard')}</span></div>
       <div class="kv"><span>ID</span><span class="mono">${esc(q.id)}</span></div>
     </div>
   </div></div>`;
@@ -1096,13 +1107,12 @@ $('btn-more').onclick = (e) => {
   m.style.right = '18px';
   m.innerHTML = `
     <button id="mm-clear-ko">Clear eliminations</button>
-    <button id="mm-explanation">Show explanation</button>
-    <button id="mm-quit" style="color:var(--red);">End session</button>`;
+    <button id="mm-explanation">Show explanation</button>`;
   $('overlay-root').appendChild(m);
   $('mm-clear-ko').onclick = () => { S.ko[curQ().id] = []; loadQuestion(); closeMenus(); };
   $('mm-explanation').onclick = () => { openExplanation(); closeMenus(); };
-  $('mm-quit').onclick = () => { confirmModal('End this practice session? Progress on answered questions is saved.', () => { stopTimer(); S=null; showHome(); }); closeMenus(); };
 };
+$('btn-dash').onclick = () => confirmModal('End this practice session? Progress on answered questions is saved.', () => { stopTimer(); S = null; showHome(); });
 function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.more-menu')) closeMenus(); });
 

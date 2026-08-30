@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS questions (
   explanation_html TEXT,
   source TEXT,
   source_page INTEGER,
-  has_figure INTEGER DEFAULT 0
+  has_figure INTEGER DEFAULT 0,
+  stem_text TEXT DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS progress (
   user_id TEXT NOT NULL,
