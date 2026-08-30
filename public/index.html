@@ -111,6 +111,8 @@ img { max-width: 100%; height: auto; }
 .panel-b { padding: 18px 20px; }
 .empty { color: var(--dim); font-size: 13.5px; padding: 18px 20px; }
 .theme-toggle { width: 38px; height: 38px; padding: 0; border-radius: 11px; font-size: 16px; }
+/* four narrower cards, so the dashboard row does not wrap 3 + 1 */
+#db-overview { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 
 .frow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ctrls { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; padding: 18px 20px; }
@@ -133,7 +135,7 @@ select:hover { border-color: var(--border2); }
 .tl-head span + span { text-align: right; }
 .dom { border-bottom: 1px solid var(--border); }
 .dom:last-child { border-bottom: 0; }
-.dom-h { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text); padding: 14px 20px 12px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.dom-h { display: flex; align-items: center; gap: 13px; width: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text); padding: 17px 20px 14px; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
 .dom-h:hover:not(:disabled) { background: var(--bg2); border-color: transparent; }
 .dom-h .cnt { margin-left: auto; font-size: 12.5px; font-weight: 500; color: var(--dim); }
 .dom-h .chev { color: var(--dim); transition: transform .15s; }
@@ -163,6 +165,50 @@ select:hover { border-color: var(--border2); }
 .browse-table td:nth-child(2) { white-space: nowrap; }
 .browse-table tbody tr:hover td { background: var(--bg2); cursor: pointer; }
 
+/* segmented range picker, shared by the dashboard and the mistakes page */
+.seg { display: inline-flex; background: var(--bg2); border: 1px solid var(--border); border-radius: 11px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: transparent; border-radius: 8px; padding: 6px 13px; font-size: 12.5px; font-weight: 600; color: var(--dim); }
+.seg button:hover:not(:disabled) { background: transparent; color: var(--text); }
+.seg button.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.09); }
+
+/* activity chart. Columns are a fixed-height flex stack filled from the bottom,
+   so a bar is two percentage heights and needs no library or canvas. */
+.chart { display: flex; align-items: flex-end; gap: 3px; height: 176px; padding: 20px 20px 0; }
+.cbar { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.cbar i { display: block; border-radius: 2px; }
+.cbar i + i { margin-top: 1px; }
+.cbar .ok { background: var(--mint); }
+.cbar .no { background: var(--red); }
+.cbar .zero { height: 3px; background: var(--border); }
+.cbar:hover i { filter: brightness(1.12); }
+.chart-x { display: flex; gap: 3px; padding: 9px 20px 18px; }
+.chart-x span { flex: 1 1 0; min-width: 0; text-align: center; font-size: 10.5px; color: var(--dim2); overflow: visible; white-space: nowrap; }
+.legend { display: flex; gap: 15px; font-size: 12px; color: var(--dim); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; }
+
+/* one square per day, seven rows to a column, so a column is a week */
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; padding: 20px; overflow-x: auto; }
+.heat i { width: 11px; height: 11px; border-radius: 3px; background: var(--border); }
+.heat i.fut { opacity: 0; }
+.heat i.l1 { background: #b7ecce; } .heat i.l2 { background: #79dfa8; }
+.heat i.l3 { background: #35d07f; } .heat i.l4 { background: #1a8f53; }
+:root[data-theme="dark"] .heat i.l1 { background: #143d28; } :root[data-theme="dark"] .heat i.l2 { background: #1a6640; }
+:root[data-theme="dark"] .heat i.l3 { background: #27a463; } :root[data-theme="dark"] .heat i.l4 { background: #35d07f; }
+
+/* mistakes drill */
+.mk-card { padding: 15px 20px; border-bottom: 1px solid var(--border); cursor: pointer; }
+.mk-card:last-child { border-bottom: 0; }
+.mk-card:hover { background: var(--bg2); }
+.mk-tags { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; margin-bottom: 9px; }
+.tag { font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--bg2); border: 1px solid var(--border); color: var(--dim); white-space: nowrap; }
+.tag.t-easy { color: var(--green); background: var(--green-bg); border-color: transparent; }
+.tag.t-medium { color: var(--orange); background: var(--orange-bg); border-color: transparent; }
+.tag.t-hard { color: var(--red); background: var(--red-bg); border-color: transparent; }
+.tag.t-wrong { color: var(--red); background: var(--red-bg); border-color: transparent; }
+.tag.t-fixed { color: var(--green); background: var(--green-bg); border-color: transparent; }
+.tag.t-skill { margin-left: auto; }
+.mk-stem { font-size: 14px; line-height: 1.55; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
 @media (max-width: 980px) {
   .nav { flex-basis: 66px; padding: 16px 8px; }
   .nav-brand > span, .nav-grp, .nav-i > span, .nav-um { display: none; }
@@ -174,6 +220,8 @@ select:hover { border-color: var(--border2); }
   .tl-head span:nth-child(2), .tl-row .bar { display: none; }
   .prog-item { grid-template-columns: 1fr 140px; }
   .prog-item .bar { display: none; }
+  .dom-h { font-size: 17px; }
+  .chart { height: 140px; }
 }
 
 /* ---------- TEST PLAYER ---------- */
@@ -353,6 +401,7 @@ img.minl { mix-blend-mode: multiply; }
     <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
 
     <div class="nav-grp">Progress</div>
+    <button class="nav-i" data-tab="mistakes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 15H4z"/><path d="M12 9v4M12 16.2v.1"/></svg><span>Mistakes</span></button>
     <button class="nav-i" data-tab="dash"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span>Dashboard</span></button>
 
     <div class="nav-sp"></div>
@@ -401,7 +450,8 @@ img.minl { mix-blend-mode: multiply; }
             <label class="ctrl"><span>Source</span>
               <select id="f-src">
                 <option value="official">Question Bank</option>
-                <option value="mistakes">My PT Mistakes</option>
+                <option value="pt">Practice tests</option>
+                <option value="mistakes">My mistakes</option>
               </select></label>
             <label class="ctrl"><span>Questions</span>
               <select id="num-q">
@@ -428,10 +478,62 @@ img.minl { mix-blend-mode: multiply; }
       </div>
 
       <div id="tab-dash" class="hide">
+        <div class="frow" style="justify-content:space-between;margin-bottom:16px">
+          <div class="seg" id="db-range">
+            <button data-r="7">7 days</button>
+            <button data-r="30" class="on">30 days</button>
+            <button data-r="365">12 months</button>
+            <button data-r="0">All time</button>
+          </div>
+          <div class="legend"><span><i style="background:var(--mint)"></i>Correct</span><span><i style="background:var(--red)"></i>Wrong</span></div>
+        </div>
         <div class="cards" id="db-overview"></div>
+        <div class="panel">
+          <div class="panel-h"><h3>Questions answered</h3><span class="sub" id="db-act-sub" style="color:var(--dim);font-size:13px"></span></div>
+          <div id="db-activity"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h3>Practice activity</h3><span class="sub" id="db-heat-sub" style="color:var(--dim);font-size:13px"></span></div>
+          <div id="db-heat"></div>
+        </div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by difficulty</h3></div><div id="db-diffs"></div></div>
         <div class="panel"><div class="panel-h"><h3>By section</h3></div><div id="db-sections"></div></div>
         <div class="panel"><div class="panel-h"><h3>By domain</h3></div><div id="db-domains"></div></div>
         <div class="panel"><div class="panel-h"><h3>By skill</h3></div><div id="db-skills"></div></div>
+      </div>
+
+      <div id="tab-mistakes" class="hide">
+        <div class="panel">
+          <div class="panel-h">
+            <div class="seg" id="mk-status">
+              <button data-s="wrong" class="on">Needs work</button>
+              <button data-s="fixed">Corrected</button>
+              <button data-s="all">All</button>
+            </div>
+            <div class="startbar">
+              <span id="mk-count" class="sub" style="color:var(--dim);font-size:13px"></span>
+              <button class="btn-p" id="mk-drill">Drill these</button>
+            </div>
+          </div>
+          <div class="ctrls" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
+            <label class="ctrl"><span>Section</span>
+              <select id="mk-sec">
+                <option value="all">Both sections</option>
+                <option value="Math">Math</option>
+                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
+              </select></label>
+            <label class="ctrl"><span>Difficulty</span>
+              <select id="mk-diff">
+                <option value="all">All difficulties</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select></label>
+            <label class="ctrl"><span>Topic</span>
+              <select id="mk-skill"><option value="all">All topics</option></select></label>
+          </div>
+        </div>
+        <div class="panel"><div id="mk-list"></div></div>
       </div>
 
       <div id="tab-browse" class="hide">
@@ -542,7 +644,7 @@ const LS = {
   set(k,v){ try{ localStorage.setItem('satq_'+k, JSON.stringify(v)); }catch(e){} }
 };
 
-let QS = [], PROG = {};
+let QS = [], PROG = {}, LOG = [];
 let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null });
 let S = null;
 let TAB = 'practice';
@@ -578,7 +680,7 @@ const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 async function loadProgress() {
   const local = LS.get('progress', {});
   PROG = authToken ? {} : local;
-  if (!authToken) { if (QS.length) { drawHomeStats(); drawFilters(); drawDash(); } return; }
+  if (!authToken) { LOG = LS.get('log', []); refresh(); return; }
   try {
     const r = await fetch('/api/progress', { headers: sbHeaders() });
     if (r.ok) (await r.json()).forEach(p => PROG[p.question_id] = p);
@@ -591,7 +693,39 @@ async function loadProgress() {
     saveProgress(orphans);
   }
   LS.set('progress', {});
-  if (QS.length) { drawHomeStats(); drawFilters(); drawDash(); }
+  await loadLog();
+  refresh();
+}
+
+// One row per answer. `progress` only ever holds a question's latest state, so
+// re-drilling an old question used to move it out of the day it was first done;
+// this log is append-only and keeps the history the graphs are drawn from.
+async function loadLog() {
+  const local = LS.get('log', []);
+  try {
+    const r = await fetch('/api/attempts', { headers: sbHeaders() });
+    LOG = r.ok ? await r.json() : [];
+  } catch (e) { LOG = []; }
+  const seen = new Set(LOG.map(a => a.question_id + '|' + a.ts));
+  const orphans = local.filter(a => !seen.has(a.question_id + '|' + a.ts));
+  if (orphans.length) { LOG = LOG.concat(orphans); saveLog(orphans); }
+  LS.set('log', []);
+}
+
+function saveLog(rows) {
+  if (!authToken) { LS.set('log', LOG); return; }
+  fetch('/api/attempts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+    body: JSON.stringify(rows)
+  }).catch(() => {});
+}
+
+// Every screen reads the same PROG/LOG, so they are redrawn together rather than
+// each caller picking a subset and letting two panels disagree.
+function refresh() {
+  if (!QS.length) return;
+  drawHomeStats(); drawFilters(); drawDash(); drawMistakes();
 }
 
 // One row or many. Signed out there is no account to put it in, so it waits in
@@ -639,9 +773,7 @@ async function load() {
   } catch(e) {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
   }
-  drawHomeStats();
-  drawFilters();
-  drawDash();
+  refresh();
 }
 
 // ---------------- home ----------------
@@ -652,9 +784,10 @@ const NAV = document.querySelectorAll('.nav-i');
 NAV.forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
   NAV.forEach(x => x.classList.toggle('on', x === b));
-  ['practice','dash','browse'].forEach(t => $('tab-'+t).classList.toggle('hide', TAB !== t));
+  ['practice','dash','browse','mistakes'].forEach(t => $('tab-'+t).classList.toggle('hide', TAB !== t));
   if (TAB === 'dash') drawDash();
   if (TAB === 'browse') drawBrowse();
+  if (TAB === 'mistakes') drawMistakes();
 });
 
 function greet() {
@@ -666,11 +799,16 @@ function greet() {
 
 // What the dropdowns leave on the table, before the topic ticks narrow it. The
 // topic list is drawn from this too, so the two can never disagree.
+// Red is a question whose last answer was wrong; Orange is one you got wrong and
+// have since corrected. Both are questions you have got wrong, so both drill.
+const everWrong = (id) => { const p = PROG[id]; return !!p && (p.marker === 'Red' || p.marker === 'Orange'); };
+
 function base() {
   return QS.filter(q => {
-    // `label` is not a column; the practice-test rows are the ones the import
-    // tagged source Bluebook, so filter on that instead of on undefined.
-    if ((q.source === 'Bluebook') !== (F.src === 'mistakes')) return false;
+    // The practice-test rows are the ones the import tagged source Bluebook.
+    // Mistakes are not a source at all, they cut across both.
+    if (F.src === 'mistakes') { if (!everWrong(q.id)) return false; }
+    else if ((q.source === 'Bluebook') !== (F.src === 'pt')) return false;
     if (F.sec !== 'all' && q.section !== F.sec) return false;
     if (F.diff !== 'all' && (q.difficulty||'').toLowerCase() !== F.diff.toLowerCase()) return false;
     return true;
@@ -712,10 +850,11 @@ const pctOf = (v) => v.a ? Math.round(v.c/v.a*100) : null;
 const accHTML = (pct) => pct == null ? '&mdash;'
   : `<span class="dot-a" style="background:${pct>=80?'var(--green)':pct>=60?'var(--orange)':'var(--red)'}"></span><b>${pct}%</b>`;
 
+// Counted through tally() so the cards here and the dashboard cannot disagree.
+// They used to: this counted every PROG row including untouched ones, and scored
+// only Green, while tally() requires an attempt and counts Orange as correct.
 function drawHomeStats() {
-  const att = Object.keys(PROG).length;
-  let corr = 0;
-  Object.values(PROG).forEach(p => { if (p.marker === 'Green') corr++; });
+  const t = tally(), att = t.att, corr = t.corr;
   $('home-stats').innerHTML = `
     <div class="card"><div class="k">Question bank</div><div class="v mono">${QS.length.toLocaleString()}</div></div>
     <div class="card"><div class="k">Attempted</div><div class="v mono">${att}</div></div>
@@ -798,22 +937,220 @@ $('topic-none').onclick = () => { F.skills = []; LS.set('filters', F); drawFilte
 $('btn-start').onclick = () => start(pool());
 
 // ---------------- dashboard ----------------
+// Dates are bucketed on the local calendar, not UTC: a question answered at
+// 11pm belongs to the day you were sitting there, not to tomorrow.
+const pad2 = (n) => String(n).padStart(2, '0');
+const dkey = (d) => d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+const mkey = (d) => d.getFullYear() + '-' + pad2(d.getMonth()+1);
+
+let DBR = 30;
+
+// Days for the short ranges, months once a year of them would not fit on screen.
+function buckets(range) {
+  const now = new Date(), out = [], byMonth = range === 0 || range > 90;
+  if (!byMonth) {
+    for (let i = range - 1; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i);
+      out.push({ k: dkey(d), lab: range <= 7
+        ? d.toLocaleDateString(undefined, { weekday: 'short' })
+        : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), ok: 0, no: 0, ms: 0 });
+    }
+  } else {
+    const months = range ? Math.round(range / 30) : 0;
+    let first = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (months) { first.setMonth(first.getMonth() - (months - 1)); }
+    else if (LOG.length) {
+      const e = LOG.reduce((m, x) => (x.ts < m ? x.ts : m), LOG[0].ts);
+      const d = new Date(e); first = new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+    for (const d = new Date(first); d <= now; d.setMonth(d.getMonth() + 1))
+      out.push({ k: mkey(d), lab: d.toLocaleDateString(undefined, { month: 'short' }), ok: 0, no: 0, ms: 0 });
+  }
+  const idx = new Map(out.map(x => [x.k, x]));
+  LOG.forEach(x => {
+    const t = new Date(x.ts), slot = idx.get(byMonth ? mkey(t) : dkey(t));
+    if (!slot) return;
+    x.correct ? slot.ok++ : slot.no++;
+    slot.ms += x.time_taken_ms || 0;
+  });
+  return out;
+}
+
+// Correct sits at the bottom of the column, wrong stacks on top of it.
+function chartHTML(bs) {
+  const max = Math.max(1, ...bs.map(x => x.ok + x.no));
+  const h = (n) => (n / max * 100).toFixed(2);
+  const step = Math.ceil(bs.length / 12);
+  return `<div class="chart">${bs.map(x => {
+    const tot = x.ok + x.no;
+    const body = tot
+      ? `<i class="no" style="height:${h(x.no)}%"></i><i class="ok" style="height:${h(x.ok)}%"></i>`
+      : '<i class="zero"></i>';
+    return `<span class="cbar" title="${esc(x.lab || x.k)} \u2014 ${tot} answered, ${x.ok} correct">${body}</span>`;
+  }).join('')}</div>
+  <div class="chart-x">${bs.map((x, i) => `<span>${i % step ? '' : esc(x.lab)}</span>`).join('')}</div>`;
+}
+
+// Half a year of squares, seven rows to a column so each column is one week.
+function heatHTML() {
+  const per = {};
+  LOG.forEach(x => { const k = dkey(new Date(x.ts)); per[k] = (per[k] || 0) + 1; });
+  const today = new Date(), end = new Date(today);
+  end.setDate(end.getDate() + (6 - end.getDay()));   // run to the end of this week
+  const lvl = (n) => !n ? '' : n < 3 ? 'l1' : n < 8 ? 'l2' : n < 20 ? 'l3' : 'l4';
+  let out = '';
+  for (let i = 26 * 7 - 1; i >= 0; i--) {
+    const d = new Date(end); d.setDate(d.getDate() - i);
+    const k = dkey(d), n = per[k] || 0;
+    out += `<i class="${d > today ? 'fut' : lvl(n)}" title="${k} \u2014 ${n} answered"></i>`;
+  }
+  return `<div class="heat">${out}</div>`;
+}
+
+// Days in a row, counting back. Today being empty does not break yesterday's run
+// until the day is actually over, so the number does not flicker each morning.
+function streak() {
+  const days = new Set(LOG.map(x => dkey(new Date(x.ts))));
+  const d = new Date();
+  if (!days.has(dkey(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (days.has(dkey(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+
+const bars = (map) => Object.entries(map)
+  .sort((a, b) => b[1].a - a[1].a || a[0].localeCompare(b[0]))
+  .map(([k, v]) => `<div class="prog-item"><b>${esc(k)}</b>
+    <span class="bar"><i style="width:${v.n ? Math.round(v.a/v.n*100) : 0}%"></i></span>
+    <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.a}/${v.n}</span></div>`)
+  .join('') || '<div class="empty">No attempts yet.</div>';
+
 function drawDash() {
   const t = tally();
+  const bs = buckets(DBR);
+  const win = bs.reduce((o, x) => ({ ok: o.ok + x.ok, no: o.no + x.no, ms: o.ms + x.ms }), { ok:0, no:0, ms:0 });
+  const done = win.ok + win.no;
+  const label = DBR === 0 ? 'all time' : DBR === 7 ? 'the last 7 days' : DBR === 30 ? 'the last 30 days' : 'the last 12 months';
+
   $('db-overview').innerHTML = `
-    <div class="card"><div class="k">Questions attempted</div><div class="v mono">${t.att}</div></div>
-    <div class="card"><div class="k">Accuracy</div><div class="v mono">${t.att?Math.round(t.corr/t.att*100):0}%</div></div>
-    <div class="card"><div class="k">Avg time / question</div><div class="v mono">${t.att?Math.round(t.ms/t.att/1000):0}s</div></div>`;
-  const bars = (map) => Object.entries(map)
-    .sort((a,b) => b[1].a - a[1].a || a[0].localeCompare(b[0]))
-    .map(([k,v]) => `<div class="prog-item"><b>${esc(k)}</b>
-      <span class="bar"><i style="width:${v.n?Math.round(v.a/v.n*100):0}%"></i></span>
-      <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.a}/${v.n}</span></div>`)
-    .join('') || '<div class="empty">No attempts yet.</div>';
+    <div class="card"><div class="k">Answered</div><div class="v mono">${done.toLocaleString()}</div></div>
+    <div class="card"><div class="k">Accuracy</div><div class="v mono">${done ? Math.round(win.ok/done*100) : 0}%</div></div>
+    <div class="card"><div class="k">Avg time / question</div><div class="v mono">${done ? Math.round(win.ms/done/1000) : 0}s</div></div>
+    <div class="card"><div class="k">Day streak</div><div class="v mono">${streak()}</div></div>`;
+  $('db-act-sub').textContent = `${done.toLocaleString()} answered over ${label}`;
+  $('db-activity').innerHTML = LOG.length
+    ? chartHTML(bs) : '<div class="empty">Answer a question and this fills in.</div>';
+
+  const uniq = new Set(LOG.map(x => dkey(new Date(x.ts))));
+  $('db-heat-sub').textContent = `${LOG.length.toLocaleString()} answered across ${uniq.size} day${uniq.size===1?'':'s'}`;
+  $('db-heat').innerHTML = heatHTML();
+
+  // Difficulty is read off the log, not off PROG, so answering a question twice
+  // counts twice here the same way it counts twice in the chart above it.
+  const qid = new Map(QS.map(q => [q.id, q]));
+  const dm = {};
+  LOG.forEach(x => {
+    const q = qid.get(x.question_id); if (!q) return;
+    const k = q.difficulty || 'Unknown';
+    const v = dm[k] = dm[k] || { a:0, c:0, n:0 };
+    v.a++; v.n++; if (x.correct) v.c++;
+  });
+  const order = ['Easy','Medium','Hard','Unknown'];
+  const ds = Object.keys(dm).sort((x, y) => order.indexOf(x) - order.indexOf(y));
+  $('db-diffs').innerHTML = ds.map(k => {
+    const v = dm[k];
+    return `<div class="prog-item"><b>${esc(k)}</b>
+      <span class="bar"><i style="width:${pctOf(v) || 0}%"></i></span>
+      <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.c}/${v.a}</span></div>`;
+  }).join('') || '<div class="empty">No attempts yet.</div>';
+
   $('db-sections').innerHTML = bars(t.sec);
   $('db-domains').innerHTML = bars(t.dom);
   $('db-skills').innerHTML = bars(t.skill);
 }
+
+document.querySelectorAll('#db-range button').forEach(b => b.onclick = () => {
+  DBR = parseInt(b.dataset.r);
+  document.querySelectorAll('#db-range button').forEach(x => x.classList.toggle('on', x === b));
+  drawDash();
+});
+
+// ---------------- mistakes ----------------
+const MK = { sec:'all', diff:'all', skill:'all', status:'wrong' };
+// Tags out, then entities decoded, or the preview prints "Wigan&#x27;s". The
+// decode goes through a textarea because its content is raw text: no elements are
+// built and no <img> in the stem gets fetched just to read a two-line preview.
+const DECODER = document.createElement('textarea');
+const plain = (h) => {
+  DECODER.innerHTML = (h || '').replace(/<[^>]+>/g, ' ');
+  return (DECODER.value || '').replace(/\s+/g, ' ').trim();
+};
+
+// Everything you have ever got wrong, before the page's own dropdowns narrow it.
+// Section and difficulty come off the question; status comes off the marker.
+function wrongSet() { return QS.filter(wrongSet.one); }
+wrongSet.one = (q) => {
+  if (!everWrong(q.id)) return false;
+  const fixed = PROG[q.id].marker === 'Orange';
+  if (MK.status === 'wrong' && fixed) return false;
+  if (MK.status === 'fixed' && !fixed) return false;
+  if (MK.sec !== 'all' && q.section !== MK.sec) return false;
+  if (MK.diff !== 'all' && (q.difficulty||'').toLowerCase() !== MK.diff.toLowerCase()) return false;
+  if (MK.skill !== 'all' && (q.skill || 'Other') !== MK.skill) return false;
+  return true;
+};
+
+function drawMistakes() {
+  // Built with every filter except the topic one, so choosing a topic does not
+  // empty the dropdown it was chosen from, and no topic is offered with nothing
+  // behind it. A pick that the other filters have made impossible falls back to all.
+  const pool = QS.filter(q => {
+    const save = MK.skill; MK.skill = 'all';
+    const ok = wrongSet.one(q); MK.skill = save; return ok;
+  });
+  const skills = [...new Set(pool.map(q => q.skill || 'Other'))].sort();
+  if (MK.skill !== 'all' && !skills.includes(MK.skill)) MK.skill = 'all';
+  $('mk-skill').innerHTML = '<option value="all">All topics</option>' +
+    skills.map(sk => `<option value="${esc(sk)}"${sk === MK.skill ? ' selected' : ''}>${esc(sk)}</option>`).join('');
+  $('mk-sec').value = MK.sec; $('mk-diff').value = MK.diff;
+
+  const list = wrongSet();
+  $('mk-count').textContent = `${list.length.toLocaleString()} question${list.length === 1 ? '' : 's'}`;
+  $('mk-drill').disabled = list.length === 0;
+  $('mk-list').innerHTML = list.slice(0, 200).map(q => {
+    const fixed = PROG[q.id].marker === 'Orange';
+    const d = q.difficulty || '';
+    return `<div class="mk-card" data-id="${esc(q.id)}">
+      <div class="mk-tags">
+        <span class="tag">${esc(q.section || '\u2014')}</span>
+        ${d ? `<span class="tag t-${esc(d.toLowerCase())}">${esc(d)}</span>` : ''}
+        <span class="tag ${fixed ? 't-fixed' : 't-wrong'}">${fixed ? 'Corrected' : 'Incorrect'}</span>
+        <span class="tag t-skill">${esc(q.skill || 'Other')}</span>
+      </div>
+      <div class="mk-stem">${esc(plain(q.stem_html).slice(0, 220)) || '(no text)'}</div>
+    </div>`;
+  }).join('') || '<div class="empty">Nothing here \u2014 answer some questions and the ones you miss collect on this page.</div>';
+  if (list.length > 200)
+    $('mk-list').insertAdjacentHTML('beforeend',
+      `<div class="empty">Showing the first 200 of ${list.length.toLocaleString()}. Drill them to work through the rest.</div>`);
+
+  $('mk-list').querySelectorAll('.mk-card').forEach(c => c.onclick = () => {
+    const q = QS.find(x => x.id === c.dataset.id);
+    if (q) start([q]);
+  });
+}
+
+['sec','diff','skill'].forEach(k => $('mk-'+k).onchange = (e) => { MK[k] = e.target.value; drawMistakes(); });
+document.querySelectorAll('#mk-status button').forEach(b => b.onclick = () => {
+  MK.status = b.dataset.s;
+  document.querySelectorAll('#mk-status button').forEach(x => x.classList.toggle('on', x === b));
+  drawMistakes();
+});
+$('mk-drill').onclick = () => {
+  const a = wrongSet();
+  for (let i = a.length-1; i > 0; i--) { const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; }
+  if (a.length) start(a);
+};
 
 // ---------------- browse ----------------
 let browsePage = 0;
@@ -1194,6 +1531,9 @@ function grade(q) {
   p.time_taken_ms = Math.round((Date.now()-S.qStart));
   PROG[q.id] = p;
   saveProgress([p]);
+  const ev = { question_id: q.id, ts: p.last_reviewed, correct: ok === true ? 1 : 0, time_taken_ms: p.time_taken_ms };
+  LOG.push(ev);
+  saveLog([ev]);
   renderAnswerArea(q);
 }
 
@@ -1456,7 +1796,7 @@ function showHome() {
   $('view-results').classList.add('hide');
   $('view-home').classList.remove('hide');
   closeDesmos();
-  load();
+  refresh();
 }
 
 // ---- AI Tutor Chat ----
