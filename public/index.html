@@ -63,39 +63,118 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--blue); outl
 img { max-width: 100%; height: auto; }
 
 /* ---------- HOME ---------- */
-#view-home { height: 100vh; overflow-y: auto; }
-.home-wrap { max-width: 1060px; margin: 0 auto; padding: 32px 24px 64px; }
-.brand { display: flex; align-items: center; gap: 10px; }
-.brand-dot { width: 34px; height: 34px; border-radius: 10px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; }
-.theme-toggle { width: 36px; height: 36px; padding: 0; border-radius: 9px; font-size: 16px; }
-.brand h1 { font-size: 20px; margin: 0; font-weight: 700; letter-spacing: -0.02em; }
-.brand .sub { font-size: 12.5px; color: var(--dim); margin-top: 1px; }
-.tabs { display: flex; gap: 4px; background: var(--bg2); padding: 4px; border-radius: 10px; width: fit-content; margin: 26px 0 20px; }
-.tab { border: 0; background: transparent; padding: 8px 18px; border-radius: 8px; font-weight: 600; font-size: 14px; color: var(--dim); }
-.tab.on { background: var(--panel); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 18px 0; }
-.card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
-.card .k { font-size: 12px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
-.card .v { font-size: 28px; font-weight: 700; margin-top: 6px; }
-.fset { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; margin-bottom: 16px; }
-.fset h3 { margin: 0 0 14px; font-size: 15px; font-weight: 700; }
-.frow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
-.frow:last-child { margin-bottom: 0; }
-.lbl { font-size: 13px; color: var(--dim); font-weight: 600; width: 86px; flex: 0 0 86px; }
-.chip { padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 500; background: var(--panel); }
-.chip.on { background: transparent; border-color: var(--blue); box-shadow: inset 0 0 0 1px var(--blue); color: var(--text); font-weight: 600; }
-.startbar { display: flex; align-items: center; gap: 16px; margin-top: 22px; }
-#btn-start { font-size: 16px; padding: 13px 34px; border-radius: 12px; }
-select, input[type=number], input[type=text], input[type=email], input[type=password] { font-family: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); }
+/* A dark rail pinned left, the work on a light board beside it. The rail keeps
+   its own palette in both themes - that contrast is what carries the look. */
+:root {
+  --nav: #101423; --nav-2: #1b2033; --nav-line: #232941;
+  --nav-txt: #9aa2ba; --nav-dim: #5d6784; --nav-on: #ffffff;
+  --mint: #35d07f; --mint-ink: #06301b;
+  --r: 18px;
+}
+:root[data-theme="dark"] { --nav: #0a0d16; --nav-2: #161b28; --nav-line: #1f2534; }
 
-.prog-item { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); margin-bottom: 8px; }
-.prog-bar-bg { flex: 0 1 300px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; margin: 0 16px; }
-.prog-bar-fg { height: 100%; background: var(--green); border-radius: 4px; }
+#view-home { height: 100vh; display: flex; overflow: hidden; }
 
-.browse-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-.browse-table th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--dim); padding: 11px 14px; border-bottom: 1px solid var(--border); background: var(--bg2); }
-.browse-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
-.browse-table tr:hover td { background: var(--bg2); cursor: pointer; }
+.nav { flex: 0 0 246px; background: var(--nav); display: flex; flex-direction: column; padding: 18px 12px; overflow-y: auto; }
+.nav-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 6px; color: var(--nav-on); font-weight: 700; font-size: 15.5px; letter-spacing: -.01em; }
+.nav-brand .dot { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 10px; background: var(--mint); color: var(--mint-ink); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; }
+.nav-grp { font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--nav-dim); padding: 18px 10px 7px; }
+.nav-i { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--nav-txt); font-size: 14px; font-weight: 500; padding: 10px; border-radius: 11px; margin-bottom: 2px; }
+.nav-i:hover:not(:disabled) { background: var(--nav-2); border-color: transparent; color: var(--nav-on); }
+.nav-i.on { background: var(--nav-2); color: var(--nav-on); font-weight: 600; }
+.nav-i.on svg { color: var(--mint); }
+.nav-i svg { flex: 0 0 18px; }
+.nav-sp { flex: 1 1 auto; min-height: 18px; }
+.nav-user { display: flex; align-items: center; gap: 10px; padding: 12px 10px 10px; border-top: 1px solid var(--nav-line); }
+.nav-av { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; background: var(--nav-2); color: var(--nav-on); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+.nav-um { min-width: 0; }
+.nav-um b { display: block; color: var(--nav-on); font-size: 13.5px; font-weight: 600; }
+.nav-um span { display: block; color: var(--nav-dim); font-size: 11.5px; }
+.nav-um b, .nav-um span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#btn-auth { width: 100%; background: var(--nav-2); border-color: var(--nav-line); color: var(--nav-on); font-weight: 600; }
+#btn-auth:hover:not(:disabled) { background: #262d42; border-color: #303852; }
+
+.board { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--bg); }
+.board-h { flex: 0 0 auto; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 26px 32px 18px; }
+.board-h h1 { margin: 0; font-size: 25px; font-weight: 700; letter-spacing: -.025em; }
+.board-h .sub { font-size: 13px; color: var(--dim); margin-top: 4px; }
+.board-b { flex: 1; min-height: 0; overflow-y: auto; padding: 0 32px 48px; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 0 0 18px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); padding: 18px 20px; }
+.card .k { font-size: 11.5px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+.card .v { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; }
+
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 18px; overflow: hidden; }
+.panel-h { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 17px 20px; border-bottom: 1px solid var(--border); }
+.panel-h h3 { margin: 0; font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; }
+.panel-b { padding: 18px 20px; }
+.empty { color: var(--dim); font-size: 13.5px; padding: 18px 20px; }
+.theme-toggle { width: 38px; height: 38px; padding: 0; border-radius: 11px; font-size: 16px; }
+
+.frow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ctrls { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; padding: 18px 20px; }
+.ctrl { display: flex; flex-direction: column; gap: 7px; }
+.ctrl > span { font-size: 11.5px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
+.ctrl select { width: 100%; }
+.startbar { display: flex; align-items: center; gap: 14px; }
+#btn-start { padding: 11px 26px; border-radius: 11px; font-size: 14.5px; }
+
+select, input[type=number], input[type=text], input[type=email], input[type=password] { font-family: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--text); }
+select { appearance: none; -webkit-appearance: none; padding-right: 34px; font-weight: 500;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; }
+select:hover { border-color: var(--border2); }
+:root[data-theme="dark"] select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); }
+
+/* topic picker: domains open, one row per skill, the way the bank reads */
+.tl-head, .tl-row { display: grid; grid-template-columns: minmax(0,1fr) 150px 70px 72px; align-items: center; gap: 12px; }
+.tl-head { padding: 12px 20px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--dim2); border-bottom: 1px solid var(--border); }
+.tl-head span + span { text-align: right; }
+.dom { border-bottom: 1px solid var(--border); }
+.dom:last-child { border-bottom: 0; }
+.dom-h { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-radius: 0; background: transparent; color: var(--text); padding: 14px 20px 12px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+.dom-h:hover:not(:disabled) { background: var(--bg2); border-color: transparent; }
+.dom-h .cnt { margin-left: auto; font-size: 12.5px; font-weight: 500; color: var(--dim); }
+.dom-h .chev { color: var(--dim); transition: transform .15s; }
+.dom.shut .chev { transform: rotate(-90deg); }
+.dom.shut .dom-b { display: none; }
+.dom-b { padding-bottom: 8px; }
+.tl-row { padding: 8px 20px; cursor: pointer; }
+.tl-row:hover { background: var(--bg2); }
+.tl-n { display: flex; align-items: center; gap: 12px; min-width: 0; font-size: 13.5px; }
+.tl-n b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tick { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid var(--border2); display: inline-flex; align-items: center; justify-content: center; color: transparent; }
+.tick.on { background: var(--mint); border-color: var(--mint); color: var(--mint-ink); }
+.bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; background: var(--mint); }
+.tl-c, .tl-a { text-align: right; font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+.tl-a b { color: var(--text); font-weight: 600; }
+.dot-a { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+
+.prog-item { display: grid; grid-template-columns: 1fr 200px 140px; align-items: center; gap: 16px; padding: 11px 20px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.prog-item:last-child { border-bottom: 0; }
+.prog-item > b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.browse-table { width: 100%; border-collapse: collapse; }
+.browse-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim2); padding: 12px 20px; border-bottom: 1px solid var(--border); font-weight: 700; }
+.browse-table td { padding: 10px 20px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.browse-table tr:last-child td { border-bottom: 0; }
+.browse-table td:nth-child(2) { white-space: nowrap; }
+.browse-table tbody tr:hover td { background: var(--bg2); cursor: pointer; }
+
+@media (max-width: 980px) {
+  .nav { flex-basis: 66px; padding: 16px 8px; }
+  .nav-brand > span, .nav-grp, .nav-i > span, .nav-um { display: none; }
+  .nav-brand, .nav-i, .nav-user { justify-content: center; }
+  #btn-auth { font-size: 0; padding: 10px 0; }
+  #btn-auth::after { content: "\2192"; font-size: 15px; }
+  .board-h, .board-b { padding-left: 18px; padding-right: 18px; }
+  .tl-head, .tl-row { grid-template-columns: 1fr 74px 74px; }
+  .tl-head span:nth-child(2), .tl-row .bar { display: none; }
+  .prog-item { grid-template-columns: 1fr 140px; }
+  .prog-item .bar { display: none; }
+}
 
 /* ---------- TEST PLAYER ---------- */
 #view-test { height: 100vh; display: flex; flex-direction: column; }
@@ -266,96 +345,114 @@ img.minl { mix-blend-mode: multiply; }
 
 <!-- ================= HOME ================= -->
 <div id="view-home">
-  <div class="home-wrap">
-    <div class="brand">
-      <div class="brand-dot">S</div>
+  <aside class="nav">
+    <div class="nav-brand"><span class="dot">S</span><span>SAT Question Bank</span></div>
+
+    <div class="nav-grp">Practice</div>
+    <button class="nav-i on" data-tab="practice"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v6H4z"/><path d="M4 15h9v4H4z"/></svg><span>Question Bank</span></button>
+    <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
+
+    <div class="nav-grp">Progress</div>
+    <button class="nav-i" data-tab="dash"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span>Dashboard</span></button>
+
+    <div class="nav-sp"></div>
+    <div class="nav-user">
+      <span class="nav-av" id="nav-av">G</span>
+      <div class="nav-um"><b id="user-name">Guest</b><span id="nav-sub">Not signed in</span></div>
+    </div>
+    <button id="btn-auth">Sign in</button>
+  </aside>
+
+  <main class="board">
+    <header class="board-h">
       <div>
-        <h1>SAT Question Bank</h1>
-        <div class="sub" id="src-pill">Loading…</div>
+        <h1 id="greet">Welcome back</h1>
+        <div class="sub" id="src-pill">Loading&#8230;</div>
       </div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
-        <span id="user-name" class="sub" style="font-weight:600;display:none"></span>
-        <button id="btn-auth" class="btn-p">Sign in</button>
-        <button class="theme-toggle" data-theme-toggle title="Toggle dark mode">🌙</button>
-      </div>
-    </div>
+      <button class="theme-toggle" data-theme-toggle title="Toggle dark mode">&#127769;</button>
+    </header>
 
-    <div class="tabs">
-      <button class="tab on" data-tab="practice">Practice</button>
-      <button class="tab" data-tab="dash">Dashboard</button>
-      <button class="tab" data-tab="browse">Browse</button>
-    </div>
+    <div class="board-b">
+      <div id="tab-practice">
+        <div class="cards" id="home-stats"></div>
 
-    <div id="tab-practice">
-      <div class="cards" id="home-stats"></div>
-      <div class="fset">
-        <h3>Build your practice set</h3>
-        <div class="frow">
-          <span class="lbl">Section</span>
-          <button class="chip on" data-f="sec" data-v="all">Both</button>
-          <button class="chip" data-f="sec" data-v="Math">Math</button>
-          <button class="chip" data-f="sec" data-v="Reading &amp; Writing">Reading &amp; Writing</button>
+        <div class="panel">
+          <div class="panel-h">
+            <h3>Build your practice set</h3>
+            <div class="startbar">
+              <span id="start-count" class="sub" style="color:var(--dim);font-size:13px"></span>
+              <button class="btn-p" id="btn-start">Start practice</button>
+            </div>
+          </div>
+          <div class="ctrls">
+            <label class="ctrl"><span>Section</span>
+              <select id="f-sec">
+                <option value="all">Both sections</option>
+                <option value="Math">Math</option>
+                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
+              </select></label>
+            <label class="ctrl"><span>Difficulty</span>
+              <select id="f-diff">
+                <option value="all">Any difficulty</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select></label>
+            <label class="ctrl"><span>Source</span>
+              <select id="f-src">
+                <option value="official">Question Bank</option>
+                <option value="mistakes">My PT Mistakes</option>
+              </select></label>
+            <label class="ctrl"><span>Questions</span>
+              <select id="num-q">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="30">30</option>
+                <option value="50">50</option>
+                <option value="0">All</option>
+              </select></label>
+          </div>
         </div>
-        <div class="frow">
-          <span class="lbl">Domain</span>
-          <button class="chip on" data-f="dom" data-v="all">All</button>
-          <span id="domain-chips" style="display:contents"></span>
+
+        <div class="panel">
+          <div class="panel-h">
+            <h3>Topics</h3>
+            <div class="frow">
+              <button id="topic-all">Select all</button>
+              <button id="topic-none">Clear</button>
+            </div>
+          </div>
+          <div class="tl-head"><span>Topic</span><span>Progress</span><span></span><span>Accuracy</span></div>
+          <div id="topic-list"></div>
         </div>
-        <div class="frow">
-          <span class="lbl">Difficulty</span>
-          <button class="chip on" data-f="diff" data-v="all">Any</button>
-          <button class="chip" data-f="diff" data-v="Easy">Easy</button>
-          <button class="chip" data-f="diff" data-v="Medium">Medium</button>
-          <button class="chip" data-f="diff" data-v="Hard">Hard</button>
+      </div>
+
+      <div id="tab-dash" class="hide">
+        <div class="cards" id="db-overview"></div>
+        <div class="panel"><div class="panel-h"><h3>By section</h3></div><div id="db-sections"></div></div>
+        <div class="panel"><div class="panel-h"><h3>By domain</h3></div><div id="db-domains"></div></div>
+        <div class="panel"><div class="panel-h"><h3>By skill</h3></div><div id="db-skills"></div></div>
+      </div>
+
+      <div id="tab-browse" class="hide">
+        <div class="panel">
+          <div class="panel-h">
+            <input type="text" id="browse-q" placeholder="Search domain, skill, id&#8230;" style="flex:1;max-width:380px">
+            <span id="browse-count" style="color:var(--dim);font-size:13px"></span>
+          </div>
+          <table class="browse-table">
+            <thead><tr><th style="width:110px">ID</th><th>Section</th><th>Domain</th><th>Skill</th><th>Diff.</th><th>Type</th></tr></thead>
+            <tbody id="browse-body"></tbody>
+          </table>
         </div>
-        <div class="frow">
-          <span class="lbl">Source</span>
-          <button class="chip on" data-f="src" data-v="official">Question Bank</button>
-          <button class="chip" data-f="src" data-v="mistakes">My PT Mistakes</button>
-        </div>
-        <div class="frow">
-          <span class="lbl">Questions</span>
-          <select id="num-q">
-            <option value="10">10</option>
-            <option value="20" selected>20</option>
-            <option value="30">30</option>
-            <option value="50">50</option>
-            <option value="0">All</option>
-          </select>
-        </div>
-        <div class="startbar">
-          <button class="btn-p" id="btn-start">Start practice</button>
-          <span id="start-count" style="color:var(--dim); font-weight:500;"></span>
+        <div class="frow" style="margin-top:14px">
+          <button id="browse-prev">&#8592; Prev</button>
+          <span id="browse-page" style="color:var(--dim);font-size:13px"></span>
+          <button id="browse-next">Next &#8594;</button>
         </div>
       </div>
     </div>
-
-    <div id="tab-dash" class="hide">
-      <div class="cards" id="db-overview"></div>
-      <h3 style="font-size:15px; margin:26px 0 10px;">Performance by section</h3>
-      <div id="db-sections"></div>
-      <h3 style="font-size:15px; margin:26px 0 10px;">Performance by subsection</h3>
-      <div id="db-domains"></div>
-      <h3 style="font-size:15px; margin:26px 0 10px;">Performance by skill</h3>
-      <div id="db-skills"></div>
-    </div>
-
-    <div id="tab-browse" class="hide">
-      <div class="frow" style="margin-bottom:12px;">
-        <input type="text" id="browse-q" placeholder="Search domain, skill, id…" style="flex:1; max-width:380px;">
-        <span id="browse-count" style="color:var(--dim); font-size:13px;"></span>
-      </div>
-      <table class="browse-table">
-        <thead><tr><th style="width:110px;">ID</th><th>Section</th><th>Domain</th><th>Skill</th><th>Diff.</th><th>Type</th></tr></thead>
-        <tbody id="browse-body"></tbody>
-      </table>
-      <div class="frow" style="margin-top:14px;">
-        <button id="browse-prev">← Prev</button>
-        <span id="browse-page" style="color:var(--dim); font-size:13px;"></span>
-        <button id="browse-next">Next →</button>
-      </div>
-    </div>
-  </div>
+  </main>
 </div>
 
 <!-- ================= TEST PLAYER ================= -->
@@ -446,7 +543,7 @@ const LS = {
 };
 
 let QS = [], PROG = {};
-let F = LS.get('filters', { sec:'all', dom:'all', diff:'all', src:'official' });
+let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null });
 let S = null;
 let TAB = 'practice';
 
@@ -481,7 +578,7 @@ const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 async function loadProgress() {
   const local = LS.get('progress', {});
   PROG = authToken ? {} : local;
-  if (!authToken) { if (QS.length) { drawHomeStats(); drawDash(); } return; }
+  if (!authToken) { if (QS.length) { drawHomeStats(); drawFilters(); drawDash(); } return; }
   try {
     const r = await fetch('/api/progress', { headers: sbHeaders() });
     if (r.ok) (await r.json()).forEach(p => PROG[p.question_id] = p);
@@ -494,7 +591,7 @@ async function loadProgress() {
     saveProgress(orphans);
   }
   LS.set('progress', {});
-  if (QS.length) { drawHomeStats(); drawDash(); }
+  if (QS.length) { drawHomeStats(); drawFilters(); drawDash(); }
 }
 
 // One row or many. Signed out there is no account to put it in, so it waits in
@@ -548,31 +645,72 @@ async function load() {
 }
 
 // ---------------- home ----------------
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+const TICK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+const NAV = document.querySelectorAll('.nav-i');
+NAV.forEach(b => b.onclick = () => {
   TAB = b.dataset.tab;
-  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x===b));
-  $('tab-practice').classList.toggle('hide', TAB!=='practice');
-  $('tab-dash').classList.toggle('hide', TAB!=='dash');
-  $('tab-browse').classList.toggle('hide', TAB!=='browse');
-  if (TAB==='dash') drawDash();
-  if (TAB==='browse') drawBrowse();
+  NAV.forEach(x => x.classList.toggle('on', x === b));
+  ['practice','dash','browse'].forEach(t => $('tab-'+t).classList.toggle('hide', TAB !== t));
+  if (TAB === 'dash') drawDash();
+  if (TAB === 'browse') drawBrowse();
 });
 
-function pool() {
-  let a = QS.filter(q => {
+function greet() {
+  const h = new Date().getHours();
+  const nm = ($('user-name').textContent || '').trim().split(' ')[0];
+  const when = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  $('greet').textContent = 'Good ' + when + (nm && nm !== 'Guest' ? ', ' + nm : '');
+}
+
+// What the dropdowns leave on the table, before the topic ticks narrow it. The
+// topic list is drawn from this too, so the two can never disagree.
+function base() {
+  return QS.filter(q => {
     // `label` is not a column; the practice-test rows are the ones the import
     // tagged source Bluebook, so filter on that instead of on undefined.
-    return (q.source === 'Bluebook') === (F.src === 'mistakes');
+    if ((q.source === 'Bluebook') !== (F.src === 'mistakes')) return false;
+    if (F.sec !== 'all' && q.section !== F.sec) return false;
+    if (F.diff !== 'all' && (q.difficulty||'').toLowerCase() !== F.diff.toLowerCase()) return false;
+    return true;
   });
-  if (F.sec !== 'all') a = a.filter(q => q.section === F.sec);
-  if (F.dom !== 'all') a = a.filter(q => q.domain === F.dom);
-  if (F.diff !== 'all') a = a.filter(q => (q.difficulty||'').toLowerCase() === F.diff.toLowerCase());
-  a = a.slice();
+}
+
+// F.skills null means every topic, so a first-time visitor is not filtered down
+// to nothing; [] means they cleared the list and asked for none.
+const picked = () => F.skills ? new Set(F.skills) : null;
+const inPick = (sel, q) => !sel || sel.has(q.skill || 'Other');
+
+function pool() {
+  const sel = picked();
+  const a = base().filter(q => inPick(sel, q));
   for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
   const n = parseInt($('num-q').value);
-  if (n > 0) a = a.slice(0, n);
-  return a;
+  return n > 0 ? a.slice(0, n) : a;
 }
+
+// One pass over a list of questions and the progress rows. The dashboard reads
+// the whole bank, the topic list reads only what the dropdowns left.
+function tally(list) {
+  const byId = new Map((list || QS).map(q => [q.id, q]));
+  const t = { att:0, corr:0, ms:0, sec:{}, dom:{}, skill:{} };
+  const b = (m,k) => (m[k] = m[k] || { a:0, c:0, n:0 });
+  byId.forEach(q => { b(t.sec, q.section||'Other').n++; b(t.dom, q.domain||'Other').n++; b(t.skill, q.skill||'Other').n++; });
+  Object.entries(PROG).forEach(([id,p]) => {
+    const q = byId.get(id);
+    if (!q || !p.attempts) return;
+    const right = p.marker === 'Green' || p.marker === 'Orange';
+    t.att++; if (right) t.corr++; t.ms += p.time_taken_ms || 0;
+    [b(t.sec,q.section||'Other'), b(t.dom,q.domain||'Other'), b(t.skill,q.skill||'Other')]
+      .forEach(x => { x.a++; if (right) x.c++; });
+  });
+  return t;
+}
+
+const pctOf = (v) => v.a ? Math.round(v.c/v.a*100) : null;
+const accHTML = (pct) => pct == null ? '&mdash;'
+  : `<span class="dot-a" style="background:${pct>=80?'var(--green)':pct>=60?'var(--orange)':'var(--red)'}"></span><b>${pct}%</b>`;
 
 function drawHomeStats() {
   const att = Object.keys(PROG).length;
@@ -585,68 +723,96 @@ function drawHomeStats() {
 }
 
 function drawFilters() {
-  document.querySelectorAll('#tab-practice .chip').forEach(b => {
-    const f = b.dataset.f, v = b.dataset.v;
-    b.classList.toggle('on', F[f] === v);
-    b.onclick = () => {
-      F[f] = v;
-      if (f === 'sec') F.dom = 'all';
-      LS.set('filters', F);
-      drawFilters();
-    };
-  });
-  const doms = [...new Set(QS.filter(q => F.src!=='mistakes' && (F.sec==='all'||q.section===F.sec)).map(q=>q.domain).filter(Boolean))].sort();
-  $('domain-chips').innerHTML = doms.map(d =>
-    `<button class="chip ${F.dom===d?'on':''}" data-f="dom" data-v="${esc(d)}">${esc(d)}</button>`).join('');
-  $('domain-chips').querySelectorAll('.chip').forEach(b => {
-    b.classList.toggle('on', F.dom === b.dataset.v);
-    b.onclick = () => { F.dom = b.dataset.v; LS.set('filters', F); drawFilters(); };
-  });
-  const p = pool();
-  $('start-count').textContent = `${p.length} matching questions`;
-  $('btn-start').disabled = p.length === 0;
+  $('f-sec').value = F.sec; $('f-diff').value = F.diff; $('f-src').value = F.src;
+  drawTopics();
+  const sel = picked();
+  const n = base().filter(q => inPick(sel, q)).length;
+  $('start-count').textContent = `${n.toLocaleString()} matching questions`;
+  $('btn-start').disabled = n === 0;
 }
 
+const SHUT = new Set(LS.get('shut', []));
+
+function drawTopics() {
+  const list = base(), t = tally(list);
+  const groups = {};
+  list.forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+  const doms = Object.keys(groups).sort();
+  const all = [...new Set(doms.flatMap(d => [...groups[d]]))];
+  const sel = F.skills ? new Set(F.skills) : new Set(all);
+
+  const row = (sk) => {
+    const v = t.skill[sk] || {a:0,c:0,n:0};
+    return `<div class="tl-row" data-s="${esc(sk)}">
+      <span class="tl-n"><span class="tick ${sel.has(sk)?'on':''}">${TICK}</span><b>${esc(sk)}</b></span>
+      <span class="bar"><i style="width:${v.n?Math.round(v.a/v.n*100):0}%"></i></span>
+      <span class="tl-c mono">${v.a}/${v.n}</span>
+      <span class="tl-a mono">${accHTML(pctOf(v))}</span></div>`;
+  };
+
+  $('topic-list').innerHTML = doms.map(d => {
+    const sks = [...groups[d]].sort();
+    const v = sks.reduce((o,sk) => { const x = t.skill[sk]||{a:0,c:0,n:0}; return {a:o.a+x.a,c:o.c+x.c,n:o.n+x.n}; }, {a:0,c:0,n:0});
+    return `<div class="dom ${SHUT.has(d)?'shut':''}" data-d="${esc(d)}">
+      <button class="dom-h"><span class="tick ${sks.every(sk=>sel.has(sk))?'on':''}" data-dom="${esc(d)}">${TICK}</span>${esc(d)}
+        <span class="cnt">${v.a}/${v.n} &middot; ${accHTML(pctOf(v))}</span>${CHEV}</button>
+      <div class="dom-b">${sks.map(row).join('')}</div></div>`;
+  }).join('') || '<div class="empty">No topics match these filters.</div>';
+
+  const el = $('topic-list');
+  el.querySelectorAll('.tl-row').forEach(r => r.onclick = () => toggle([r.dataset.s], all));
+  el.querySelectorAll('.dom-h .tick').forEach(k => k.onclick = (e) => {
+    e.stopPropagation();
+    toggle([...groups[k.dataset.dom]], all);
+  });
+  el.querySelectorAll('.dom-h').forEach(h => h.onclick = () => {
+    const d = h.parentElement.dataset.d;
+    SHUT.has(d) ? SHUT.delete(d) : SHUT.add(d);
+    LS.set('shut', [...SHUT]);
+    h.parentElement.classList.toggle('shut');
+  });
+}
+
+// Ticking every topic is the same as ticking none of them, so it collapses back
+// to null rather than pinning a list that goes stale the next time the bank grows.
+function toggle(some, all) {
+  const sel = new Set(F.skills || all);
+  const on = some.every(sk => sel.has(sk));
+  some.forEach(sk => on ? sel.delete(sk) : sel.add(sk));
+  F.skills = (sel.size === all.length && all.every(sk => sel.has(sk))) ? null : [...sel];
+  LS.set('filters', F);
+  drawFilters();
+}
+
+['sec','diff','src'].forEach(k => $('f-'+k).onchange = (e) => {
+  F[k] = e.target.value;
+  // Section and source change which topics exist at all; a carried-over pick
+  // would silently hide half the new list.
+  if (k !== 'diff') F.skills = null;
+  LS.set('filters', F);
+  drawFilters();
+});
 $('num-q').onchange = drawFilters;
+$('topic-all').onclick = () => { F.skills = null; LS.set('filters', F); drawFilters(); };
+$('topic-none').onclick = () => { F.skills = []; LS.set('filters', F); drawFilters(); };
 $('btn-start').onclick = () => start(pool());
 
 // ---------------- dashboard ----------------
 function drawDash() {
-  let att=0, corr=0, ms=0;
-  const bySec = { 'Math':{a:0,c:0,n:0}, 'Reading & Writing':{a:0,c:0,n:0} };
-  const byDom = {}, bySkill = {};
-  const bucket = (map, key) => (map[key] = map[key] || { a:0, c:0, n:0 });
-  QS.forEach(q => {
-    if (bySec[q.section]) bySec[q.section].n++;
-    bucket(byDom, q.domain || 'Other').n++;
-    bucket(bySkill, q.skill || 'Other').n++;
-  });
-  Object.entries(PROG).forEach(([id,p]) => {
-    if (!p.attempts) return;
-    const right = p.marker === 'Green' || p.marker === 'Orange';
-    att++; if (right) corr++; ms += p.time_taken_ms||0;
-    const q = QS.find(x=>x.id===id);
-    if (!q) return;
-    [bySec[q.section], byDom[q.domain || 'Other'], bySkill[q.skill || 'Other']].forEach(b => {
-      if (!b) return;
-      b.a++; if (right) b.c++;
-    });
-  });
+  const t = tally();
   $('db-overview').innerHTML = `
-    <div class="card"><div class="k">Questions attempted</div><div class="v mono">${att}</div></div>
-    <div class="card"><div class="k">Accuracy</div><div class="v mono">${att?Math.round(corr/att*100):0}%</div></div>
-    <div class="card"><div class="k">Avg time / question</div><div class="v mono">${att?Math.round(ms/att/1000):0}s</div></div>`;
-  const bars = (map, labelWidth) => Object.entries(map)
+    <div class="card"><div class="k">Questions attempted</div><div class="v mono">${t.att}</div></div>
+    <div class="card"><div class="k">Accuracy</div><div class="v mono">${t.att?Math.round(t.corr/t.att*100):0}%</div></div>
+    <div class="card"><div class="k">Avg time / question</div><div class="v mono">${t.att?Math.round(t.ms/t.att/1000):0}s</div></div>`;
+  const bars = (map) => Object.entries(map)
     .sort((a,b) => b[1].a - a[1].a || a[0].localeCompare(b[0]))
-    .map(([k,v]) => {
-      const pct = v.a ? Math.round(v.c/v.a*100) : 0;
-      return `<div class="prog-item"><div style="flex:0 0 ${labelWidth}px;font-weight:600;font-size:13.5px;">${esc(k)}</div>
-        <div class="prog-bar-bg"><div class="prog-bar-fg" style="width:${pct}%"></div></div>
-        <div class="mono" style="flex:0 0 120px;text-align:right;color:var(--dim);">${v.a?pct+'%':'—'} · ${v.a}/${v.n}</div></div>`;
-    }).join('') || '<div style="color:var(--dim);font-size:13.5px;padding:6px 2px;">No attempts yet.</div>';
-  $('db-sections').innerHTML = bars(bySec, 150);
-  $('db-domains').innerHTML = bars(byDom, 230);
-  $('db-skills').innerHTML = bars(bySkill, 260);
+    .map(([k,v]) => `<div class="prog-item"><b>${esc(k)}</b>
+      <span class="bar"><i style="width:${v.n?Math.round(v.a/v.n*100):0}%"></i></span>
+      <span class="tl-a mono">${accHTML(pctOf(v))} &middot; ${v.a}/${v.n}</span></div>`)
+    .join('') || '<div class="empty">No attempts yet.</div>';
+  $('db-sections').innerHTML = bars(t.sec);
+  $('db-domains').innerHTML = bars(t.dom);
+  $('db-skills').innerHTML = bars(t.skill);
 }
 
 // ---------------- browse ----------------
@@ -1404,9 +1570,12 @@ function applySession(session) {
   uid = session?.user?.id || null;
   authToken = session?.access_token || null;
   const u = session?.user;
-  $userName.textContent = u ? (u.user_metadata?.full_name || u.email || '') : '';
-  $userName.style.display = u ? '' : 'none';
+  const nm = u ? (u.user_metadata?.full_name || u.email || 'Signed in') : 'Guest';
+  $userName.textContent = nm;
+  $('nav-av').textContent = nm[0].toUpperCase();
+  $('nav-sub').textContent = u ? (u.email || 'Signed in') : 'Not signed in';
   $authBtn.textContent = u ? 'Sign out' : 'Sign in';
+  greet();
 }
 
 function authModal() {
