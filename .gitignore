@@ -4,25 +4,10 @@ node_modules/
 *.db
 .database_id
 public/qimg/
-seed.sql
-gen_seed.cjs
-seed_local.cjs
-ocr_stems.cjs
-check_ocr_status.cjs
-sample_ocr.cjs
-clean_ocr.cjs
-export_stemtext.cjs
-eng.traineddata
-check_empty.cjs
-check_images.cjs
-fill_text_stems.cjs
-sample_img.cjs
 .claude/
 .superpowers/
-d1_chunks/
 extract_math/
 extract_rw/
-test_out/
 # The extractor is the only way to rebuild the bank from the PDFs, so keep its
 # source. The blobs it reads and writes (glyph index, jsonl dumps) stay out.
 tools/*
@@ -33,4 +18,3 @@ tools/*
 !tools/d1_dump.cjs
 tools/templates.npz
 backup/
-d1_sync/

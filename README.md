@@ -1,67 +1,61 @@
 # SAT Question Bank
 
-A complete SAT practice application built with the exact College Board Educator Question Bank format, plus your personal Bluebook practice test mistakes.
+A Bluebook-style SAT practice app over 3,843 questions extracted from the
+official College Board Educator Question Bank PDFs, plus a handful of personal
+Bluebook practice-test mistakes. Runs as a single Cloudflare Worker: the
+questions live in D1, the UI is one static HTML file.
 
-**Source:** Questions extracted from official College Board PDFs + 17 Bluebook PT5 mistakes from Notion export.
+Live: https://sat-question-bank.liuallen1209.workers.dev
 
 ## Features
 
-- **3787 Official Questions** from College Board Educator Question Bank (1925 Math, 1845 Reading & Writing)
-- **17 Bluebook Mistakes** from Practice Test 5 with full rationale and mistake tags
-- **Speedrun Mode** — countdown timer per question (120s for R&W, 70s for Math), earn 3 stars per question based on speed
-- **Per-Question Timer Reset** — clock resets and counts up (or down in speedrun) for every question
-- **Dashboard** — overall accuracy, section breakdowns, history table with times and stars
-- **Bluebook-style UI** — split pane for passages, choice elimination buttons, dark/light mode support
-- **Browse** — sortable/filterable Grid.js table over all questions
+- **Practice sets** filtered by section, domain, difficulty and source
+- **Bluebook-style player** — two panes for questions with a passage, figure or
+  table; one full-width column for bare questions; choice elimination; flag for
+  review; per-question timer; question map
+- **Desmos** graphing and scientific calculators, docked left, on Math questions
+- **Math as text** — 1,156 questions carry their notation as LaTeX rendered with
+  KaTeX rather than as a cropped image, so it selects, scales and reflows. The
+  rest keep a crop, displayed at the source's own proportions
+- **Dashboard** — accuracy by section, domain and skill
+- **Browse** — search every question by domain, skill or id and preview it
+- **AI explanations** via a Gemini proxy on the Worker
+- **Google sign-in** through Supabase, so progress follows the account
 
-## Quick Start
+## Running it
 
 ```bash
-cd sat-question-bank
-npm install          # only needed first time
-./start_server.bat   # or: node server.js
-# Open http://localhost:3001
+npm install
+npm run dev      # wrangler dev on http://localhost:8787
 ```
 
-## Project Structure
+`wrangler dev` serves `public/` and reads the local D1 replica under
+`.wrangler/`. Deploy with `npm run deploy`.
+
+## Layout
 
 ```
-sat-question-bank/
-├── public/
-│   └── index.html       # Single-page app (drill, browse, dashboard)
-├── src/
-│   └── index.js         # Cloudflare Workers entry (optional, for deployment)
-├── server.js            # Local Node server (port 3001, serves questions.json)
-├── questions.json       # 3787 questions (3770 CollegeBoard + 17 Bluebook mistakes)
-├── progress.json        # Local progress storage (auto-created)
-├── package.json
-├── start_server.bat     # Windows launcher
-└── wrangler.toml        # Cloudflare deployment config (optional)
+public/index.html   the whole app: markup, styles, logic
+public/qimg/        figure and notation crops (untracked, ~44M, 5,528 files)
+src/index.js        Worker: /api/questions, /api/progress, /api/chat, assets
+schema.sql          questions, progress, users
+wrangler.toml       Worker name, D1 binding, asset directory
+tools/              PDF extractor and its glyph-decoding support
+tools/d1_dump.cjs   dumps the local D1 questions table as chunked INSERTs
 ```
 
-## Data Schema (questions.json)
+`CLAUDE.md` carries the working notes: how the extractor decodes math from
+vector paths, why the raster pages could not be decoded, and the recipe for
+rebuilding the remote D1 from the local one.
 
-Each question contains:
-- `id` — unique identifier
-- `label` — `"new_2026"` (CollegeBoard) or `"mistake"` (Bluebook)
-- `section` — `"Math"` or `"Reading & Writing"`
-- `domain` — e.g., `"Algebra"`, `"Information and Ideas"`
-- `skill` — specific skill within domain
-- `difficulty` — `"Easy"`, `"Medium"`, `"Hard"`
-- `stem_html` — full question/passage HTML
-- `choices_json` — answer choices
-- `correct_answer` — correct letter(s)
-- `rationale_html` — explanation HTML
-- `source` — `"CollegeBoard"` or `"Bluebook"`
-- `your_answer`, `why_missed`, `rule` — mistake metadata (Bluebook only)
+## Schema
 
-## Speedrun Star System
+`questions` — `id`, `external_id`, `section`, `domain`, `difficulty`, `skill`,
+`stem_html`, `choices_json`, `correct_answer`, `explanation_html`, `source`,
+`source_page`, `has_figure`, `stem_text`.
 
-| Time | Stars |
-|------|-------|
-| Under 50% of limit | 3 stars |
-| Under 100% of limit | 2 stars |
-| Over limit (time up) | 0 stars (auto-submit) |
+A question with no entries in `choices_json` is a grid-in; the client derives
+that rather than storing a type column.
 
 ## License
 

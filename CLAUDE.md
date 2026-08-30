@@ -77,12 +77,12 @@ UI modeled on **Oneprep.xyz** + **Bluebook** question display formats.
 
 - `src/index.js` — Cloudflare Worker. Serves `/api/questions`, `/api/progress`, `/api/chat` (Gemini proxy), static assets. **This is the real app server.**
 - `public/index.html` — entire SPA, single file (~60K). Home / test player / results.
-- `public/qimg/` — 16,514 cropped WebP images (gitignored, 118MB).
+- `public/qimg/` — 5,528 cropped WebP images (gitignored, 44MB). Every one is
+  referenced by a row; there are no orphans.
 - `schema.sql` — D1 tables: `questions`, `progress`, `users`.
-- `server.js` — legacy local Node server, reads `questions.json` which **does not exist**. Dead path.
 - Local dev DB: `.wrangler/state/v3/d1/miniflare-D1DatabaseObject/588d9571....sqlite`
 
-Run local: `npx wrangler dev` (not `node server.js`).
+Run local: `npm run dev`.
 
 ### Data Source
 
@@ -266,10 +266,6 @@ Data defects left alone (cannot be fixed without re-extraction):
 - 36 rows have no choices but store a bare letter as the answer, i.e. the
   choice list was lost entirely. They render as grid-ins and are not scored.
 
-Note: `questions` has no `qtype` or `label` column, but the frontend reads
-`q.qtype` and `q.label`. Both are always undefined — the grid-in branch works
-only because it also tests `!q.choices.length`, and the "My PT Mistakes"
-filter can therefore never match anything.
 
 ### Extractor root-cause pass (2026-08-28, later)
 
@@ -546,6 +542,57 @@ sides then agreed at 1,156.
 Final state, local and remote identical: 3,843 rows, 1,156 with `\( ... \)`
 notation, 103 with reconstructed `<table>`s, 777 with figures.
 
+### UI pass and dead-code audit (2026-08-29, later)
+
+**Notation crops were all scaled to the same height.** `img.minl` carried
+`max-height: 2.4em`, so a lone italic `a` and a two-storey fraction rendered
+the same size, and both towered over the sentence around them - the "some text
+much larger than others" report. Height is the wrong knob: `tools/extract.py`
+renders every crop with `save_figure(..., zoom=5)`, five device pixels to a PDF
+point off an 11pt source, so the crops already agree on scale and only needed
+dividing by it. `zoom: .29` restores the source proportions
+(5px/pt over 96/72 px/pt, times 16/14.67 to carry 11pt up to the 16px stem) and
+every crop now sits at text size regardless of how tall its expression is.
+KaTeX's own 1.21em default was the smaller half of the same complaint; 1.06em.
+
+**Fields the schema rebuild had dropped.** `q.qtype` and `q.label` were still
+read in five places. The grid-in branches survived on their `|| !q.choices.length`
+fallback, but Browse typed every grid-in as MCQ and the preview modal never
+showed their answer. Grid-in-ness is now derived once at load
+(`q.spr = !q.choices.length`) and read from there.
+
+**The domain "All" chip never turned off.** `drawFilters` skipped `data-f="dom"`
+in its toggle loop, because the domain chips are re-rendered just below - but
+the *static* All chip is in the markup, not in that re-render, so it kept the
+`on` class it was written with. Dropping the exclusion is enough; the loop runs
+before the re-render, so the chips it wipes do not care.
+
+**Section had a typo variant.** 50 Bluebook rows were `Reading and Writing`,
+reachable only through "Both" and missing from the dashboard's per-section
+totals. Fixed in the data, local and remote, not in the client: one UPDATE and
+every consumer is right. Sections are now Math 1,947 / Reading & Writing 1,896.
+
+**Tables in a stem lost their borders in the preview modal**, which inserted
+`renderStem()` output into an unclassed div while the table rules are scoped to
+`.stem`/`.cb`/`.qtable`. The player was always fine. The one question that ships
+an HTML table wraps it in `<figure class="image">`, which brings the UA's
+`0 40px` margin and no scroll box, so its seventh column was unreachable;
+`.cb figure` now owns the margin and the `overflow-x`.
+
+**Removed.** `server.js` and `start_server.bat` - the server read
+`questions.json`, deleted with the prototype root, and the .bat pointed at an
+empty directory. The tesseract OCR experiment (`ocr_stems.cjs` and friends,
+`eng.traineddata`), superseded by glyph hashing. `d1_chunks/` (the abandoned
+incremental migration) and `d1_sync/` (applied, and regenerable from
+`tools/d1_dump.cjs`). `package.json` lost its `start` script and the
+`tesseract.js`, `sqlite3` and `canvas` dependencies, none of which anything
+imports. `schema.sql` was missing `stem_text`; added.
+
+**Kept, deliberately.** `extract_math/` and `extract_rw/` (147M of jsonl and
+crops) are the extractor's output and the only copy of it short of re-running
+the PDFs; `backup/` holds the pre-rebuild remote dump; the raster-matching
+harness stays for the reasons recorded above.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a
@@ -556,5 +603,3 @@ notation, 103 with reconstructed `<table>`s, 777 with figures.
 - Tesseract `stem_text` (legacy OCR column) quality is mediocre: `Itfeatures`/
   `Itincludes` (lost spaces), `«` for bullets, mangled smart quotes. Still used
   as the "original image" toggle fallback for the 104 untouched Bluebook rows.
-- `section` has three values, one is a typo variant: `Math` (1952),
-  `Reading & Writing` (1872), `Reading and Writing` (50).
