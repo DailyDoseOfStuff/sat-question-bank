@@ -9,6 +9,12 @@
     "dev": "wrangler dev"
   },
   "devDependencies": {
+    "better-sqlite3": "^13.0.3",
+    "sqlite3": "^6.0.1",
+    "tesseract.js": "^7.0.0",
     "wrangler": "latest"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3"
   }
 }

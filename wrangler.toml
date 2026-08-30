@@ -2,10 +2,13 @@ name = "sat-question-bank"
 main = "src/index.js"
 compatibility_date = "2024-12-16"
 
-[env.production]
-name = "sat-question-bank-prod"
-route = "https://sat.yourdomain.com/*"
-zone_id = "YOUR_ZONE_ID"
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[vars]
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
+GEMINI_MODEL = "gemini-3.6-flash"
 
 [[d1_databases]]
 binding = "DB"

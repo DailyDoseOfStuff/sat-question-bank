@@ -1,38 +1,68 @@
-# SAT question bank
+# SAT Question Bank
 
-Combines the two Cowork artifacts ("Sat Bank D1" drill/trainer + "Sat Mistake
-Bank" browsable table) into one local webapp. Pulls live from the same
-Cloudflare D1 database (`sat_question_bank`), so new questions you add later
-show up on refresh — no re-export needed.
+A complete SAT practice application built with the exact College Board Educator Question Bank format, plus your personal Bluebook practice test mistakes.
 
-## Why a server
+**Source:** Questions extracted from official College Board PDFs + 17 Bluebook PT5 mistakes from Notion export.
 
-A plain HTML file opened by double-click has no way to reach D1 without
-exposing a Cloudflare API token in plain text. `server.js` holds the token
-server-side (in `.env`, not in the browser) and proxies three endpoints:
-`GET /api/questions`, `GET /api/progress`, `POST /api/progress`.
+## Features
 
-## Setup
+- **3787 Official Questions** from College Board Educator Question Bank (1925 Math, 1845 Reading & Writing)
+- **17 Bluebook Mistakes** from Practice Test 5 with full rationale and mistake tags
+- **Speedrun Mode** — countdown timer per question (120s for R&W, 70s for Math), earn 3 stars per question based on speed
+- **Per-Question Timer Reset** — clock resets and counts up (or down in speedrun) for every question
+- **Dashboard** — overall accuracy, section breakdowns, history table with times and stars
+- **Bluebook-style UI** — split pane for passages, choice elimination buttons, dark/light mode support
+- **Browse** — sortable/filterable Grid.js table over all questions
 
-1. Get a Cloudflare API token scoped to D1 (Cloudflare dashboard → My
-   Profile → API Tokens → Create Token → permission `Account.D1: Edit`,
-   scoped to the account that owns `sat_question_bank`). Note your
-   **Account ID** too (dashboard sidebar, or Workers & Pages → Overview).
-2. Open `.env` in this folder and fill in:
-   ```
-   CF_ACCOUNT_ID=...
-   CF_API_TOKEN=...
-   ```
-   (`CF_DATABASE_ID` is already set to the right database.)
-3. `node server.js` (or `npm start`) — needs Node 18+.
-4. Open http://localhost:8787 in a browser.
+## Quick Start
 
-## Notes
+```bash
+cd sat-question-bank
+npm install          # only needed first time
+./start_server.bat   # or: node server.js
+# Open http://localhost:3001
+```
 
-- Progress (attempts/correct/marker) writes back to the D1 `progress` table
-  on every check, same as the original Sat Bank D1 artifact.
-- Click "Refresh" on the home screen to pull newly-added questions without
-  restarting the server.
-- `data.js`, `questions.json`, `progress.json` are a one-time static export
-  from an earlier draft of this app and aren't used by `server.js` — safe to
-  delete.
+## Project Structure
+
+```
+sat-question-bank/
+├── public/
+│   └── index.html       # Single-page app (drill, browse, dashboard)
+├── src/
+│   └── index.js         # Cloudflare Workers entry (optional, for deployment)
+├── server.js            # Local Node server (port 3001, serves questions.json)
+├── questions.json       # 3787 questions (3770 CollegeBoard + 17 Bluebook mistakes)
+├── progress.json        # Local progress storage (auto-created)
+├── package.json
+├── start_server.bat     # Windows launcher
+└── wrangler.toml        # Cloudflare deployment config (optional)
+```
+
+## Data Schema (questions.json)
+
+Each question contains:
+- `id` — unique identifier
+- `label` — `"new_2026"` (CollegeBoard) or `"mistake"` (Bluebook)
+- `section` — `"Math"` or `"Reading & Writing"`
+- `domain` — e.g., `"Algebra"`, `"Information and Ideas"`
+- `skill` — specific skill within domain
+- `difficulty` — `"Easy"`, `"Medium"`, `"Hard"`
+- `stem_html` — full question/passage HTML
+- `choices_json` — answer choices
+- `correct_answer` — correct letter(s)
+- `rationale_html` — explanation HTML
+- `source` — `"CollegeBoard"` or `"Bluebook"`
+- `your_answer`, `why_missed`, `rule` — mistake metadata (Bluebook only)
+
+## Speedrun Star System
+
+| Time | Stars |
+|------|-------|
+| Under 50% of limit | 3 stars |
+| Under 100% of limit | 2 stars |
+| Over limit (time up) | 0 stars (auto-submit) |
+
+## License
+
+Questions © College Board. This app is for personal study use only.
