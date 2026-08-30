@@ -643,6 +643,36 @@ Supabase project settings this depends on (checked via `/auth/v1/settings`):
 contain `<origin>/auth/callback` for both the OAuth return and the confirmation
 link.
 
+### Dashboard: a rail, dropdowns, and topics opened out (2026-08-30)
+
+Retheme after the Growly LMS shot: a dark navy rail pinned left in both light and
+dark mode, the work on a light board beside it, mint green for anything that
+reads as progress. The rail keeps its own palette either way round - that
+contrast is what carries the look, so it is not wired to `data-theme`.
+
+The horizontal `.tabs` strip is gone; navigation is the rail (Question Bank,
+Browse, Dashboard) with the account pinned at its foot. Under 980px the rail
+drops to a 66px icon strip and the topic table sheds its progress column.
+
+Section, difficulty, source and count were chip rows and are now four `<select>`
+controls. Domain is the one filter that opened out instead: a table of domains,
+each with its skills under it, one row per skill carrying a tick, a bar for how
+much of it has been seen, and accuracy. Domains collapse and the shut ones are
+remembered in `satq_shut`.
+
+`F.dom` (one domain at a time) is replaced by `F.skills`. `null` means every
+topic, so a first-time visitor is not filtered down to nothing; `[]` means they
+pressed Clear. Ticking the last topic collapses the list back to `null` rather
+than pinning a set that goes stale the next time the bank grows. Changing
+section or source clears the picks, because those change which topics exist at
+all - difficulty does not.
+
+`base()` is what the dropdowns leave on the table and `tally(list)` counts a
+pass over it, so the topic table and the number beside Start practice can never
+disagree. The dashboard calls the same `tally()` over the whole bank. That
+replaced the copy of the counting loop that used to live in `drawDash`, and its
+`QS.find` per progress row, with one `Map` lookup.
+
 ### Known Bugs
 
 - **Spacing artifact, ~4% of Math rows measured (likely undercounted):** a
