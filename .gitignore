@@ -30,5 +30,7 @@ tools/*
 !tools/glyph_labels.json
 !tools/apply_math.cjs
 !tools/audit_math.cjs
+!tools/d1_dump.cjs
 tools/templates.npz
 backup/
+d1_sync/

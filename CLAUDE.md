@@ -335,12 +335,12 @@ there is nothing to re-extract from.
   white boxes. Figures keep their colours.
 
 **Housekeeping:** re-extraction wrote 38,248 files into `public/qimg` (old crops
-plus new). The 17,265 orphans are deleted; 20,983 remain, all referenced. Note
-that is over Cloudflare's 20,000-file limit for Worker static assets, so a
-`wrangler deploy` will now be rejected - `/qimg` needs to move to R2, or the
-crops need to be fewer, before the next deploy. `wrangler dev` also hangs
-silently when that directory is very large; if the server never answers, check
-the file count first.
+plus new). The 17,265 orphans are deleted; 20,983 remain, all referenced. That
+was over Cloudflare's 20,000-file limit for Worker static assets and blocked
+`wrangler deploy`. The LaTeX pass later cut `/qimg` to 5,528 files / 68M, well
+under the limit, and the deploy goes through (see below). `wrangler dev` also
+hangs silently when that directory is very large; if the server never answers,
+check the file count first.
 
 **31 authored reconstructions deleted.** Bank is 3,843 rows (3,770 CollegeBoard
 + 73 Bluebook). The removed rows all declared themselves in their own stem -
@@ -358,8 +358,8 @@ Reconstruction period). Match the boilerplate sentences, not the words.
 
 **Partly versioned:** `tools/*.py`, `tools/glyph_labels.json` and
 `tools/apply_math.cjs` are tracked (`.gitignore` negations); the build outputs
-(`glyphs.json`, the jsonl, `d1_chunks/`) and the data itself - the local D1 file
-under `.wrangler/` and the crops under `public/qimg/` - are not.
+(`glyphs.json`, the jsonl, `d1_chunks/`, `d1_sync/`) and the data itself - the
+local D1 file under `.wrangler/` and the crops under `public/qimg/` - are not.
 
 ### Math as text, not pictures (2026-08-28, night)
 
@@ -506,6 +506,45 @@ the queries, keep the aspect ratio as a separate penalty (it is the only thing
 that separates `=` from `:` once both are squashed into a square grid), and
 raise the ink threshold to 195 so an italic `p`'s hairline join survives
 thresholding instead of splitting into three components.
+
+### Remote D1 rebuilt, and the first successful deploy (2026-08-29)
+
+`wrangler deploy` now works: `/qimg` is 5,528 files (68M), under the 20,000-file
+asset cap that blocked it before. Live at
+`https://sat-question-bank.liuallen1209.workers.dev`.
+
+**The remote D1 had drifted off the schema and could not be patched.** It still
+had the original columns - `label`, `qtype`, `rationale_html` - and none of
+`explanation_html`, `source_page`, `has_figure`. So the 1,925 `UPDATE`s in
+`d1_chunks/` (which set `has_figure`) would have failed on every row, and the
+remote still carried the 31 authored reconstructions that were deleted locally.
+Incremental patching was the wrong tool; the table was rebuilt from the local
+sqlite instead.
+
+`tools/d1_dump.cjs` writes `d1_sync/part_*.sql` - one `INSERT` per row, chunked
+under 900KB so each file fits a single `wrangler d1 execute --remote --file`.
+The sequence that worked, and the reason for each step:
+
+1. `wrangler d1 export --remote --table questions` to `backup/` first. This is
+   the only thing that makes the rest reversible.
+2. Load into `questions_new`, not `questions`. If a part fails halfway the live
+   table is still intact, and the outage is the two statements in step 4 rather
+   than the whole upload.
+3. Verify the staging table against local *before* swapping - row count,
+   `SUM(has_figure)`, and counts of `qtable` and `\(` in the stem.
+4. `DROP TABLE questions; ALTER TABLE questions_new RENAME TO questions;`
+
+`users` and `progress` were both empty remotely, so `questions` was the only
+data at risk. Check that again before repeating this - the recipe drops a table.
+
+**Watch the shell when counting LaTeX rows.** `LIKE '%\(%'` through
+`wrangler d1 execute --command` and through `node -e` do not survive the same
+escaping, and the two disagreed by 500 rows for no real reason. Use
+`instr(stem_html, char(92) || '(')`, which has no backslash to mangle. Both
+sides then agreed at 1,156.
+
+Final state, local and remote identical: 3,843 rows, 1,156 with `\( ... \)`
+notation, 103 with reconstructed `<table>`s, 777 with figures.
 
 ### Known Bugs
 
