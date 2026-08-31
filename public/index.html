@@ -1955,8 +1955,11 @@ async function initAuth() {
   applySession(session);
   // Google and the email-confirmation link both return to /auth/callback with the
   // session in the fragment. supabase-js has consumed it by the await above, so
-  // put the address bar back to the app's own URL.
-  if (location.pathname !== '/') history.replaceState({}, '', '/');
+  // put the address bar back to the app's own URL. A failed sign-in comes back in
+  // that same fragment as an error, which used to be wiped without a word.
+  const authErr = new URLSearchParams(location.hash.slice(1)).get('error_description');
+  if (authErr) alert('Sign-in failed: ' + authErr.replace(/\+/g, ' '));
+  if (location.pathname !== '/' || location.hash) history.replaceState({}, '', '/');
   $authBtn.onclick = () => { if (uid) sb.auth.signOut(); else authModal(); };
   sb.auth.onAuthStateChange(async (_e, s) => {
     const was = uid;
