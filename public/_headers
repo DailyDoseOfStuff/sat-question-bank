@@ -1,0 +1,9 @@
+# A request that matches a static asset never reaches src/index.js, so the Worker
+# cannot put these on the page — this file is the only place that can. Keep the
+# policy in step with the CSP constant in src/index.js, which covers the two
+# responses the Worker does generate: the JSON API and the /auth/callback page.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' data: https://cdn.jsdelivr.net; img-src 'self' data:; connect-src 'self' https://lbwxzcdmhyhgtscthnaq.supabase.co; form-action 'none'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY

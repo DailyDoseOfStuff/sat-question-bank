@@ -4,10 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SAT Question Bank — Official College Board</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<!-- Pinned and hashed. supabase-js used to float on the @2 tag, so a bad release —
+     or a bad day at the CDN — would have run arbitrary code in the page that holds
+     the signed-in session token. integrity makes the browser refuse anything else. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4" crossorigin="anonymous"
+        integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous"
+      integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"
+        integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" crossorigin="anonymous"
+        integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk"></script>
 <style>
 :root {
   color-scheme: light;
@@ -1912,21 +1919,22 @@ function showHome() {
       const cq = (typeof curQ === 'function') ? curQ() : null;
       if (cq) {
         const strip = h => (h||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        context = `The student is working on this question.\nSection: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
+        context = `Section: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
       }
     } catch(_) {}
 
     history.push({role:'user', content: q});
-    const sysMsgs = [
-      {role:'system', content:'You are an SAT tutor. Guide the student to understand — never just hand over the answer unless they explicitly ask for it or have already attempted it. Be concise.'}
-    ];
-    if (context) sysMsgs.push({role:'system', content: context});
     if (history.length > 12) history = history.slice(-12);
 
     add('bot', '…');
     try {
+      // Only the turns and the question context go over the wire; the tutor's
+      // instructions live in the Worker, which is also the only place that can
+      // check who is asking.
       const r = await fetch('/api/chat', {
-        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messages: [...sysMsgs, ...history] })
+        method:'POST',
+        headers:{'Content-Type':'application/json', ...sbHeaders()},
+        body: JSON.stringify({ messages: history, context })
       });
       const data = await r.json();
       msgs.lastChild.remove();
