@@ -14,6 +14,17 @@ GEMINI_MODEL = "gemini-3.6-flash"
 SUPABASE_URL = "https://lbwxzcdmhyhgtscthnaq.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr"
 
+# /api/chat spends real money per call. Twenty a minute is more than a student
+# asking about the question in front of them will ever need, and it is the ceiling
+# on what one compromised or scripted account can run up.
+[[ratelimits]]
+name = "CHAT_RL"
+namespace_id = "1001"
+
+  [ratelimits.simple]
+  limit = 20
+  period = 60
+
 [[d1_databases]]
 binding = "DB"
 database_name = "sat_question_bank"
