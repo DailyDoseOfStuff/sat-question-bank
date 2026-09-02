@@ -2,28 +2,26 @@ name = "sat-question-bank"
 main = "src/index.js"
 compatibility_date = "2024-12-16"
 
+# helpmeaceit.page must be a zone on this Cloudflare account before a deploy can
+# claim these routes — see README. `custom_domain` makes Cloudflare create and own
+# the DNS record, so there is nothing to add by hand.
+[[routes]]
+pattern = "helpmeaceit.page"
+custom_domain = true
+
+[[routes]]
+pattern = "www.helpmeaceit.page"
+custom_domain = true
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
 
 [vars]
-GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai"
-GEMINI_MODEL = "gemini-3.6-flash"
 # Publishable key — same pair the browser already ships; used only to call
 # Supabase's /auth/v1/user so the Worker can verify who a request belongs to.
 SUPABASE_URL = "https://lbwxzcdmhyhgtscthnaq.supabase.co"
 SUPABASE_ANON_KEY = "sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr"
-
-# /api/chat spends real money per call. Twenty a minute is more than a student
-# asking about the question in front of them will ever need, and it is the ceiling
-# on what one compromised or scripted account can run up.
-[[ratelimits]]
-name = "CHAT_RL"
-namespace_id = "1001"
-
-  [ratelimits.simple]
-  limit = 20
-  period = 60
 
 [[d1_databases]]
 binding = "DB"

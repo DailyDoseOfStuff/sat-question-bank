@@ -800,3 +800,103 @@ to a different question entirely. It was also being pasted into the tutor's prom
 deleted, and `/api/questions` selects its columns instead of `SELECT *`. The column
 stays in the table as the raw record. **The payload went from 9.44 MB to 7.99 MB**,
 15% off every cold load.
+
+### Chatbot out, export in; helpmeaceit.page (2026-09-02)
+
+**The AI tutor is gone.** `/api/chat`, `TUTOR_PROMPT`, the `GEMINI_*` vars and the
+`CHAT_RL` rate limiter are deleted, along with the `#ai-panel` chat UI. Nothing in
+the repo calls Gemini any more, so `GEMINI_API_KEY` is a dead secret — delete it
+with `wrangler secret delete GEMINI_API_KEY`.
+
+**In its place, "⧉ Copy for AI".** One button, one clipboard write, no model and no
+per-call cost. `exportPrompt()` builds a plain-text prompt — section/domain/skill/
+difficulty, the stem, the lettered choices, the stored answer, the student's own
+answer and whether it was right, then the official rationale. `toText()` does the
+HTML→text step, and exists because a naive tag strip loses the three things the
+prompt most needs: an `<img>` (the only copy of a diagram — it becomes
+`[image: <absolute URL>]`), a table's shape (`</td>` → ` | `, `</tr>` → newline),
+and the line breaks. LaTeX passes through untouched.
+
+Clipboard access can be refused (an insecure origin, a denied permission), so the
+catch renders the prompt in a modal with the text selected — still an export, one
+Ctrl+C away. Verified: the automation browser has `clipboard-write` denied at the
+profile level, which exercised exactly that path.
+
+**Domain.** `wrangler.toml` claims `helpmeaceit.page` and `www.` as
+`custom_domain` routes; the Worker 301s `www` → apex, because Supabase only returns
+an OAuth or confirmation link to an origin on its allowlist and a session started
+on one host and finished on the other is a session dropped. Add
+`https://helpmeaceit.page/auth/callback` to that allowlist. `harden()` also sets
+HSTS now.
+
+**"Allowlist the Cloudflare IPs" does not apply here.** That protects an origin
+server sitting behind Cloudflare's proxy, so attackers can't bypass it by hitting
+the origin's IP. This app has no origin: the Worker *is* the edge. There is no IP
+to leak and nothing to allowlist.
+
+### Grid-in grading was wrong for ~100 questions (same pass)
+
+Found while verifying, not reported. `isRight()` compared the stored answer string
+to the typed one, so:
+
+- **88 rows store a fraction.** A student typing `2.5` against a stored `5/2` was
+  marked wrong. `num()` now evaluates `a/b`.
+- **7 rows store a list** (`-.9333, -14/15`). Nothing but that exact string matched,
+  so those questions could never be answered correctly at all. The answer is now
+  split on `,` / `or` and any alternative counts.
+- **Decimals are graded at grid precision.** `1/6` accepts `.1666` (truncated) and
+  `.1667` (rounded), by rounding/truncating the true value to however many decimals
+  the student gave — but only at 3+ decimals, so `.2` is still not an answer of 1/6.
+
+**And the 11 "unscorable" grid-ins are scorable.** The note above said they state
+their answer only as an image; nine of eleven state it in rationale *text*, and the
+other two state it in the closing "Note that … are examples of ways to enter a
+correct answer" sentence, which lists every accepted entry. All 11 recover now.
+Two things the first attempt got wrong, both worth remembering: `7, 8, or 13` needs
+an explicit `", or"` branch or the list silently stops at 8; and a token can open
+with a dot (`.5`, `.1666`), so requiring a leading digit drops three of them.
+
+**Rationale figures had no styling.** 926 rows carry a figure in
+`explanation_html` as a bare `<img alt="Figure">` with no wrapper class, so they
+picked up neither the width cap nor the dark-mode handling — a full-bleed white
+block bleeding out of the explanation. The explanation container is now
+`.cb.expl` and its non-`.minl` images are capped and inverted in dark mode.
+
+`plain()` (the mistakes-card teaser) now strips the Passage/Prompt headings the
+player already strips, so a card no longer reads "Passage … Quest".
+
+`pt10_math_m2_q16` printed all four choices inside its own stem
+(`migrations/0003`), and `┬▓` (CP437 for `²`) joined the `MOJIBAKE` table. Those
+were the only two occurrences in the bank; `úñ` and `áñ` look like mojibake and are
+not — they are "Zúñiga".
+
+### Verification: all 3,843, in the browser
+
+Hand-clicked a sample first (figures, reconstructed tables, KaTeX, notation crops,
+MCQ and grid-in, right and wrong paths, two-passage RW, the HTML-table row, the 11
+grid-ins, the rows this file lists as defective). That sample is what found the
+rationale-figure bug and the grid-in grading bug — neither shows up as an error,
+only as something that looks wrong.
+
+Then a DOM sweep drove the real player through every question — click a choice or
+type into the grid-in, open the explanation, assert, press Next. Per question:
+non-empty render, no `Passage`/`Prompt` scaffolding, no `<img>` with
+`naturalWidth === 0`, no `.katex-error` in stem or rationale, no mojibake or
+replacement character, no leaked rationale, four choices for MCQ, exactly one
+choice marked correct (`.right` or `.corrected` — a re-answered question marks the
+right one `corrected`, not `right`), a non-blank "Correct answer" line, and a
+non-empty explanation.
+
+**3,770 official + 73 practice-test = 3,843. Zero failures.** 3,360 MCQ, 483
+grid-ins, 0 not auto-scored (was 11), 73 with no explanation — all `source='Bluebook'`,
+which is expected, they are in neither PDF.
+
+Note the three stale claims this file used to make, all fixed earlier by the
+extractor root-cause pass and confirmed here: `d4d513ff`/`2e8cc1c0`/`6fa593f1` read
+`x` correctly, and `1efd7ef3` reads `\(\sin 42\pi\)`.
+
+Left alone: two RW skills carry a PDF header as their name ("Assessment T est
+Domain Skill Difficulty SA T Reading and Writing …", 151 questions), visible in the
+topic list. A `<figure>` crop in ~583 rationales is a picture of the rationale prose
+rather than a diagram — now sized and themed correctly, but still a duplicate. Both
+need re-extraction, not a client patch.

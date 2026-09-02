@@ -1,5 +1,5 @@
 // SAT Question Bank — Cloudflare Worker
-// Serves static assets + /api/questions + /api/progress + /api/chat (Gemini proxy).
+// Serves static assets + /api/questions + /api/progress + /api/attempts.
 
 // Everything the page loads is either same-origin or one of the two CDNs in
 // index.html's <head>. The question HTML comes out of the database and goes
@@ -24,6 +24,8 @@ const harden = (h) => {
   h.set('X-Content-Type-Options', 'nosniff');
   h.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   h.set('X-Frame-Options', 'DENY');
+  // Only honoured over HTTPS, so wrangler dev on http://localhost ignores it.
+  h.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   return h;
 };
 
@@ -75,15 +77,18 @@ async function touchUser(env, u) {
 const MAX_ROWS = 500;
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 
-// The instructions belong to the Worker, not to whoever calls it — see /api/chat.
-const TUTOR_PROMPT =
-  'You are an SAT tutor. Guide the student to understand — never just hand over ' +
-  'the answer unless they explicitly ask for it or have already attempted it. ' +
-  'Be concise. Only discuss the SAT and the question at hand.';
-
 export default {
   async fetch(req, env) {
-    const p = new URL(req.url).pathname;
+    const url = new URL(req.url);
+    const p = url.pathname;
+
+    // One canonical host. Supabase only redirects an OAuth or confirmation link
+    // back to an origin on its allowlist, so a session started on www and
+    // finished on the apex (or the reverse) is a session dropped on the floor.
+    if (url.hostname === 'www.helpmeaceit.page') {
+      url.hostname = 'helpmeaceit.page';
+      return new Response(null, { status: 301, headers: harden(new Headers({ Location: url.toString() })) });
+    }
 
     if (p === '/api/questions' && req.method === 'GET') {
       // Not SELECT *: stem_text is a legacy OCR column nothing renders, and it
@@ -161,53 +166,6 @@ export default {
       await env.DB.batch(rows.map(r => stmt.bind(
         u.id, str(r.question_id, 64), str(r.ts, 32), r.correct ? 1 : 0, r.time_taken_ms | 0)));
       return json({ ok: true, saved: rows.length });
-    }
-
-    // Every call here spends the owner's Gemini quota, so it is not a public
-    // endpoint. It used to be: no sign-in, and the client sent the whole `messages`
-    // array — system prompt included — which made it a free, steerable LLM for
-    // anyone who found the URL. Now the caller must be signed in, only their own
-    // turns are accepted, the instructions are written here, and the rate limiter
-    // caps what a single account can spend.
-    if (p === '/api/chat' && req.method === 'POST') {
-      const u = await whoami(req, env);
-      if (!u) return json({ error: 'Sign in to ask the tutor.' }, 401);
-      if (env.CHAT_RL && !(await env.CHAT_RL.limit({ key: u.id })).success)
-        return json({ error: 'Too many questions in a row — give it a minute.' }, 429);
-      if (Number(req.headers.get('Content-Length')) > 64 * 1024)
-        return json({ error: 'message too long' }, 413);
-
-      const b = await req.json().catch(() => null);
-      const turns = (Array.isArray(b?.messages) ? b.messages : [])
-        .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
-        .slice(-12)
-        .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
-      if (!turns.length) return json({ error: 'no message' }, 400);
-
-      // The question the student is on is context, not instruction: it arrives as
-      // plain text and is pasted into a system line the Worker owns.
-      const ctx = str(b?.context, 4000);
-      const messages = [{ role: 'system', content: TUTOR_PROMPT }]
-        .concat(ctx ? [{ role: 'system', content: 'The student is working on this question.\n' + ctx }] : [])
-        .concat(turns);
-
-      try {
-        const r = await fetch(`${env.GEMINI_BASE_URL}/chat/completions`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${env.GEMINI_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: env.GEMINI_MODEL, messages, temperature: 0.4 })
-        });
-        const data = await r.json().catch(() => ({}));
-        const text = data?.choices?.[0]?.message?.content;
-        if (text) return json({ reply: text });
-        // An upstream message can name the key, the project or the quota, so it
-        // goes to the log rather than back to the browser.
-        console.log('chat upstream', r.status, data?.error?.message || '');
-        return json({ error: 'The tutor is unavailable right now.' }, 502);
-      } catch (e) {
-        console.log('chat error', e?.message || String(e));
-        return json({ error: 'The tutor is unavailable right now.' }, 502);
-      }
     }
 
     // OAuth and the email-confirmation link both land here with the session in the
