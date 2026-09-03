@@ -73,11 +73,38 @@ PROSE_X = 24.0           # body text starts at the left margin
 PROSE_W = 300.0          # ...and runs long; short lines are figure labels
 LABEL_X = 100.0          # nothing in the prose flow is indented this far;
                          # anything past it near a plot is a chart label
+PROSE_COVER = 0.15       # body text over this much of a block's height means
+                         # the block is a paragraph, not a picture
 
 
 def is_prose(ln):
     width = max(r["bbox"][2] for r in ln["runs"]) - ln["x0"]
     return ln["x0"] <= PROSE_X and width > PROSE_W
+
+
+def on_prose(rect, pno, lines):
+    """True when body text runs under this block, so it is a paragraph.
+
+    A paragraph's inline notation is vector art too, so P.figures() clusters
+    the fraction bars of several neighbouring lines into one "figure".
+    Cropping that gives a clipped picture of the prose behind them, and -
+    worse - to_html drops the text a figure covers, so the rationale loses the
+    sentences the crop swallowed. A real figure sits in whitespace: its own
+    labels are short lines, never body text. Measured over all 1,056 Math
+    crops, real charts reach 0.10 coverage at most (a caption clipping the
+    edge) and glyph swarms start at 0.20. Rejected regions fall through to
+    fill_math, which decodes them as notation instead.
+
+    Tables are exempt and tested first by the caller: a table row starts at the
+    left margin and runs the full width, so it reads as prose here.
+    """
+    covered = 0.0
+    for ln in lines:
+        if ln["page"] != pno or not is_prose(ln):
+            continue
+        if rect.y0 < ln["y1"] and ln["y"] < rect.y1:
+            covered += min(rect.y1, ln["y1"]) - max(rect.y0, ln["y"])
+    return covered >= PROSE_COVER * rect.height
 
 
 def raster_figures(page):
@@ -803,6 +830,8 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
             tab = table_of(doc[pno], rect, labels)
             if tab:
                 bucket.append((tab[0], pno, tab[1]))
+                continue
+            if on_prose(rect, pno, lines):
                 continue
             name = f"{qid}_fig{len(figs) + len(tail_figs)}.webp"
             save_figure(doc[pno], rect, os.path.join(img_dir, name))

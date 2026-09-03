@@ -13,6 +13,9 @@ const CSP = [
   "font-src 'self' data: https://cdn.jsdelivr.net",
   "img-src 'self' data:",
   "connect-src 'self' https://lbwxzcdmhyhgtscthnaq.supabase.co",
+  // The SAT-locked Desmos calculators are iframed in. frame-src falls back to
+  // default-src, so 'self' alone silently blanks the calculator panel.
+  "frame-src https://www.desmos.com",
   "form-action 'none'",
   "frame-ancestors 'none'",
   "base-uri 'none'",

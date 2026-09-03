@@ -900,3 +900,100 @@ Domain Skill Difficulty SA T Reading and Writing …", 151 questions), visible i
 topic list. A `<figure>` crop in ~583 rationales is a picture of the rationale prose
 rather than a diagram — now sized and themed correctly, but still a duplicate. Both
 need re-extraction, not a client patch.
+
+### Skill names, and the rationale crops that were not duplicates (2026-09-02, later)
+
+Two things this file had listed as "needs re-extraction". Only one of them did.
+
+**Skill names: a migration, not an extraction.** `import_sql.cjs` never touches
+`section`/`domain`/`skill`, so the garbage in that column never came from the
+extractor and re-running it could not have fixed it. `migrations/0004`, 237 rows:
+
+- 151 rows carried the PDF's own page header as their skill ("Assessment T est
+  Domain Skill Difficulty SA T Reading and Writing Cr aft and Structure T ext
+  Structure and Purpose"). The real skill is the tail of the string -
+  `Text Structure and Purpose` (149) and `Cross-Text Connections` (2).
+- 72 rows carried the narrow-space artifact in the name itself
+  (`T wo-variable data: ...`, and one missing Oxford comma).
+- 14 Bluebook rows spell three skills with `&` where the College Board rows
+  spell them out, which split each into two entries in the topic list.
+
+RW is now 10 skills. Left alone: 12 Bluebook Math rows storing a *domain* as
+their skill (`Algebra`, `Geometry & Trigonometry`) and 7 ad-hoc names
+(`Data distributions`, `Knowledge gap`) - picking the official skill for those
+means reading the question, which is not a rule.
+
+**The rationale figures were load-bearing, not duplicates.** The note above
+called them "a picture of the rationale prose ... still a duplicate". They were
+not. `to_html` drops the text a figure covers, so wherever a crop had swallowed
+prose, the crop was the *only* copy of it:
+
+```
+c946d5bd  "...which is equivalent to \(g(b\)"  [crop]  "equation \(b+28=1\) yields..."
+```
+
+Deleting those `<img>` tags - the obvious reading of the old note - would have
+thrown away the middle of 81 rationales. Checking what the surrounding text
+actually said is what caught it.
+
+**Root cause.** A paragraph's inline notation is vector art, so `P.figures()`
+clusters the fraction bars of several neighbouring lines into one "figure" and
+`save_figure` crops the prose behind them. `figure_blocks`'s docstring claimed
+it stopped at body text and `is_prose` existed for exactly that - and was never
+called. Anything the block covered was then dropped from the flow and skipped
+by `fill_math`, so the notation was never decoded either.
+
+`on_prose()` now rejects a block whose height is >=15% covered by body-text
+lines. Threshold measured, not guessed: over all 1,056 Math crops joined back
+to their source clusters, real charts and tables top out at 0.10 coverage (a
+caption clipping the edge) and glyph swarms start at 0.20. A rejected region
+falls through to `fill_math`, which decodes it as LaTeX or crops it inline.
+
+Two calibration notes worth keeping:
+
+1. **Aspect ratio and stroke height do not separate them.** The first attempt
+   used `max drawing height / block height`, on the theory that a chart has a
+   tall axis. A grid drawn as many short segments scores 0.20 (`df71424b`, a
+   real graph) and a two-line prose crop scores 0.36 (`c8db0e19`). Overlap with
+   the text layer is the signal; ink geometry is not.
+2. **The test must run after `table_of`, not before.** A table row starts at the
+   left margin and runs the full width, so it *is* prose by this test. Running
+   the check inside `figure_blocks` turned 7 reconstructed `<table>`s back into
+   flat prose. It lives in `build()` now, after the table branch.
+
+Measured over all 1,925 Math rows, old extraction -> new:
+
+| | before | after |
+|---|---|---|
+| figures in `explanation_html` | 724 | **32** |
+| figures in `stem_html` | 332 | 330 |
+| reconstructed `<table>`s | 103 | 103 |
+| `choices_json` changed | - | **0** |
+| `correct_answer` changed | - | **0** |
+| rationale text recovered | - | **+24,263 chars over 81 rows** |
+| rationale text lost | - | **0** |
+
+The two stem crops that go were both pictures of the question itself, and the
+text under them was broken: `(bh )` reads `(bhp)` now, and `1a722d7d`'s
+"Let the function p be defined as ," gets its expression back.
+
+**CSP was blocking the Desmos calculator in production.** `harden()` sets no
+`frame-src`, which falls back to `default-src 'self'`, so the panel was blank on
+the deployed site. Confirmed against it before fixing:
+
+```
+Framing 'https://www.desmos.com/' violates the following Content Security Policy
+directive: "default-src 'self'". ... Note that 'frame-src' was not explicitly set
+```
+
+**Re-verified in the browser, all 3,843.** Same sweep as before - click a choice
+or type the grid-in, open the explanation, assert, Next. One failure, and it is
+pre-existing: `72ae8a87` extracts five choices, two of them labelled C, because
+choice B's text is split across B and C. All 4,380 `/qimg` references resolve;
+`public/qimg` is 4,843 files / 24.3M after deleting 829 orphans.
+
+**Applying this:** `node tools/apply_math.cjs <jsonl>` writes local D1 and
+`d1_chunks/`. It overwrites `stem_html`/`choices_json`/`explanation_html`
+wholesale, so it **reverts `migrations/0002`** - re-run
+`node tools/fix_math_text.cjs --write` (142 rows) and `--emit` straight after,
+and push the regenerated 0002 to the remote *after* the chunks.
