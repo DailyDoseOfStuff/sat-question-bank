@@ -1019,3 +1019,94 @@ select id, provider_type, referrer from auth.flow_state order by created_at desc
 An allowed `redirect_to` is stored verbatim; a disallowed one is replaced by SITE_URL.
 `https://helpmeaceit.page/auth/callback` stores verbatim, so it is on the list, and
 SITE_URL is the apex.
+
+### The deploy had no images, and 23 Math questions had no answer (2026-09-03)
+
+Reported as "figures not rendering, weird text formatting, the eqns not popping
+up". Two unrelated causes, and only one of them was in the code.
+
+**Production was serving none of `/qimg`.** Every crop 404'd on
+`helpmeaceit.page` - the figures and, because most notation is still a crop, the
+equations with them. A question whose stem and choices are pictures rendered as
+a sentence with a hole in it and two blank choice buttons, which is exactly what
+the report showed. Locally all 4,847 references resolved. Nothing in the app or
+the CSP was wrong: the last `wrangler deploy` simply went up without the
+directory (`public/qimg` is gitignored, so a checkout that has never run the
+extractor - a worktree, say - has no crops to upload). Deploy from a checkout
+that has them, and check the file count wrangler prints.
+
+**23 Math questions could not be answered at all.** All four choices rendered
+identically - four `x 1 2 3`, four `Number Frequency`, four copies of the same
+axis numbers. Found by rendering every one of the 1,925 Math questions through
+the real render path and asserting the four choices differ; it is invisible to
+every check that only looks for empty or broken output.
+
+Root cause, in `tools/extract.py`: four choices printed as four small tables are
+one ruled block on the page, so `table_of` reconstructs them as **one** table -
+and `build()` put it in `tail_figs`, which is only ever read for
+`explanation_html`. The table was thrown away and the choices kept nothing but
+the shared header. Fixes, in the order they matter:
+
+- `split_choice_table()` cuts the reconstructed table where its first cell
+  repeats and gives each choice its own `<table>`. It fires only when the number
+  of groups equals the number of choices, so an ordinary table in the choice
+  band is left alone.
+- Choice-band tables now go into `fill_math`'s `skip`. Without that the same
+  region is read twice and the choice keeps the `\(x 1 2 3\)` as well.
+- `CHOICE` no longer requires text after the letter. Once the notation is
+  skipped the line is just `A.`, and `^([A-D])\.\s+(.*)$` does not match that -
+  the choices vanished entirely.
+- The skip rect is clipped to the choice band. A reconstructed table's bounds
+  reach up past the "Answer" line, and masking that far erased the stem's own
+  data list (52f9a246 printed `, , , , , , , ,`).
+- `rationale_start()` is `rationale_top()` with the page number. Comparing y
+  alone drops the choice tables of a two-page question, whose choices sit low on
+  the first page and whose rationale starts near the top of the second.
+- A header that is real text ("Number Frequency") is read twice - as the
+  choice's own line and as the table's head row. The duplicate is dropped.
+
+`python tools/extract.py --selftest` covers the splitter and the letter regex.
+
+Verified against the source, not just against itself: the four choice bands were
+rendered straight off the PDF and read by eye for six of them, and for all 22 the
+choice stored as correct was checked to hold the numbers its own rationale names.
+
+**Two named one-offs.** `36f068e2` offers four scatterplots, which are art with
+no text to recover, so each choice's band was cropped to `36f068e2_ch<letter>.webp`.
+`72ae8a87` had choice B running onto a line the extractor read as a bullet, which
+opened a fifth choice also labelled C; joined back on.
+
+**Also in `migrations/0005_math_render_fixes.sql`:** the two scraps in `5da5c665`
+KaTeX cannot parse (a `\sqrt[3]` with nothing under it, and a quadratic formula
+that lost its discriminant - the lines around it give 25 + 80), and 15 rows whose
+`\( ... \)` holds no mathematics at all, only a unit or a phrase, so it rendered
+in the maths font mid-sentence (`\(\text{ in centimeters } (cm)\)`).
+`node tools/apply_choice_tables.cjs <jsonl>` writes the local D1 and that
+migration; `--test` is its self-check.
+
+**Frontend** (`public/index.html`): a `.qfig` inside a `.choice` had no styling
+at all - the figure rules are scoped to `.cb`, and a choice is not inside one -
+so a graph choice rendered full width on a white square. Capped, blended, and
+inverted in dark mode the way the other crops are. The lightbox handler also had
+to stop firing on it: clicking a choice is how you answer, and a viewer opening
+over that would hijack the click.
+
+Measured over all 1,925 Math questions, before -> after:
+
+| | before | after |
+|---|---|---|
+| questions whose choices are all identical | 23 | **0** |
+| MCQs with four distinct labelled choices | 1,448/1,449 | **1,449/1,449** |
+| KaTeX errors in stem, choices or rationale | 1 | **0** |
+| spans of raw LaTeX left on the page | 25 | **0** |
+| `/qimg` references that resolve | 4,843/4,843 | 4,847/4,847 |
+| orphaned crops | 2 | **0** |
+
+Left alone, and why:
+- `1ee962ec` and `4acd05cd` split their last choice's table across a page break.
+  The continuation is at the very top of the next page, and `P.figures()` drops
+  anything above `BANNER_BOTTOM` (the metadata banner, which only page 1 has) -
+  and the fragment is under `FIG_MIN_H` besides. Choice D shows 3 of its 4 rows.
+- A stacked fraction inside a table cell reads as two lines, so `1/16` prints as
+  `1 16` (`f28944ff`, distractor cells only).
+- ~350 stems print a space before `?` or `,`. That is what the source PDF prints.

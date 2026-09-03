@@ -305,6 +305,14 @@ img.minl { mix-blend-mode: multiply; }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
 .cb .qfig img, .cb .qimg img { cursor: zoom-in; }
+/* A choice can be a picture in its own right (36f068e2 offers four graphs).
+   It is not a figure to open in the viewer — clicking a choice is how you
+   answer — and it is cropped at the source's own width, so it is capped rather
+   than run to the full width of the button. */
+.choice .qfig { margin: 0; }
+.choice .qfig img { display: block; max-width: min(100%, 340px); border-radius: 8px;
+                    mix-blend-mode: multiply; }
+:root[data-theme="dark"] .choice .qfig img { filter: invert(1); mix-blend-mode: screen; }
 /* .cb figure carries the one HTML table in the bank; without these it takes the
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
 .qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
@@ -1423,7 +1431,8 @@ function openLightbox(src) {
 
 document.addEventListener('click', e => {
   const img = e.target.closest('.qfig img, .qimg img');
-  if (img) openLightbox(img.getAttribute('src'));
+  // a figure that IS a choice must not hijack the click that answers with it
+  if (img && !img.closest('.choice')) openLightbox(img.getAttribute('src'));
 });
 
 const H3_LABEL = /<h3>\s*(?:Passage|Prompt|Question)\s*<\/h3>/gi;

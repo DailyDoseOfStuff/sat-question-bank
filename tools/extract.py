@@ -23,8 +23,11 @@ import pdfcommon as P
 
 PARA_GAP = 18.0          # vertical gap (pt) that starts a new paragraph
 BULLET_MAX = 4.0         # filled squares this small to the left = list bullet
-CHOICE = re.compile(r"^([A-D])\.\s+(.*)$", re.S)
+# The text after the letter is optional: where the choice is a table, the line
+# is just "A." and everything else is ruling.
+CHOICE = re.compile(r"^([A-D])\.(?:\s+(.*))?$", re.S)
 CORRECT = re.compile(r"^Correct Answer:\s*(.*)$")
+QTABLE = '<div class="qtable">'
 
 
 IMG_TOKEN = re.compile("\x00([\\w.]+)\x00")
@@ -498,6 +501,11 @@ def rationale_top(rationale):
     return rationale[0]["y"] - 24 if rationale else 1 << 30
 
 
+def rationale_start(rationale):
+    """rationale_top, but page-aware."""
+    return (rationale[0]["page"], rationale[0]["y"] - 24) if rationale else (1 << 30, 0)
+
+
 def sections(lines):
     """Split a question's lines into stem / choices / answer / rationale."""
     iq = ia = ir = None
@@ -581,13 +589,47 @@ def split_prompt(stem_lines):
     return [], None
 
 
-def parse_choices(lines):
+TROW = re.compile(r"<tr>.*?</tr>", re.S)
+TCELL = re.compile(r"<t[hd]>(.*?)</t[hd]>", re.S)
+TAG = re.compile(r"<[^>]+>")
+
+
+def split_choice_table(choices, tables):
+    """Four choices printed as four small tables are one ruled block on the
+    page, so table_of reconstructs them as a single table and every choice is
+    left holding nothing but the shared header - "x 1 2 3" four times over,
+    which no student can answer. Split the block back where its first cell
+    repeats and hand each choice its own table."""
+    if len(tables) != 1 or len(choices) < 2:
+        return
+    rows = TROW.findall(tables[0])
+    head = TCELL.findall(rows[0]) if rows else []
+    if not head:
+        return
+    starts = [i for i, r in enumerate(rows)
+              if (TCELL.findall(r) or [None])[0] == head[0]]
+    if len(starts) != len(choices):
+        return
+    bounds = starts + [len(rows)]
+    for i, c in enumerate(choices):
+        group = list(rows[bounds[i]:bounds[i + 1]])
+        # only the first group kept its <th> row; the rest read as data
+        group[0] = group[0].replace("<td>", "<th>").replace("</td>", "</th>")
+        # a header written in the text layer ("Number Frequency") is read twice:
+        # once as the choice's own line and once as the table's head row
+        head = " ".join(TAG.sub(" ", x) for x in TCELL.findall(group[0])).split()
+        if TAG.sub(" ", c["content"]).split() == head:
+            c["content"] = ""
+        c["content"] += '<div class="qtable"><table>' + "".join(group) + "</table></div>"
+
+
+def parse_choices(lines, tables=()):
     """Lines -> [{letter, content}]. A choice can wrap over several lines."""
     out = []
     for ln in lines:
         m = CHOICE.match(ln["text"])
         if m:
-            out.append({"letter": m.group(1), "content": m.group(2).strip()})
+            out.append({"letter": m.group(1), "content": (m.group(2) or "").strip()})
         elif ln["bullet"] and out:
             # A few source pages mis-render a choice as a bullet instead of
             # "D." (e.g. e3bbf2bf). Treat it as the next choice, not a wrap.
@@ -597,7 +639,8 @@ def parse_choices(lines):
             out[-1]["content"] += " " + ln["text"].strip()
     for c in out:
         text = c["content"].replace("\xad", "").strip()
-        c["content"] = f"<p>{esc(text)}</p>"
+        c["content"] = f"<p>{esc(text)}</p>" if text else ""
+    split_choice_table(out, tables)
     return out
 
 
@@ -839,8 +882,19 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     if labels:
         imgs = []
         for pno in pages:
-            # notation inside a figure belongs to the picture, not the prose
+            # notation inside a figure belongs to the picture, not the prose.
+            # A region already read back as a table counts too, wherever it
+            # sits: decoding it a second time as loose notation is what left
+            # the four choice tables all reading "x 1 2 3".
             skip = [rect for rect, p, _ in figs if p == pno]
+            # ...but only over the choices: a choice table's reconstructed
+            # bounds reach up past the "Answer" line, and masking that far
+            # erased the data list in the stem above it (52f9a246).
+            skip += [pymupdf.Rect(rect.x0, max(rect.y0, stem_end[1])
+                                  if p == stem_end[0] else rect.y0,
+                                  rect.x1, rect.y1)
+                     for rect, p, h in tail_figs
+                     if p == pno and h.startswith(QTABLE)]
             near = [rect for rect, p, _ in figs + tail_figs if p == pno]
             lines += fill_math(doc[pno], lines, labels, img_dir, qid, imgs,
                                skip, near)
@@ -862,7 +916,12 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     return {
         "id": qid,
         "stem_html": stem_html,
-        "choices_json": json.dumps(parse_choices(choice_lines)),
+        # (page, y): a two-page question puts the choices low on the first page
+        # and the rationale near the top of the second, so comparing y alone
+        # reads the choice tables as rationale ones and drops them.
+        "choices_json": json.dumps(parse_choices(choice_lines, [
+            h for r, p, h in tail_figs
+            if h.startswith(QTABLE) and (p, r.y0) < rationale_start(rationale)])),
         "correct_answer": json.dumps([answer] if answer else []),
         "explanation_html": to_html(rationale, [f for f in tail_figs if f[0].y0 >= rationale_top(rationale)]),
     }
@@ -886,5 +945,37 @@ def main(pdf, out_path, labels_path="", img_dir="public/qimg"):
     print(f"wrote {rows} rows to {out_path} (skipped {skipped}, {nfig_box[0]} figures)")
 
 
+def _selftest():
+    """python tools/extract.py --selftest"""
+    one = ('<div class="qtable"><table>'
+           "<tr><th>x</th><th>1</th></tr><tr><td>h(x)</td><td>4</td></tr>"
+           "<tr><td>x</td><td>1</td></tr><tr><td>h(x)</td><td>-2</td></tr>"
+           "</table></div>")
+    ch = [{"letter": "A", "content": ""}, {"letter": "B", "content": ""}]
+    split_choice_table(ch, [one])
+    assert "<td>4</td>" in ch[0]["content"] and "<td>-2</td>" not in ch[0]["content"]
+    assert "<td>-2</td>" in ch[1]["content"] and "<td>4</td>" not in ch[1]["content"]
+    assert ch[1]["content"].startswith('<div class="qtable"><table><tr><th>x</th>')
+    # a choice whose own line is just the table's header loses the duplicate
+    dup = [{"letter": "A", "content": "<p>x 1</p>"}, {"letter": "B", "content": "<p>keep me</p>"}]
+    split_choice_table(dup, [one])
+    assert dup[0]["content"].startswith('<div class="qtable">')
+    assert dup[1]["content"].startswith("<p>keep me</p><div")
+    # a table that does not divide evenly into the choices is left alone
+    ch2 = [{"letter": c, "content": ""} for c in "ABCD"]
+    split_choice_table(ch2, [one])
+    assert all(c["content"] == "" for c in ch2)
+    # so is a choice band holding more than one table
+    ch3 = [{"letter": "A", "content": ""}, {"letter": "B", "content": ""}]
+    split_choice_table(ch3, [one, one])
+    assert all(c["content"] == "" for c in ch3)
+    assert CHOICE.match("A.").group(2) is None
+    assert CHOICE.match("A. 17").group(2) == "17"
+    print("ok")
+
+
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    if sys.argv[1:2] == ["--selftest"]:
+        _selftest()
+    else:
+        main(*sys.argv[1:])
