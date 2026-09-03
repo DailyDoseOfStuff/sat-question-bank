@@ -800,3 +800,222 @@ to a different question entirely. It was also being pasted into the tutor's prom
 deleted, and `/api/questions` selects its columns instead of `SELECT *`. The column
 stays in the table as the raw record. **The payload went from 9.44 MB to 7.99 MB**,
 15% off every cold load.
+
+### Chatbot out, export in; helpmeaceit.page (2026-09-02)
+
+**The AI tutor is gone.** `/api/chat`, `TUTOR_PROMPT`, the `GEMINI_*` vars and the
+`CHAT_RL` rate limiter are deleted, along with the `#ai-panel` chat UI. Nothing in
+the repo calls Gemini any more, so `GEMINI_API_KEY` is a dead secret — delete it
+with `wrangler secret delete GEMINI_API_KEY`.
+
+**In its place, "⧉ Copy for AI".** One button, one clipboard write, no model and no
+per-call cost. `exportPrompt()` builds a plain-text prompt — section/domain/skill/
+difficulty, the stem, the lettered choices, the stored answer, the student's own
+answer and whether it was right, then the official rationale. `toText()` does the
+HTML→text step, and exists because a naive tag strip loses the three things the
+prompt most needs: an `<img>` (the only copy of a diagram — it becomes
+`[image: <absolute URL>]`), a table's shape (`</td>` → ` | `, `</tr>` → newline),
+and the line breaks. LaTeX passes through untouched.
+
+Clipboard access can be refused (an insecure origin, a denied permission), so the
+catch renders the prompt in a modal with the text selected — still an export, one
+Ctrl+C away. Verified: the automation browser has `clipboard-write` denied at the
+profile level, which exercised exactly that path.
+
+**Domain.** `wrangler.toml` claims `helpmeaceit.page` and `www.` as
+`custom_domain` routes; the Worker 301s `www` → apex, because Supabase only returns
+an OAuth or confirmation link to an origin on its allowlist and a session started
+on one host and finished on the other is a session dropped. Add
+`https://helpmeaceit.page/auth/callback` to that allowlist. `harden()` also sets
+HSTS now.
+
+**"Allowlist the Cloudflare IPs" does not apply here.** That protects an origin
+server sitting behind Cloudflare's proxy, so attackers can't bypass it by hitting
+the origin's IP. This app has no origin: the Worker *is* the edge. There is no IP
+to leak and nothing to allowlist.
+
+### Grid-in grading was wrong for ~100 questions (same pass)
+
+Found while verifying, not reported. `isRight()` compared the stored answer string
+to the typed one, so:
+
+- **88 rows store a fraction.** A student typing `2.5` against a stored `5/2` was
+  marked wrong. `num()` now evaluates `a/b`.
+- **7 rows store a list** (`-.9333, -14/15`). Nothing but that exact string matched,
+  so those questions could never be answered correctly at all. The answer is now
+  split on `,` / `or` and any alternative counts.
+- **Decimals are graded at grid precision.** `1/6` accepts `.1666` (truncated) and
+  `.1667` (rounded), by rounding/truncating the true value to however many decimals
+  the student gave — but only at 3+ decimals, so `.2` is still not an answer of 1/6.
+
+**And the 11 "unscorable" grid-ins are scorable.** The note above said they state
+their answer only as an image; nine of eleven state it in rationale *text*, and the
+other two state it in the closing "Note that … are examples of ways to enter a
+correct answer" sentence, which lists every accepted entry. All 11 recover now.
+Two things the first attempt got wrong, both worth remembering: `7, 8, or 13` needs
+an explicit `", or"` branch or the list silently stops at 8; and a token can open
+with a dot (`.5`, `.1666`), so requiring a leading digit drops three of them.
+
+**Rationale figures had no styling.** 926 rows carry a figure in
+`explanation_html` as a bare `<img alt="Figure">` with no wrapper class, so they
+picked up neither the width cap nor the dark-mode handling — a full-bleed white
+block bleeding out of the explanation. The explanation container is now
+`.cb.expl` and its non-`.minl` images are capped and inverted in dark mode.
+
+`plain()` (the mistakes-card teaser) now strips the Passage/Prompt headings the
+player already strips, so a card no longer reads "Passage … Quest".
+
+`pt10_math_m2_q16` printed all four choices inside its own stem
+(`migrations/0003`), and `┬▓` (CP437 for `²`) joined the `MOJIBAKE` table. Those
+were the only two occurrences in the bank; `úñ` and `áñ` look like mojibake and are
+not — they are "Zúñiga".
+
+### Verification: all 3,843, in the browser
+
+Hand-clicked a sample first (figures, reconstructed tables, KaTeX, notation crops,
+MCQ and grid-in, right and wrong paths, two-passage RW, the HTML-table row, the 11
+grid-ins, the rows this file lists as defective). That sample is what found the
+rationale-figure bug and the grid-in grading bug — neither shows up as an error,
+only as something that looks wrong.
+
+Then a DOM sweep drove the real player through every question — click a choice or
+type into the grid-in, open the explanation, assert, press Next. Per question:
+non-empty render, no `Passage`/`Prompt` scaffolding, no `<img>` with
+`naturalWidth === 0`, no `.katex-error` in stem or rationale, no mojibake or
+replacement character, no leaked rationale, four choices for MCQ, exactly one
+choice marked correct (`.right` or `.corrected` — a re-answered question marks the
+right one `corrected`, not `right`), a non-blank "Correct answer" line, and a
+non-empty explanation.
+
+**3,770 official + 73 practice-test = 3,843. Zero failures.** 3,360 MCQ, 483
+grid-ins, 0 not auto-scored (was 11), 73 with no explanation — all `source='Bluebook'`,
+which is expected, they are in neither PDF.
+
+Note the three stale claims this file used to make, all fixed earlier by the
+extractor root-cause pass and confirmed here: `d4d513ff`/`2e8cc1c0`/`6fa593f1` read
+`x` correctly, and `1efd7ef3` reads `\(\sin 42\pi\)`.
+
+Left alone: two RW skills carry a PDF header as their name ("Assessment T est
+Domain Skill Difficulty SA T Reading and Writing …", 151 questions), visible in the
+topic list. A `<figure>` crop in ~583 rationales is a picture of the rationale prose
+rather than a diagram — now sized and themed correctly, but still a duplicate. Both
+need re-extraction, not a client patch.
+
+### Skill names, and the rationale crops that were not duplicates (2026-09-02, later)
+
+Two things this file had listed as "needs re-extraction". Only one of them did.
+
+**Skill names: a migration, not an extraction.** `import_sql.cjs` never touches
+`section`/`domain`/`skill`, so the garbage in that column never came from the
+extractor and re-running it could not have fixed it. `migrations/0004`, 237 rows:
+
+- 151 rows carried the PDF's own page header as their skill ("Assessment T est
+  Domain Skill Difficulty SA T Reading and Writing Cr aft and Structure T ext
+  Structure and Purpose"). The real skill is the tail of the string -
+  `Text Structure and Purpose` (149) and `Cross-Text Connections` (2).
+- 72 rows carried the narrow-space artifact in the name itself
+  (`T wo-variable data: ...`, and one missing Oxford comma).
+- 14 Bluebook rows spell three skills with `&` where the College Board rows
+  spell them out, which split each into two entries in the topic list.
+
+RW is now 10 skills. Left alone: 12 Bluebook Math rows storing a *domain* as
+their skill (`Algebra`, `Geometry & Trigonometry`) and 7 ad-hoc names
+(`Data distributions`, `Knowledge gap`) - picking the official skill for those
+means reading the question, which is not a rule.
+
+**The rationale figures were load-bearing, not duplicates.** The note above
+called them "a picture of the rationale prose ... still a duplicate". They were
+not. `to_html` drops the text a figure covers, so wherever a crop had swallowed
+prose, the crop was the *only* copy of it:
+
+```
+c946d5bd  "...which is equivalent to \(g(b\)"  [crop]  "equation \(b+28=1\) yields..."
+```
+
+Deleting those `<img>` tags - the obvious reading of the old note - would have
+thrown away the middle of 81 rationales. Checking what the surrounding text
+actually said is what caught it.
+
+**Root cause.** A paragraph's inline notation is vector art, so `P.figures()`
+clusters the fraction bars of several neighbouring lines into one "figure" and
+`save_figure` crops the prose behind them. `figure_blocks`'s docstring claimed
+it stopped at body text and `is_prose` existed for exactly that - and was never
+called. Anything the block covered was then dropped from the flow and skipped
+by `fill_math`, so the notation was never decoded either.
+
+`on_prose()` now rejects a block whose height is >=15% covered by body-text
+lines. Threshold measured, not guessed: over all 1,056 Math crops joined back
+to their source clusters, real charts and tables top out at 0.10 coverage (a
+caption clipping the edge) and glyph swarms start at 0.20. A rejected region
+falls through to `fill_math`, which decodes it as LaTeX or crops it inline.
+
+Two calibration notes worth keeping:
+
+1. **Aspect ratio and stroke height do not separate them.** The first attempt
+   used `max drawing height / block height`, on the theory that a chart has a
+   tall axis. A grid drawn as many short segments scores 0.20 (`df71424b`, a
+   real graph) and a two-line prose crop scores 0.36 (`c8db0e19`). Overlap with
+   the text layer is the signal; ink geometry is not.
+2. **The test must run after `table_of`, not before.** A table row starts at the
+   left margin and runs the full width, so it *is* prose by this test. Running
+   the check inside `figure_blocks` turned 7 reconstructed `<table>`s back into
+   flat prose. It lives in `build()` now, after the table branch.
+
+Measured over all 1,925 Math rows, old extraction -> new:
+
+| | before | after |
+|---|---|---|
+| figures in `explanation_html` | 724 | **32** |
+| figures in `stem_html` | 332 | 330 |
+| reconstructed `<table>`s | 103 | 103 |
+| `choices_json` changed | - | **0** |
+| `correct_answer` changed | - | **0** |
+| rationale text recovered | - | **+24,263 chars over 81 rows** |
+| rationale text lost | - | **0** |
+
+The two stem crops that go were both pictures of the question itself, and the
+text under them was broken: `(bh )` reads `(bhp)` now, and `1a722d7d`'s
+"Let the function p be defined as ," gets its expression back.
+
+**CSP was blocking the Desmos calculator in production.** `harden()` sets no
+`frame-src`, which falls back to `default-src 'self'`, so the panel was blank on
+the deployed site. Confirmed against it before fixing:
+
+```
+Framing 'https://www.desmos.com/' violates the following Content Security Policy
+directive: "default-src 'self'". ... Note that 'frame-src' was not explicitly set
+```
+
+**Re-verified in the browser, all 3,843.** Same sweep as before - click a choice
+or type the grid-in, open the explanation, assert, Next. One failure, and it is
+pre-existing: `72ae8a87` extracts five choices, two of them labelled C, because
+choice B's text is split across B and C. All 4,380 `/qimg` references resolve;
+`public/qimg` is 4,843 files / 24.3M after deleting 829 orphans.
+
+**Applying this:** `node tools/apply_math.cjs <jsonl>` writes local D1 and
+`d1_chunks/`. It overwrites `stem_html`/`choices_json`/`explanation_html`
+wholesale, so it **reverts `migrations/0002`** - re-run
+`node tools/fix_math_text.cjs --write` (142 rows) and `--emit` straight after,
+and push the regenerated 0002 to the remote *after* the chunks.
+
+### Analytics beacon, and proving the Supabase allowlist (2026-09-03)
+
+`static.cloudflareinsights.com` is in `script-src`, in **both** CSP sources. Cloudflare
+injects the Web Analytics beacon into the HTML at the edge, so it is not something the
+page can decline; without the origin the only effect is a console error and no
+analytics. Its own POST goes to `/cdn-cgi/rum` on this origin, already covered by
+`'self'`. The beacon is not in the served HTML yet — auto-injection is off in the
+dashboard, which is the remaining half and is not settable from wrangler.
+
+**The Supabase redirect allowlist can be checked without signing in.** `/auth/v1/authorize`
+always 302s to Google whether or not `redirect_to` is allowed, and `state` is an opaque
+UUID, so the response says nothing. But that UUID is the primary key of `auth.flow_state`,
+and GoTrue writes the *accepted* redirect into its `referrer` column:
+
+```sql
+select id, provider_type, referrer from auth.flow_state order by created_at desc limit 4;
+```
+
+An allowed `redirect_to` is stored verbatim; a disallowed one is replaced by SITE_URL.
+`https://helpmeaceit.page/auth/callback` stores verbatim, so it is on the list, and
+SITE_URL is the apex.

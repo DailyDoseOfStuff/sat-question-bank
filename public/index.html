@@ -309,6 +309,12 @@ img.minl { mix-blend-mode: multiply; }
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
 .qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
 .cb figure figcaption { color: var(--dim); margin-top: 6px; }
+/* 926 rationales carry their own figure crops as a bare <img alt="Figure"> with
+   no wrapper class, so they picked up neither the width cap nor the dark-mode
+   handling: a full-bleed white block bleeding out of the explanation. Notation
+   crops (.minl) are excluded — they are inline and already scaled. */
+.expl img:not(.minl) { display: block; max-width: 100%; height: auto; border-radius: 8px; margin: 12px 0; }
+:root[data-theme="dark"] .expl img:not(.minl) { filter: invert(1); mix-blend-mode: screen; }
 .qtable table, .cb table { border-collapse: collapse; font-size: 14.5px; }
 .qtable table th, .qtable table td, .cb table th, .cb table td { border: 1px solid var(--border2); padding: 8px 14px; text-align: left; }
 .qtable table th, .cb table th { background: var(--bg2); font-weight: 600; }
@@ -359,7 +365,7 @@ img.minl { mix-blend-mode: multiply; }
 #pos-lbl { font-size: 13.5px; color: var(--dim); font-weight: 600; }
 #btn-back { min-width: 90px; }
 #btn-next { min-width: 90px; }
-#btn-ai { display: inline-flex; align-items: center; gap: 6px; min-width: 90px; }
+#btn-export { display: inline-flex; align-items: center; gap: 6px; min-width: 132px; justify-content: center; }
 
 /* question map modal */
 .modal-bg { position: fixed; inset: 0; background: rgba(17,24,39,.45); display: flex; align-items: center; justify-content: center; z-index: 60; }
@@ -624,7 +630,7 @@ img.minl { mix-blend-mode: multiply; }
     </div>
     <div class="bot-r">
       <button id="btn-expl" title="Show explanation">Explanation</button>
-      <button id="btn-ai" title="AI Tutor">✦ AI</button>
+      <button id="btn-export" title="Copy this question as a prompt for ChatGPT, Claude or any AI assistant">⧉ Copy for AI</button>
       <button id="btn-back">Back</button>
       <button class="btn-p" id="btn-next">Next</button>
     </div>
@@ -696,7 +702,7 @@ const MOJIBAKE = [
   ['\u0393\u00c7\u00a3', '\u201c'], ['\u0393\u00c7\u00a5', '\u201d'], ['\u0393\u00c7\u00aa', '\u2026'],
   ['\u0393\u00eb\u00f1', '\u2264'], ['\u0393\u00eb\u00d1', '\u2265'], ['\u0393\u00eb\u00e1', '\u2260'],
   ['\u0393\u00eb\u00ea', '\u2248'], ['\u00a4\u00c7', '\u03c0'], ['\u251c\u00f9', '\u00d7'],
-  ['\u252c\u00b0', '\u00b0'], ['\u252c\u2557', '\u00b7']
+  ['\u252c\u00b0', '\u00b0'], ['\u252c\u2557', '\u00b7'], ['\u252c\u2593', '\u00b2']
 ];
 const demoji = (h) => MOJIBAKE.reduce((a, [bad, good]) => a.split(bad).join(good), h || '');
 // Some stems have the rationale appended to them. It is already in explanation_html,
@@ -790,10 +796,18 @@ async function load() {
         const m = q.answer.match(/^\s*([A-D])\s*[\u2014\u2013-]\s*\S/);
         if (m) q.answer = m[1];
       }
-      if (!q.answer && !q.choices.length) {
-        const m = q.explanation_html.replace(/<[^>]+>/g, ' ')
-          .match(/correct answer is\s*:?\s*([0-9]+(?:\.[0-9]+)?(?:\/[0-9]+)?)(?=[\s.,]|$)/i);
-        if (m) q.answer = m[1];
+      // A grid-in with no stored answer normally states it in its own rationale,
+      // either as "The correct answer is either 8 or 9" or as a closing "Note that
+      // 1/6, .1666, ... are examples of ways to enter a correct answer". Every
+      // token in either sentence is an accepted entry, so all of them are kept.
+      if (!q.answer && q.spr) {
+        const t = q.explanation_html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+        // A token may open with a dot (".5", ".1666"), and the ", or" branch matters:
+        // without it "7, 8, or 13" stops at 8.
+        const m = t.match(/correct answer is\s*:?\s*(?:either\s+)?(\.?[0-9][0-9.\/]*(?:\s*,?\s*(?:or|and)\s*\.?[0-9][0-9.\/]*|\s*,\s*\.?[0-9][0-9.\/]*)*)/i)
+               || t.match(/Note that\s+(\.?[0-9][0-9.\/]*(?:\s*,?\s*(?:or|and)\s*\.?[0-9][0-9.\/]*|\s*,\s*\.?[0-9][0-9.\/]*)*)\s+are examples of ways to enter a correct answer/i);
+        const alts = m ? (m[1].match(/\.?[0-9][0-9.\/]*/g) || []).map(x => x.replace(/\.$/, '')) : [];
+        if (alts.length) q.answer = alts.join(' or ');
       }
     });
     await loadProgress();
@@ -1178,7 +1192,9 @@ const MK = { sec:'all', diff:'all', skill:'all', status:'wrong' };
 // built and no <img> in the stem gets fetched just to read a two-line preview.
 const DECODER = document.createElement('textarea');
 const plain = (h) => {
-  DECODER.innerHTML = (h || '').replace(/<[^>]+>/g, ' ');
+  // Drop the extractor's Passage/Prompt headings first: the player strips them at
+  // render, so leaving them in makes a card teaser read "Passage ... Quest".
+  DECODER.innerHTML = (h || '').replace(H3_LABEL, ' ').replace(/<[^>]+>/g, ' ');
   return (DECODER.value || '').replace(/\s+/g, ' ').trim();
 };
 
@@ -1288,7 +1304,7 @@ function previewQuestion(id) {
       <div class="choices" style="margin-top:16px;">${q.choices.map(c => choiceHTML(q, c, null, true)).join('')}</div>
       ${q.spr ? `<div class="ans-line" style="margin-top:14px;">Answer: ${esc(q.answer)||'(see image)'}</div>` : ''}
     </div>
-    <div style="margin-top:14px; color:var(--dim); font-size:13.5px;" class="cb">${q.explanation_html||''}</div>
+    <div style="margin-top:14px; color:var(--dim); font-size:13.5px;" class="cb expl">${q.explanation_html||''}</div>
   </div></div>`;
   mathify(root);
   $('pv-close').onclick = () => root.innerHTML = '';
@@ -1568,11 +1584,28 @@ function isRight(q, val) {
   const a = String(q.answer||'').trim().toUpperCase();
   if (!a) return null;
   if (q.spr) {
-    const clean = (s) => String(s).toUpperCase().replace(/[\s,$]/g,'').replace(/\.0+$/,'');
-    const av = clean(a), vv = clean(val);
-    const af = parseFloat(av), vf = parseFloat(vv);
-    if (!isNaN(af) && !isNaN(vf)) return Math.abs(af-vf) < 1e-9;
-    return av === vv;
+    // A grid-in accepts several spellings of one value — 5/2 and 2.5, and a decimal
+    // truncated or rounded to fill the grid (1/6 as .1666 or .1667) — and some
+    // questions accept genuinely different values ("either 8 or 9"). Comparing the
+    // stored string to the typed one caught none of that: 88 rows store a fraction
+    // and 7 store a list, so a right answer was being marked wrong.
+    const clean = (s) => String(s).toUpperCase().replace(/[\s,$]/g,'');
+    const num = (s) => {
+      const m = /^(-?[0-9]+(?:\.[0-9]+)?)\/(-?[0-9]+(?:\.[0-9]+)?)$/.exec(s);
+      return m ? Number(m[1]) / Number(m[2]) : parseFloat(s);
+    };
+    const vv = clean(val), vf = num(vv);
+    const dp = (vv.split('.')[1] || '').length;
+    return a.split(/\s+OR\s+|,/).map(clean).filter(Boolean).some(av => {
+      const af = num(av);
+      if (isNaN(af) || isNaN(vf)) return av === vv;
+      if (Math.abs(af - vf) < 1e-9) return true;
+      // ponytail: only at grid precision. The real grid is 4 characters wide, so
+      // ".1667" is an answer of 1/6 and ".2" is not; three decimals is the proxy.
+      if (dp < 3) return false;
+      const f = Math.pow(10, dp);
+      return Math.round(af * f) / f === vf || Math.trunc(af * f) / f === vf;
+    });
   }
   if (!q.choices.some(c => String(c.letter||'').trim().toUpperCase() === a)) return null;
   return a === String(val).trim().toUpperCase();
@@ -1620,7 +1653,7 @@ function openExplanation() {
     <div class="dr-b" style="padding:0;overflow:visible;">
       ${head}
       <h4>Explanation</h4>
-      <div class="cb">${answered ? (q.explanation_html || '<p>No explanation available for this question.</p>') : '<p style="color:var(--dim);">Hidden until you answer.</p>'}</div>
+      <div class="cb expl">${answered ? (q.explanation_html || '<p>No explanation available for this question.</p>') : '<p style="color:var(--dim);">Hidden until you answer.</p>'}</div>
       <h4>Question info</h4>
       <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
       <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
@@ -1865,88 +1898,76 @@ function showHome() {
   refresh();
 }
 
-// ---- AI Tutor Chat ----
-(function(){
-  const st = document.createElement('style');
-  st.textContent = `
-  #ai-panel{position:fixed;right:22px;bottom:74px;z-index:9001;width:min(400px,calc(100vw - 32px));height:min(520px,70vh);
-    background:var(--panel);border:1px solid var(--border);border-radius:16px;display:none;
-    flex-direction:column;box-shadow:0 12px 40px rgba(0,0,0,.25);overflow:hidden}
-  #ai-panel.open{display:flex}
-  #ai-head{padding:14px 18px;background:#8b5cf6;color:#fff;font-weight:600;display:flex;justify-content:space-between;align-items:center}
-  #ai-close{background:none;border:none;color:#fff;font-size:18px;cursor:pointer}
-  #ai-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
-  .ai-msg{max-width:85%;padding:10px 14px;border-radius:12px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word}
-  .ai-msg.user{align-self:flex-end;background:var(--blue-bg);color:var(--text)}
-  .ai-msg.bot{align-self:flex-start;background:var(--bg);color:var(--text)}
-  #ai-form{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
-  #ai-in{flex:1;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:14px;background:var(--panel);color:var(--text)}
-  #ai-send{background:#8b5cf6;color:#fff;border:none;border-radius:10px;padding:0 18px;font-weight:600;cursor:pointer}`;
-  document.head.appendChild(st);
+// ---- Export a question to an AI assistant ----
+// No model runs here any more. The button builds a plain-text prompt and copies
+// it, so the student pastes the question into whatever assistant they already use.
 
-  const panel = document.createElement('div');
-  panel.id = 'ai-panel';
-  panel.innerHTML = `
-    <div id="ai-head"><span>AI Tutor ✦</span><button id="ai-close">✕</button></div>
-    <div id="ai-msgs"></div>
-    <form id="ai-form"><input id="ai-in" placeholder="Ask about this question..." autocomplete="off"><button id="ai-send">Send</button></form>`;
-  document.body.appendChild(panel);
+// A naive tag strip loses the three things the prompt most needs: a figure (the
+// <img> is the only copy of the diagram), a table's shape, and the line breaks.
+function toText(html) {
+  const d = document.createElement('div');
+  d.innerHTML = String(html == null ? '' : html)
+    .replace(/<img\b[^>]*>/gi, m => {
+      const src = (m.match(/src\s*=\s*"([^"]*)"/i) || [])[1];
+      return src ? ' [image: ' + new URL(src, location.href).href + '] ' : ' [image] ';
+    })
+    .replace(/<\/(td|th)>/gi, ' | ')
+    .replace(/<\/(tr|p|div|li|h[1-6]|table)>/gi, '\n');
+  return d.textContent.replace(/[ \t]+/g, ' ').replace(/ *\n\s*\n+/g, '\n').trim();
+}
 
-  $('btn-ai').onclick = () => panel.classList.toggle('open');
-  panel.querySelector('#ai-close').onclick = () => panel.classList.remove('open');
+function exportPrompt(q) {
+  const answered = !!(S && S.checked[q.id]);
+  const mine = answered ? S.ans[q.id] : '';
+  const ok = answered ? isRight(q, mine) : null;
+  const out = [
+    'I am practising for the SAT. Help me understand this question.',
+    '',
+    `Section: ${q.section || '\u2014'} \u00b7 Domain: ${q.domain || '\u2014'} \u00b7 Skill: ${q.skill || '\u2014'} \u00b7 Difficulty: ${q.difficulty || '\u2014'}`,
+    '',
+    'QUESTION',
+    toText(q.stem_html)
+  ];
+  if (q.choices.length)
+    out.push('', 'CHOICES', ...q.choices.map(c => `${c.letter}. ${toText(c.content)}`));
+  else
+    out.push('', '(Student-produced response \u2014 the answer is typed in, not chosen.)');
 
-  const msgs = panel.querySelector('#ai-msgs');
-  function add(role, text) {
-    const d = document.createElement('div');
-    d.className = 'ai-msg ' + role;
-    d.textContent = text;
-    msgs.appendChild(d);
-    msgs.scrollTop = msgs.scrollHeight;
+  out.push('', 'CORRECT ANSWER: ' + (q.answer || '(not recorded for this question)'));
+  if (answered)
+    out.push('MY ANSWER: ' + (mine || '(blank)') + ' \u2014 ' +
+      (ok === true ? 'correct' : ok === false ? 'wrong' : 'not auto-scored'));
+
+  const ex = toText(q.explanation_html);
+  if (ex) out.push('', 'OFFICIAL EXPLANATION', ex);
+
+  out.push('',
+    'Explain why the correct answer is right, and where my reasoning likely went wrong.',
+    'Maths notation is LaTeX between \\( and \\). Any [image: ...] link is a figure or diagram belonging to the question.');
+  return out.join('\n');
+}
+
+$('btn-export').onclick = async (e) => {
+  if (!S) return;
+  const btn = e.currentTarget, label = btn.textContent, text = exportPrompt(curQ());
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = '\u2713 Copied';
+    setTimeout(() => { btn.textContent = label; }, 1600);
+  } catch (_) {
+    // Clipboard access can be refused (permissions, an insecure origin). Showing
+    // the prompt is still an export — the student selects it and copies by hand.
+    const root = $('modal-root');
+    root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(720px,94vw)">
+      <div class="dr-h" style="padding:0 0 14px;"><span>Copy this into your AI assistant</span><button class="icon-btn" id="xp-close">\u2715</button></div>
+      <textarea readonly style="width:100%;height:46vh;font:13px/1.5 ui-monospace,monospace;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg2);color:var(--text);"></textarea>
+    </div></div>`;
+    const ta = root.querySelector('textarea');
+    ta.value = text; ta.focus(); ta.select();
+    $('xp-close').onclick = () => root.innerHTML = '';
+    root.querySelector('.modal-bg').onclick = (ev) => { if (ev.target.classList.contains('modal-bg')) root.innerHTML = ''; };
   }
-
-  let history = [];
-
-  panel.querySelector('#ai-form').onsubmit = async (e) => {
-    e.preventDefault();
-    const input = panel.querySelector('#ai-in');
-    const q = input.value.trim();
-    if (!q) return;
-    input.value = '';
-    add('user', q);
-
-    let context = '';
-    try {
-      const cq = (typeof curQ === 'function') ? curQ() : null;
-      if (cq) {
-        const strip = h => (h||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        context = `Section: ${cq.section} | Domain: ${cq.domain} | Skill: ${cq.skill} | Difficulty: ${cq.difficulty}\nQuestion: ${strip(cq.stem_html).slice(0,2000)}\nChoices: ${(cq.choices||[]).map(c => (c.letter||'') + ': ' + strip(c.content)).join(' | ')}`;
-      }
-    } catch(_) {}
-
-    history.push({role:'user', content: q});
-    if (history.length > 12) history = history.slice(-12);
-
-    add('bot', '…');
-    try {
-      // Only the turns and the question context go over the wire; the tutor's
-      // instructions live in the Worker, which is also the only place that can
-      // check who is asking.
-      const r = await fetch('/api/chat', {
-        method:'POST',
-        headers:{'Content-Type':'application/json', ...sbHeaders()},
-        body: JSON.stringify({ messages: history, context })
-      });
-      const data = await r.json();
-      msgs.lastChild.remove();
-      const reply = data.reply || ('Error: ' + (data.error || r.status));
-      add('bot', reply);
-      if (data.reply) history.push({role:'assistant', content: data.reply});
-    } catch(err) {
-      msgs.lastChild.remove();
-      add('bot', 'Network error: ' + err.message);
-    }
-  };
-})();
+};
 
 // ---------------- auth (Supabase) ----------------
 // Progress belongs to the account, so requests carry the Supabase access token and
