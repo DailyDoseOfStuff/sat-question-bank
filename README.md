@@ -5,7 +5,7 @@ official College Board Educator Question Bank PDFs, plus a handful of personal
 Bluebook practice-test mistakes. Runs as a single Cloudflare Worker: the
 questions live in D1, the UI is one static HTML file.
 
-Live: https://helpmeaceit.page (also https://sat-question-bank.liuallen1209.workers.dev)
+Live: https://helpmeaceit.page
 
 ## Features
 
@@ -84,5 +84,16 @@ account:
 4. `wrangler deploy`. Cloudflare creates both DNS records itself; do not add an
    A/CNAME record by hand, a custom-domain route owns it.
 
-Until step 3 finishes, `wrangler deploy` fails on the route and the
-`*.workers.dev` URL keeps serving.
+Done, as of 2026-09-02. `www` 301s to the apex, because Supabase returns an OAuth
+or confirmation link to one allowlisted origin and a session started on one host
+and finished on the other is a session dropped. Assets are served before the
+Worker runs, so that check would never have seen `/`: `run_worker_first = ["/"]`
+in `[assets]` routes just the page through the Worker.
+
+The `*.workers.dev` URL is gone — `workers_dev` is not set in `wrangler.toml`, so
+the first deploy with custom domains disabled it. That is deliberate: one origin
+is the whole point of the redirect above. Add `workers_dev = true` to bring it back.
+
+Security headers live in **two** places and must agree: `public/_headers` covers
+static assets (a request that matches one never reaches the Worker) and the `CSP`
+constant in `src/index.js` covers the JSON API and `/auth/callback`.

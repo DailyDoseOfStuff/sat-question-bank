@@ -16,6 +16,11 @@ custom_domain = true
 [assets]
 directory = "./public"
 binding = "ASSETS"
+# Assets are served before the Worker runs, so "/" never reached the www -> apex
+# check in src/index.js and www.helpmeaceit.page served the page on its own host.
+# Only "/" is routed through the Worker: sending the 4,843 crops through it too
+# would cost a Worker invocation per image for nothing.
+run_worker_first = ["/"]
 
 [vars]
 # Publishable key — same pair the browser already ships; used only to call
