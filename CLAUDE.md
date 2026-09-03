@@ -997,3 +997,25 @@ choice B's text is split across B and C. All 4,380 `/qimg` references resolve;
 wholesale, so it **reverts `migrations/0002`** - re-run
 `node tools/fix_math_text.cjs --write` (142 rows) and `--emit` straight after,
 and push the regenerated 0002 to the remote *after* the chunks.
+
+### Analytics beacon, and proving the Supabase allowlist (2026-09-03)
+
+`static.cloudflareinsights.com` is in `script-src`, in **both** CSP sources. Cloudflare
+injects the Web Analytics beacon into the HTML at the edge, so it is not something the
+page can decline; without the origin the only effect is a console error and no
+analytics. Its own POST goes to `/cdn-cgi/rum` on this origin, already covered by
+`'self'`. The beacon is not in the served HTML yet — auto-injection is off in the
+dashboard, which is the remaining half and is not settable from wrangler.
+
+**The Supabase redirect allowlist can be checked without signing in.** `/auth/v1/authorize`
+always 302s to Google whether or not `redirect_to` is allowed, and `state` is an opaque
+UUID, so the response says nothing. But that UUID is the primary key of `auth.flow_state`,
+and GoTrue writes the *accepted* redirect into its `referrer` column:
+
+```sql
+select id, provider_type, referrer from auth.flow_state order by created_at desc limit 4;
+```
+
+An allowed `redirect_to` is stored verbatim; a disallowed one is replaced by SITE_URL.
+`https://helpmeaceit.page/auth/callback` stores verbatim, so it is on the list, and
+SITE_URL is the apex.

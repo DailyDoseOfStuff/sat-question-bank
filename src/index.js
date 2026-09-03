@@ -8,7 +8,11 @@
 // allowances are the app's own <script> block and its style="" attributes.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  // static.cloudflareinsights.com is the Web Analytics beacon, which Cloudflare
+  // injects into the HTML itself, so it cannot be dropped from the page — leave it
+  // out and the only effect is a console error and no analytics. Its own POST goes
+  // to /cdn-cgi/rum on this origin, which 'self' already covers.
+  "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
   "font-src 'self' data: https://cdn.jsdelivr.net",
   "img-src 'self' data:",
