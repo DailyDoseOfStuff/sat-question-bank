@@ -1110,3 +1110,105 @@ Left alone, and why:
 - A stacked fraction inside a table cell reads as two lines, so `1/16` prints as
   `1 16` (`f28944ff`, distractor cells only).
 - ~350 stems print a space before `?` or `,`. That is what the source PDF prints.
+
+### Every Math question is answerable (2026-09-03, later)
+
+Asked for exactly that, whatever it took. The audit that found the gap asks one
+question per row - *could a student pick the right answer?* - rather than
+looking for empty or broken output, which is why the earlier sweeps missed it.
+
+**23 rows could not be answered.**
+
+- **12 were "which of these graphs" questions with no choices at all.** Four
+  graphs in the choice band are drawn art with a bare `A.` beside each, so the
+  extractor read four empty choices, `parse_choices` returned nothing, and the
+  row rendered as a *grid-in* whose stored answer was the letter `D`. Nothing a
+  student typed could ever match.
+- **11 grid-ins had no stored answer.** Four state it in rationale text and the
+  client already recovered those; seven state it only as a picture
+  (`The correct answer is <img>`).
+
+Four extractor bugs behind the twelve, each found by fixing the one before it:
+
+1. **`build()` had nowhere to put a choice-band figure.** Clusters were bucketed
+   stem / not-stem, and not-stem meant the rationale. A choice's own graph was
+   therefore printed under the explanation or dropped. `attach_choice_figs()`
+   hands them back in reading order, and only when there are exactly as many as
+   there are choices.
+2. **The banner cutoff applied to every page of a question.** `BANNER_BOTTOM`
+   masks the metadata banner, which only page 1 has - so on a continuation page
+   it hid whatever the question printed at the top, which is exactly where the
+   fourth choice lands when the choices run over the page. `top` is now
+   threaded through `P.figures`, `glyphmap.glyphs_on`, `raster_figures`,
+   `figure_blocks`, `math_page`, `_grid_lines` and `table_of`, and `build()`
+   passes 0 for every page but the first. This is also what had left
+   `1ee962ec` and `4acd05cd` a table row short - a defect this file previously
+   recorded as unfixable.
+3. **A choice printed as a small picture is under the figure floor.**
+   `FIG_MIN_W`/`FIG_MIN_H` reject a 91x25 mini-table, so nothing claimed it.
+   `choice_images()` crops one per choice, guarded twice: every choice must be
+   empty, and the band must hold exactly as many images as there are choices.
+   Loosening the floor instead would turn inline notation crops into figures
+   across the whole bank.
+4. **`parse_choices` read a choice's own picture as a wrap of the choice above.**
+   Where the page sets the letter against the side of its picture, the picture
+   comes first in reading order. Absorbing it into the previous choice shifted
+   every picture up one and left the last choice blank. **Overlap decides**:
+   art that overlaps a bare letter's line belongs to it, art below it still
+   wraps upwards. Getting this wrong in the obvious direction (always absorb)
+   breaks `0b46bad5`, which prints its graphs *below* their letters - both
+   layouts are in the bank, and only geometry separates them.
+
+Also fixed at the root: **`72ae8a87`'s fifth choice**. A choice whose text wraps
+onto a line the page draws a bullet against opens a phantom choice carrying the
+next letter. If the real line for that letter turns up too, the phantom was a
+wrap after all; it now folds back. That was previously a hand-written row in
+`migrations/0005`.
+
+`python tools/extract.py --selftest` covers all of it.
+
+**The seven picture-only answers were read off their own crops** (5/2, 3/2, 1/2,
+1/5, 10/3-15/4-25/6, 1/6, 7/6) and are named in `tools/apply_answerable.cjs`,
+with `137cc6fd`'s stem, whose radical indices had come through as plain digits
+(`5\sqrt{70n}6\sqrt{70n}2 ( )` for `\sqrt[5]{70n}(\sqrt[6]{70n})^{2}`), and
+`36f068e2`'s four cropped scatterplots.
+
+**Applying it.** `tools/extract.py` -> `tools/math_new.jsonl` ->
+`node tools/apply_math.cjs`, then `fix_math_text.cjs --write --emit`,
+`apply_choice_tables.cjs`, `apply_answerable.cjs`. The last of those emits
+`migrations/0006_math_answerable.sql` as *the whole delta between the local Math
+rows and the jsonl* - 153 rows - rather than its own diff, because the remote
+gets the jsonl as `d1_chunks/` and would otherwise receive the re-extraction
+with none of the repairs layered on top. Remote order: `d1_chunks/*.sql`, then
+0006.
+
+Measured over all 1,925 Math questions, before -> after:
+
+| | before | after |
+|---|---|---|
+| questions a student cannot answer | 23 | **0** |
+| MCQs (the 12 stopped being fake grid-ins) | 1,449 | 1,461 |
+| MCQs with four distinct labelled choices | 1,449 | **1,461** |
+| rows where `isRight()` returns "not scored" | 12 | **0** |
+| grid-ins with no answer anywhere | 7 | **0** |
+| KaTeX errors / raw LaTeX / mojibake | 0 | 0 |
+| `/qimg` references that resolve | 4,782 | 4,915 (whole bank) |
+| orphaned crops | - | 0 (98 deleted) |
+
+Verified three ways: a DB audit; the render path in the browser over every Math
+row (0 empty stems, 0 empty choices, 0 duplicate choice sets); and a grading
+simulation running the player's own `isRight()` over all 1,925 - every stored
+answer grades right, none returns null, and a wrong entry never grades right.
+Then read against the source for a sample: `e9aed539`'s stem parabola has vertex
+(2,-2) and "translated up 4 units" makes (2,2), which is choice A's crop;
+`d46da42c` is `f(x)=x^2+4` and choice D's crop has vertex (0,4); `a8e6bd75`'s D
+is the line of slope 2 its rationale names; `ab7740a8`'s D is the nonlinear
+table 6/12/24/48; `1ee962ec`'s C is (0,0), (3,-12), (6,0), exactly the points
+its rationale lists.
+
+Left alone, and why: `1ee962ec` and `4acd05cd` print their last choice's final
+table row at the top of the next page as its own ruled block, which `table_of`
+will not read (two horizontal rules, not three). One shows it as text above the
+table, the other loses it. Both remain answerable - the correct choice is
+complete and unique in each - and the fix is a special case in the table reader
+for a two-row fragment, which is more risk than a distractor row is worth.

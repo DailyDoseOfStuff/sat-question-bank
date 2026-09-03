@@ -17,6 +17,8 @@ tools/*
 !tools/audit_math.cjs
 !tools/fix_math_text.cjs
 !tools/apply_choice_tables.cjs
+!tools/apply_answerable.cjs
 !tools/d1_dump.cjs
 tools/templates.npz
 backup/
+d1_chunks/

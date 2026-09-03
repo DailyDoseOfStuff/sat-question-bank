@@ -44,12 +44,12 @@ def signature(drawing):
     return hashlib.md5(str(norm).encode()).hexdigest()[:10]
 
 
-def glyphs_on(page):
+def glyphs_on(page, top=BANNER_BOTTOM):
     """[(sig, rect)] for every glyph-like path below the banner."""
     out = []
     for d in page.get_drawings():
         r = d["rect"]
-        if r.y0 < BANNER_BOTTOM:
+        if r.y0 < top:
             continue
         sig = signature(d)
         if sig:

@@ -110,7 +110,7 @@ def on_prose(rect, pno, lines):
     return covered >= PROSE_COVER * rect.height
 
 
-def raster_figures(page):
+def raster_figures(page, top=P.BANNER_BOTTOM):
     """Bitmap illustrations embedded in the page.
 
     Some pages carry no vector art at all - the diagram is a bitmap, and
@@ -120,12 +120,12 @@ def raster_figures(page):
     tells them apart: notation crops here are never more than ~25pt tall.
     """
     return [pymupdf.Rect(i["bbox"]) for i in page.get_image_info()
-            if i["bbox"][1] >= P.BANNER_BOTTOM
+            if i["bbox"][1] >= top
             and i["bbox"][2] - i["bbox"][0] >= P.FIG_MIN_W
             and i["bbox"][3] - i["bbox"][1] >= P.FIG_MIN_H]
 
 
-def figure_blocks(page, lines):
+def figure_blocks(page, lines, top=P.BANNER_BOTTOM):
     """Figure rects grown to include their own labels.
 
     A bare vector cluster is just the plot area - the title, axis numbers and
@@ -133,7 +133,7 @@ def figure_blocks(page, lines):
     prose. Absorb every neighbouring non-prose line, stopping at body text.
     """
     blocks = []
-    for fig in list(P.figures(page)) + raster_figures(page):
+    for fig in list(P.figures(page, top)) + raster_figures(page, top):
         rect = pymupdf.Rect(fig)
         changed = True
         while changed:
@@ -141,7 +141,7 @@ def figure_blocks(page, lines):
             for ln in lines:
                 if ln["page"] != page.number or ln["x0"] < LABEL_X:
                     continue
-                if ln["y1"] <= P.BANNER_BOTTOM:
+                if ln["y1"] <= top:
                     continue          # a metadata banner cell, not a caption
                 box = pymupdf.Rect(ln["x0"], ln["y"],
                                    max(r["bbox"][2] for r in ln["runs"]), ln["y1"])
@@ -153,7 +153,7 @@ def figure_blocks(page, lines):
                     changed = True
         # never let a block reach up into the banner: cropping one printed the
         # question's own metadata across the top of the figure
-        rect.y0 = max(rect.y0, P.BANNER_BOTTOM)
+        rect.y0 = max(rect.y0, top)
         blocks.append(rect)
     # two clusters (plot + its legend) usually grow into the same region
     merged = []
@@ -181,21 +181,21 @@ SPACE_FRAC = 0.35        # glyph gap / font size above which a space is real
 SPACE_GAP = 1.0          # pt between a run and its neighbour that reads as a space
 
 
-def math_page(page):
+def math_page(page, top=P.BANNER_BOTTOM):
     """Notation on the page, plus the fraction bars that mark it as stacked.
 
     The Math dump is not consistent: most pages draw notation as vector paths,
     but some embed it as raster images instead. Images carry no glyph identity,
     so they enter the list with a None signature and always end up cropped.
     """
-    glyphs = [(sig, pymupdf.Rect(r)) for sig, r in glyphmap.glyphs_on(page)]
+    glyphs = [(sig, pymupdf.Rect(r)) for sig, r in glyphmap.glyphs_on(page, top)]
     for info in page.get_image_info():
         rect = pymupdf.Rect(info["bbox"])
-        if rect.y0 >= P.BANNER_BOTTOM and rect.width > 1 and rect.height > 1:
+        if rect.y0 >= top and rect.width > 1 and rect.height > 1:
             glyphs.append((None, rect))
     bars = [d["rect"] for d in page.get_drawings()
             if d["rect"].height <= BAR_MAX_H and d["rect"].width > 3
-            and d["rect"].y0 >= P.BANNER_BOTTOM]
+            and d["rect"].y0 >= top]
     return glyphs, bars
 
 
@@ -362,7 +362,8 @@ def _linear(items, labels):
     return out + ("}" if mode else "")
 
 
-def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=(), near=()):
+def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=(), near=(),
+              top=P.BANNER_BOTTOM):
     """Rewrite each line's text with its drawn notation put back in place.
 
     Every glyph is assigned to a slot on its line - before the first run,
@@ -375,7 +376,7 @@ def fill_math(page, lines, labels, img_dir, qid, out_imgs, skip=(), near=()):
     is drawn just outside its own box, and cropping each of its letters was
     what put a column of one-letter pictures under every graph.
     """
-    glyphs, bars = math_page(page)
+    glyphs, bars = math_page(page, top)
     glyphs = [(s, r) for s, r in glyphs if not any(r in f for f in skip)]
     used = set()
     for ln in lines:
@@ -497,12 +498,8 @@ def section_end(lines):
     return (1 << 30, 0)
 
 
-def rationale_top(rationale):
-    return rationale[0]["y"] - 24 if rationale else 1 << 30
-
-
 def rationale_start(rationale):
-    """rationale_top, but page-aware."""
+    """(page, y) where the rationale begins."""
     return (rationale[0]["page"], rationale[0]["y"] - 24) if rationale else (1 << 30, 0)
 
 
@@ -623,28 +620,108 @@ def split_choice_table(choices, tables):
         c["content"] += '<div class="qtable"><table>' + "".join(group) + "</table></div>"
 
 
-def parse_choices(lines, tables=()):
+def attach_choice_figs(choices, figs):
+    """A choice that IS a picture - four graphs, four scatterplots - has no text
+    for the extractor to read, so the choice line is a bare "A." and the drawing
+    lands in the page's figure list instead of in the choice. Hand them back in
+    reading order, and only when there are exactly as many as there are choices,
+    so an ordinary figure printed beside the choices is left where it was."""
+    if not figs or len(figs) != len(choices):
+        return
+    for c, (_, _, html) in zip(choices, sorted(figs, key=lambda t: (t[0], t[1]))):
+        c["content"] += html
+
+
+def choice_images(doc, pages, choices, lo, hi, qid, img_dir):
+    """A choice that is a small picture in its own right - a mini table, a
+    little graph - and is under figure_blocks' size floor, so nothing on the
+    page claims it and every choice comes out blank. Crop one per choice.
+
+    Guarded twice: every choice must be empty, and the band must hold exactly
+    as many images as there are choices. Loosening the size floor instead would
+    turn inline notation crops into figures all over the bank.
+    """
+    if not choices or any(c["content"] for c in choices):
+        return
+    found = []
+    for pno in pages:
+        for info in doc[pno].get_image_info():
+            r = pymupdf.Rect(info["bbox"])
+            if r.width < 20 or r.height < 12:
+                continue
+            if lo <= (pno, r.y0) and (pno, r.y1) <= hi:
+                found.append((pno, r))
+    if len(found) != len(choices):
+        return
+    found.sort(key=lambda t: (t[0], t[1].y0))
+    for c, (pno, r) in zip(choices, found):
+        name = f"{qid}_ch{c['letter']}.webp"
+        save_figure(doc[pno], r, os.path.join(img_dir, name))
+        c["content"] = (f'<div class="qfig"><img src="/qimg/{name}" '
+                        f'alt="Choice {c["letter"]}"></div>')
+
+
+def parse_choices(lines, tables=(), figs=()):
     """Lines -> [{letter, content}]. A choice can wrap over several lines."""
-    out = []
+    out, buf = [], []
+
+    def wrap():
+        """Pending lines are a wrap of the choice above them."""
+        nonlocal buf
+        if buf and out:
+            out[-1]["content"] = (
+                out[-1]["content"] + " " + " ".join(b["text"].strip() for b in buf)).strip()
+        buf = []
+
     for ln in lines:
         m = CHOICE.match(ln["text"])
         if m:
-            out.append({"letter": m.group(1), "content": (m.group(2) or "").strip()})
+            text = (m.group(2) or "").strip()
+            mine = []
+            if not text:
+                # A bare "A." means the choice is drawn art. Where the page sets
+                # the letter against the side of its own picture, that picture
+                # comes first in reading order and was being read as a wrap of
+                # the choice above - shifting every picture up one and leaving
+                # the last choice blank (ab7740a8, 6e6a3241). Overlap says which
+                # it is; art printed *below* its letter still wraps upwards.
+                keep = [b for b in buf if b["page"] == ln["page"]
+                        and b["y"] < ln["y1"] and ln["y"] < b["y1"]]
+                mine = {id(b) for b in keep}
+                buf = [b for b in buf if id(b) not in mine]
+                text = " ".join(b["text"].strip() for b in keep).strip()
+            wrap()
+            out.append({"letter": m.group(1), "content": text})
         elif ln["bullet"] and out:
             # A few source pages mis-render a choice as a bullet instead of
             # "D." (e.g. e3bbf2bf). Treat it as the next choice, not a wrap.
+            wrap()
             out.append({"letter": chr(ord(out[-1]["letter"]) + 1),
-                        "content": ln["text"].strip()})
-        elif out:
-            out[-1]["content"] += " " + ln["text"].strip()
+                        "content": ln["text"].strip(), "guess": True})
+        else:
+            buf.append(ln)
+    wrap()
+    # ...but a choice whose text wraps onto a line the page happens to draw a
+    # bullet against opens a phantom choice carrying the next letter. If the
+    # real line for that letter turns up as well, the phantom was a wrap after
+    # all, and leaving both in gives five choices, two of them "C" (72ae8a87).
+    letters = [c["letter"] for c in out]
+    kept = []
+    for c in out:
+        if c.pop("guess", False) and letters.count(c["letter"]) > 1 and kept:
+            kept[-1]["content"] = (kept[-1]["content"] + " " + c["content"]).strip()
+        else:
+            kept.append(c)
+    out = kept
     for c in out:
         text = c["content"].replace("\xad", "").strip()
         c["content"] = f"<p>{esc(text)}</p>" if text else ""
     split_choice_table(out, tables)
+    attach_choice_figs(out, figs)
     return out
 
 
-def _grid_lines(page, rect):
+def _grid_lines(page, rect, top=P.BANNER_BOTTOM):
     """Thin horizontal and vertical strokes inside a block - a table's ruling.
 
     Measured against the strokes themselves, never against the block: figure
@@ -655,7 +732,7 @@ def _grid_lines(page, rect):
     hs, vs = [], []
     for d in page.get_drawings():
         r = d["rect"]
-        if r.y0 < P.BANNER_BOTTOM:
+        if r.y0 < top:
             continue
         if not (rect.y0 - 2 <= r.y0 and r.y1 <= rect.y1 + 2
                 and rect.x0 - 4 <= r.x0 and r.x1 <= rect.x1 + 4):
@@ -723,7 +800,7 @@ def _band(cuts, lines, pos, across):
     return None
 
 
-def table_of(page, rect, labels):
+def table_of(page, rect, labels, top=P.BANNER_BOTTOM):
     """(rect, html) for a ruled data table inside a block, or None.
 
     The ruling defines the cells, so the table's own bounds are returned too:
@@ -732,7 +809,7 @@ def table_of(page, rect, labels):
     """
     if not labels:
         return None
-    hs, vs = _grid_lines(page, rect)
+    hs, vs = _grid_lines(page, rect, top)
     ycuts, xcuts = [], []
     yspan, xspan = [], []
     for y in _merge([_midy(r) for r in hs]):
@@ -867,10 +944,15 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     # and made fill_math skip that region, so those choices lost their notation.
     stem_end = section_end(lines)
     figs, tail_figs = [], []
+    # Only the question's own first page carries the metadata banner. Applying
+    # its cutoff to a continuation page hid whatever the question printed at the
+    # top of it - which is where a fourth choice's graph lands when the choices
+    # run over the page (d675744f, b39d74a0, a8e6bd75, 1ee962ec, 4acd05cd).
+    tops = {p: (P.BANNER_BOTTOM if p == pages[0] else 0) for p in pages}
     for pno in pages:
-        for rect in figure_blocks(doc[pno], lines):
+        for rect in figure_blocks(doc[pno], lines, tops[pno]):
             bucket = figs if (pno, (rect.y0 + rect.y1) / 2) < stem_end else tail_figs
-            tab = table_of(doc[pno], rect, labels)
+            tab = table_of(doc[pno], rect, labels, tops[pno])
             if tab:
                 bucket.append((tab[0], pno, tab[1]))
                 continue
@@ -897,7 +979,7 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
                      if p == pno and h.startswith(QTABLE)]
             near = [rect for rect, p, _ in figs + tail_figs if p == pno]
             lines += fill_math(doc[pno], lines, labels, img_dir, qid, imgs,
-                               skip, near)
+                               skip, near, tops[pno])
         order = {p: i for i, p in enumerate(pages)}
         lines.sort(key=lambda l: (order[l["page"]], l["y"]))
     parsed = sections(lines)
@@ -907,6 +989,15 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     if not answer:
         answer = answer_from_rationale(rationale, bool(choice_lines))
     nfig_box[0] += len(figs)
+    # (page, y): a two-page question puts the choices low on the first page and
+    # the rationale near the top of the second, so comparing y alone reads the
+    # choice band's own figures as rationale ones and prints them under it.
+    rs = rationale_start(rationale)
+    band = [(p, r.y0, h) for r, p, h in tail_figs if (p, r.y0) < rs]
+    choices = parse_choices(choice_lines,
+                            [h for _, _, h in band if h.startswith(QTABLE)],
+                            [t for t in band if not t[2].startswith(QTABLE)])
+    choice_images(doc, pages, choices, stem_end, rs, qid, img_dir)
     passage, prompt = split_prompt(stem)
     if prompt:
         stem_html = ("<h3>Passage</h3>" + to_html([l for p in passage for l in p], figs)
@@ -916,14 +1007,9 @@ def build(doc, qid, pages, labels, img_dir, nfig_box):
     return {
         "id": qid,
         "stem_html": stem_html,
-        # (page, y): a two-page question puts the choices low on the first page
-        # and the rationale near the top of the second, so comparing y alone
-        # reads the choice tables as rationale ones and drops them.
-        "choices_json": json.dumps(parse_choices(choice_lines, [
-            h for r, p, h in tail_figs
-            if h.startswith(QTABLE) and (p, r.y0) < rationale_start(rationale)])),
+        "choices_json": json.dumps(choices),
         "correct_answer": json.dumps([answer] if answer else []),
-        "explanation_html": to_html(rationale, [f for f in tail_figs if f[0].y0 >= rationale_top(rationale)]),
+        "explanation_html": to_html(rationale, [f for f in tail_figs if (f[1], f[0].y0) >= rs]),
     }
 
 
@@ -971,6 +1057,41 @@ def _selftest():
     assert all(c["content"] == "" for c in ch3)
     assert CHOICE.match("A.").group(2) is None
     assert CHOICE.match("A. 17").group(2) == "17"
+
+    def L(text, y=0.0, h=10.0, bullet=False):
+        return {"text": text, "y": y, "y1": y + h, "page": 0, "bullet": bullet}
+
+    # art printed beside a bare letter belongs to that letter (ab7740a8)
+    got = parse_choices([L("art A", 0), L("A.", 5), L("art B", 40), L("B.", 45)])
+    assert [c["content"] for c in got] == ["<p>art A</p>", "<p>art B</p>"], got
+    # art printed below its letter still wraps upwards (0b46bad5)
+    got = parse_choices([L("A.", 0), L("art A", 20), L("B.", 60), L("art B", 80)])
+    assert [c["content"] for c in got] == ["<p>art A</p>", "<p>art B</p>"], got
+    # an ordinary wrapped choice still wraps upwards
+    got = parse_choices([L("A. first", 0), L("and more", 20), L("B. second", 40)])
+    assert [c["content"] for c in got] == ["<p>first and more</p>", "<p>second</p>"], got
+    # trailing lines after the last letter stay with it
+    got = parse_choices([L("A. first", 0), L("B. second", 20), L("tail", 40)])
+    assert got[1]["content"] == "<p>second tail</p>", got
+    # a wrap the page bulleted, where the real letter follows, folds back in
+    got = parse_choices([L("A. one", 0), L("B. two", 20), L("and more", 40, bullet=True),
+                         L("C. three", 60), L("D. four", 80)])
+    assert [c["letter"] for c in got] == list("ABCD"), got
+    assert got[1]["content"] == "<p>two and more</p>", got
+    # a genuinely bulleted last choice still becomes one
+    got = parse_choices([L("A. one", 0), L("B. two", 20), L("C. three", 40),
+                         L("four", 60, bullet=True)])
+    assert [c["letter"] for c in got] == list("ABCD"), got
+
+    # four pictures in the choice band, one per choice
+    figs = [(0, 10.0, "<i>A</i>"), (0, 30.0, "<i>B</i>"), (1, 5.0, "<i>C</i>")]
+    ch = [{"letter": c, "content": ""} for c in "ABC"]
+    attach_choice_figs(ch, figs)
+    assert [c["content"] for c in ch] == ["<i>A</i>", "<i>B</i>", "<i>C</i>"], ch
+    # ...but a lone figure beside four choices is not one of them
+    ch = [{"letter": c, "content": ""} for c in "ABCD"]
+    attach_choice_figs(ch, figs[:1])
+    assert all(c["content"] == "" for c in ch)
     print("ok")
 
 

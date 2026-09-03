@@ -107,7 +107,7 @@ FIG_MIN_W = 80           # a figure cluster must be at least this wide...
 FIG_MIN_H = 40           # ...and this tall, else it is a rule or a bullet
 
 
-def figures(page):
+def figures(page, top=BANNER_BOTTOM):
     """Bounding boxes of charts and tables drawn on the page.
 
     Vector art is clustered by overlap; anything large enough to be a real
@@ -118,7 +118,7 @@ def figures(page):
     rects = []
     for d in page.get_drawings():
         r = d["rect"]
-        if r.y0 < BANNER_BOTTOM:            # metadata banner and its rules
+        if r.y0 < top:                      # metadata banner and its rules
             continue
         if r.width <= 1 and r.height <= 1:  # bullets, dots
             continue
