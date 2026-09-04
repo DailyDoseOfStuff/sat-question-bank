@@ -126,6 +126,19 @@ img { max-width: 100%; height: auto; }
 .ctrl { display: flex; flex-direction: column; gap: 7px; }
 .ctrl > span { font-size: 11.5px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
 .ctrl select { width: 100%; }
+
+/* settings page */
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.set-row:last-child { border-bottom: 0; }
+.set-row .set-l { min-width: 0; }
+.set-row .set-l b { display: block; font-size: 14.5px; }
+.set-row .set-l span { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+.set-row select, .set-row textarea { font-family: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.set-row textarea { width: min(420px, 50vw); min-height: 92px; resize: vertical; }
+.sw { flex: 0 0 auto; width: 44px; height: 26px; border-radius: 999px; border: 1px solid var(--border2); background: var(--bg2); position: relative; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .14s; }
+.sw.on { background: var(--mint); border-color: var(--mint); }
+.sw.on::after { transform: translateX(18px); }
 .startbar { display: flex; align-items: center; gap: 14px; }
 #btn-start { padding: 11px 26px; border-radius: 11px; font-size: 14.5px; }
 
@@ -889,7 +902,31 @@ function setTab(t) {
 }
 NAV.forEach(b => b.onclick = () => setTab(b.dataset.tab));
 
-function drawSettings() { /* filled in by the settings task */ }
+function drawSettings() {
+  const row = (k, title, note, control) =>
+    `<div class="set-row" data-k="${k}"><div class="set-l"><b>${title}</b><span>${note}</span></div>${control}</div>`;
+  const sw = (k) => `<button class="sw ${SET[k] ? 'on' : ''}" data-sw="${k}" aria-pressed="${!!SET[k]}"></button>`;
+  const opt = (v, lab, cur) => `<option value="${esc(v)}"${String(cur)===String(v)?' selected':''}>${esc(lab)}</option>`;
+
+  $('set-body').innerHTML =
+    row('theme', 'Appearance', 'System follows your device setting.',
+      `<select data-set="theme">${['system','light','dark'].map(v => opt(v, v[0].toUpperCase()+v.slice(1), SET.theme)).join('')}</select>`) +
+    row('retry', 'Retry mode', 'A wrong answer marks only the choice you picked and leaves the question open. The correct answer is never revealed for you.', sw('retry')) +
+    row('rand', 'Random order', 'Shuffle a practice set instead of taking it in bank order.', sw('rand')) +
+    row('count', 'Default questions per set', 'What the Questions dropdown starts on.',
+      `<select data-set="count">${[['10','10'],['20','20'],['30','30'],['50','50'],['0','All']].map(([v,l]) => opt(v, l, SET.count)).join('')}</select>`) +
+    row('ai', 'AI instructions', 'Personalization passed to the AI assistant. Nothing reads this yet.',
+      `<textarea data-set="ai" placeholder="e.g. Explain like I am new to algebra. Keep it short.">${esc(SET.ai)}</textarea>`);
+
+  $('set-body').querySelectorAll('[data-sw]').forEach(b => b.onclick = () => {
+    setSetting(b.dataset.sw, !SET[b.dataset.sw]);
+    drawSettings();
+  });
+  $('set-body').querySelectorAll('select[data-set]').forEach(sel => sel.onchange = () =>
+    setSetting(sel.dataset.set, sel.dataset.set === 'count' ? parseInt(sel.value, 10) : sel.value));
+  const ta = $('set-body').querySelector('textarea[data-set="ai"]');
+  ta.onchange = () => setSetting('ai', ta.value);
+}
 
 function greet() {
   const h = new Date().getHours();
