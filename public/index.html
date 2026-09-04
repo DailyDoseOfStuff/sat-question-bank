@@ -484,7 +484,6 @@ img.minl { mix-blend-mode: multiply; }
             <label class="ctrl"><span>Source</span>
               <select id="f-src">
                 <option value="official">Question Bank</option>
-                <option value="pt">Practice tests</option>
                 <option value="mistakes">My mistakes</option>
               </select></label>
             <label class="ctrl"><span>Questions</span>
@@ -680,6 +679,9 @@ const LS = {
 
 let QS = [], PROG = {}, LOG = [];
 let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null });
+// 'pt' was the practice-test bank, deleted 2026-09-03. A stored 'pt' now matches
+// nothing, so a returning user would open the app to an empty question bank.
+if (F.src === 'pt') { F.src = 'official'; LS.set('filters', F); }
 let S = null;
 let TAB = 'practice';
 
@@ -847,10 +849,9 @@ const everWrong = (id) => { const p = PROG[id]; return !!p && (p.marker === 'Red
 
 function base() {
   return QS.filter(q => {
-    // The practice-test rows are the ones the import tagged source Bluebook.
-    // Mistakes are not a source at all, they cut across both.
-    if (F.src === 'mistakes') { if (!everWrong(q.id)) return false; }
-    else if ((q.source === 'Bluebook') !== (F.src === 'pt')) return false;
+    // Mistakes is not a source, it cuts across the bank. Every remaining row is
+    // CollegeBoard: the practice-test rows were deleted on 2026-09-03.
+    if (F.src === 'mistakes' && !everWrong(q.id)) return false;
     if (F.sec !== 'all' && q.section !== F.sec) return false;
     if (F.diff !== 'all' && (q.difficulty||'').toLowerCase() !== F.diff.toLowerCase()) return false;
     return true;
