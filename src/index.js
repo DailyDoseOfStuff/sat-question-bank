@@ -82,6 +82,16 @@ async function touchUser(env, u) {
 // signed-in account can post an array of any length and have the Worker write all
 // of it, which is a cheap way to fill someone else's database.
 const MAX_ROWS = 500;
+// Per-request row caps are not a storage bound on their own: nothing stops an
+// account from posting the same 500 rows again a thousand times. `progress` is
+// bounded by its own primary key once question_id has to name a real question,
+// but `attempts` is append-only and keyed on a client-supplied timestamp, so it
+// needs a ceiling of its own. 100k is ~55 years at 5 questions a day.
+const MAX_ATTEMPTS = 100000;
+// The settings blob was truncated to 8000 chars, which cuts JSON mid-string and
+// stores something that will never parse again - the read side then silently
+// hands back {} and the account's preferences are gone. Refuse it instead.
+const MAX_SETTINGS = 8000;
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 
 export default {
@@ -104,7 +114,14 @@ export default {
         'SELECT id, external_id, section, domain, difficulty, skill, stem_html,' +
         ' choices_json, correct_answer, explanation_html, source, source_page,' +
         ' has_figure FROM questions').all();
-      return json(r.results || []);
+      // 8.3MB, identical for everyone, and it needs no session. Uncached that is a
+      // full table scan and 8.3MB of egress for every request anyone cares to make,
+      // which is a cost attack that costs the attacker a curl loop. Let Cloudflare
+      // answer from its own edge cache instead; the bank changes on a deploy, not
+      // on a request.
+      const res = json(r.results || []);
+      res.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600');
+      return res;
     }
 
     if (p === '/api/account' && req.method === 'GET') {
@@ -131,8 +148,12 @@ export default {
         .filter(r => r && typeof r.question_id === 'string' && r.question_id)
         .slice(0, MAX_ROWS);
       if (!rows.length) return json({ ok: true, saved: 0 });
+      // Only a question that exists. Without this the primary key bounds nothing:
+      // question_id is whatever the client typed, so an account can write rows for
+      // 500 invented ids per request, for ever.
       const stmt = env.DB.prepare(
-        `INSERT INTO progress VALUES(?,?,?,?,?,?,?,?)
+        `INSERT INTO progress
+           SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
          ON CONFLICT(user_id, question_id) DO UPDATE SET
            attempts=excluded.attempts, corrects=excluded.corrects, marker=excluded.marker,
            last_reviewed=excluded.last_reviewed, time_taken_ms=excluded.time_taken_ms,
@@ -141,7 +162,7 @@ export default {
       await env.DB.batch(rows.map(r => stmt.bind(
         u.id, str(r.question_id, 64), r.attempts | 0, r.corrects | 0,
         str(r.marker, 16) || 'Red', str(r.last_reviewed, 32) || null,
-        r.time_taken_ms | 0, r.stars | 0)));
+        r.time_taken_ms | 0, r.stars | 0, str(r.question_id, 64))));
       return json({ ok: true, saved: rows.length });
     }
 
@@ -166,12 +187,17 @@ export default {
                        && typeof r.ts === 'string' && r.ts)
         .slice(0, MAX_ROWS);
       if (!rows.length) return json({ ok: true, saved: 0 });
+      // One count for the batch, not one per row.
+      const held = await env.DB.prepare('SELECT COUNT(*) AS n FROM attempts WHERE user_id = ?')
+        .bind(u.id).first();
+      if ((held?.n || 0) + rows.length > MAX_ATTEMPTS) return json({ error: 'log full' }, 429);
       const stmt = env.DB.prepare(
         `INSERT OR IGNORE INTO attempts (user_id, question_id, ts, correct, time_taken_ms)
-         VALUES (?,?,?,?,?)`
+         SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)`
       );
       await env.DB.batch(rows.map(r => stmt.bind(
-        u.id, str(r.question_id, 64), str(r.ts, 32), r.correct ? 1 : 0, r.time_taken_ms | 0)));
+        u.id, str(r.question_id, 64), str(r.ts, 32), r.correct ? 1 : 0, r.time_taken_ms | 0,
+        str(r.question_id, 64))));
       return json({ ok: true, saved: rows.length });
     }
 
@@ -192,7 +218,8 @@ export default {
       if (!u) return json({ error: 'unauthorized' }, 401);
       const b = await req.json().catch(() => null);
       if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ error: 'bad body' }, 400);
-      const blob = JSON.stringify(b).slice(0, 8000);
+      const blob = JSON.stringify(b);
+      if (blob.length > MAX_SETTINGS) return json({ error: 'too large' }, 413);
       await env.DB.prepare(
         `INSERT INTO settings (user_id, json, updated_at) VALUES (?,?,datetime('now'))
          ON CONFLICT(user_id) DO UPDATE SET json=excluded.json, updated_at=excluded.updated_at`

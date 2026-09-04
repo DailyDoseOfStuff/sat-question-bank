@@ -1492,3 +1492,95 @@ in the new order landing on the dashboard, five filter dropdowns, select-then-Ch
 grading only on Check, and the explanation open on an unanswered question. The
 old scalar filter shape stored by a previous visit migrated correctly in place
 (`'Math'` → `['Math']`, skill pick preserved).
+
+### Security pass: what an attacker could actually reach (2026-09-04)
+
+Worked the app the way someone attacking it would - forge the caller, forge the
+token, read someone else's rows, pull a secret out of the bundle, make the thing
+expensive to run. Most of the obvious doors were already shut by the accounts
+pass; four were not, and one of them was in Supabase rather than in this repo.
+
+**Held under attack, verified against production, not read off the source:**
+`X-User-Id: <anyone>` is ignored (`/api/progress` returns `[]`); a made-up bearer
+token gets 401 from `/api/account`; unauthenticated POSTs to `/api/progress` and
+`/api/settings` get 401; `/wrangler.toml`, `/schema.sql`, `/src/index.js` and
+`/../wrangler.toml` are all 404; every security header is present on the live
+response. Supabase answers a wrong password and an unknown address with the same
+`invalid_credentials`, and a sign-up for an address that already exists returns an
+obfuscated user, so neither path enumerates accounts. All four CDN tags carry
+`integrity`, so a bad jsdelivr release cannot run in the page that holds the
+session. Nothing secret is in the bundle - `SUPABASE_ANON_KEY` is the publishable
+key and is meant to ship. `git log -S` over the whole history finds the *name*
+`GEMINI_API_KEY` and never a literal key; no `sk-`/`AIza`/service-role string has
+ever been committed.
+
+**1. `public.rls_auto_enable()` was callable by `anon`.** It is the event-trigger
+function that turns RLS on for every new table in `public`, it is
+`SECURITY DEFINER`, and its ACL read
+`{=X/postgres,anon=X/postgres,authenticated=X/postgres,...}` - so PostgREST
+published it at `/rest/v1/rpc/rls_auto_enable` to anyone holding the publishable
+key. An event trigger runs as its owner and never consults an `EXECUTE` grant, so
+the grant bought nothing and revoking it costs nothing. Applied as the Supabase
+migration `revoke_public_execute_on_rls_auto_enable`; the anon RPC now answers
+`42501 permission denied`, and both `*_security_definer_function_executable`
+advisors are gone.
+
+**2. A signed-in account could write unbounded rows.** `MAX_ROWS = 500` caps one
+request and nothing caps the number of requests, and neither write validated
+`question_id` - so 500 invented ids per POST, for ever, in a database everyone
+shares. Both inserts are now
+`... SELECT ?,?,... WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)`, which
+bounds `progress` to the bank by its own primary key. `attempts` is append-only and
+keyed on a client-supplied `ts`, so the primary key bounds nothing there; it takes
+one `COUNT(*)` for the whole batch against `MAX_ATTEMPTS = 100000` (~55 years at
+five questions a day) and answers 429 over it.
+
+SQLite detail worth keeping: `INSERT ... SELECT ... ON CONFLICT DO UPDATE` only
+parses when the `SELECT` has a `WHERE` clause - without one the parser cannot tell
+the upsert from a join. The `WHERE EXISTS` is what makes it legal, so the guard and
+the syntax are the same change. `node test_worker_sql.cjs` runs both statements
+against `schema.sql` and asserts a fake id writes nothing, the upsert still
+updates, `stars` still takes the `MAX`, and a repeated `(question, ts)` still
+collapses.
+
+**3. `/api/questions` was a free 8.3MB.** No session needed, a full table scan and
+8.3MB of egress per request, so the cost attack is a curl loop. It is the same
+bytes for every visitor and changes on a deploy rather than on a request:
+`Cache-Control: public, max-age=300, s-maxage=3600` moves it to Cloudflare's edge
+cache.
+
+**4. Sign out was local-only in effect, and left the account behind.**
+`sb.auth.signOut()` without a scope, fire-and-forget: supabase-js clears the local
+session even when the network call fails, so the page reads "signed out" while the
+account is still signed in. Now `signOut({ scope: 'global' })`, which revokes the
+refresh tokens server-side so this device's access token stops resolving to a user
+on the Worker, and a failure is said out loud instead of swallowed. It also clears
+`satq_progress`, `satq_log` and `satq_settings` and resets `SET` to the defaults -
+those outlived the session, so on a shared machine the next person inherited them.
+
+**5. The sign-in modal printed Supabase's own error text.** The credentials failure
+is generic, but the neighbouring ones are not - the rate-limit message names how
+long ago an address was last used. One message for every way a sign-in can fail,
+detail to the console. Password `minlength` 6 -> 8.
+
+**Accepted, with the reason:**
+
+- `script-src 'unsafe-inline'`. The question HTML goes from D1 into `innerHTML`,
+  so an `onerror=` riding along would run. Nothing writes to `questions` over HTTP;
+  it takes D1 write access to plant one, and that is already game over. A nonce
+  cannot fix it either - nonces do not apply to event-handler attributes. The whole
+  client-side sink audit is clean besides: every interpolation of user-typed or
+  account text (`S.ans`, `SET.ai`, `opt()`, the settings rows) goes through `esc()`,
+  and the sign-in messages are `textContent`.
+- `public.SatQuestionBankAccounts` still trips the `rls_enabled_no_policy` INFO
+  lint. RLS on with no policy is deny-all, which is the safe state and was
+  confirmed by hand - anon reads `[]` and an anon insert gets
+  `42501 new row violates row-level security policy`. The table is empty and
+  nothing uses it; the app's data is in D1.
+- D1 has no row-level security. Isolation is `WHERE user_id = ?` with the id
+  resolved from the token by `whoami()`, never from anything the client sends.
+
+**Left for the dashboard, because there is no API for it here:** leaked-password
+protection is off (Settings -> Authentication -> Password security; checks
+HaveIBeenPwned) and the server-side minimum password length is still 6 while the
+form now asks for 8.

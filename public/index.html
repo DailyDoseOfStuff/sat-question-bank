@@ -2388,12 +2388,28 @@ async function initAuth() {
   const authErr = new URLSearchParams(location.hash.slice(1)).get('error_description');
   if (authErr) alert('Sign-in failed: ' + authErr.replace(/\+/g, ' '));
   if (location.pathname !== '/' || location.hash) history.replaceState({}, '', '/');
-  $authBtn.onclick = () => { if (uid) sb.auth.signOut(); else authModal(); };
+  $authBtn.onclick = () => { if (uid) signOut(); else authModal(); };
   sb.auth.onAuthStateChange(async (_e, s) => {
     const was = uid;
     applySession(s);
     if (uid !== was) { await loadProgress(); await loadSettings(); }
   });
+}
+
+// Sign out is a server-side act: scope 'global' revokes the account's refresh
+// tokens at Supabase, so the access token this device holds stops resolving to a
+// user on the Worker instead of staying good until it expires. Then wipe what the
+// account left on this machine - progress, the attempt log and the settings blob
+// all outlive the session otherwise, and on a shared computer the next person
+// gets them.
+async function signOut() {
+  const { error } = await sb.auth.signOut({ scope: 'global' });
+  ['progress', 'log', 'settings'].forEach(k => { try { localStorage.removeItem('satq_' + k); } catch (e) {} });
+  SET = Object.assign({}, SET_DEFAULTS);
+  applyTheme();
+  // supabase-js drops the local session even when the network call fails, so the
+  // page looks signed out while the account is still signed in elsewhere. Say so.
+  if (error) alert('Signed out on this device, but the server could not be reached, so other devices may still be signed in.');
 }
 
 function applySession(session) {
@@ -2419,7 +2435,7 @@ function authModal() {
       <div class="sub" style="text-align:center;margin:14px 0">or</div>
       <form id="au-f" style="display:flex;flex-direction:column;gap:10px">
         <input type="email" id="au-e" placeholder="Email" autocomplete="email" required>
-        <input type="password" id="au-p" placeholder="Password" minlength="6"
+        <input type="password" id="au-p" placeholder="Password" minlength="8"
                autocomplete="${signup ? 'new-password' : 'current-password'}" required>
         <button class="btn-p" type="submit" id="au-s">${signup ? 'Create account' : 'Sign in'}</button>
       </form>
@@ -2443,7 +2459,17 @@ function authModal() {
         ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.origin + '/auth/callback' } })
         : await sb.auth.signInWithPassword({ email, password });
       btn.disabled = false;
-      if (error) { msg.textContent = error.message; return; }
+      // Supabase answers a wrong password and an unknown address with the same
+      // "Invalid login credentials", but its other messages are not so careful -
+      // the rate-limit one names how long ago the address was last used. Say one
+      // thing for every way a sign-in can fail, and keep the detail in the console.
+      if (error) {
+        console.warn('auth', error);
+        msg.textContent = signup
+          ? 'Could not create the account. Check the address and try a longer password.'
+          : 'Email or password is incorrect.';
+        return;
+      }
       // A sign-up comes back with a user but no session when the project requires
       // email confirmation; there is nothing to sign in to until they click it.
       if (signup && !data.session) { msg.textContent = `Check ${email} for a confirmation link.`; return; }
