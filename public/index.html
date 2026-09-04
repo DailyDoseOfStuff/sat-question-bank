@@ -393,6 +393,8 @@ img.minl { mix-blend-mode: multiply; }
 .choice.dim { opacity: .55; }
 .ko-btn { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 3px; border-radius: 50%; border: 1.5px dashed var(--border2); background: transparent; color: var(--dim2); font-size: 11px; font-weight: 700; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .ko-btn:hover { border-color: var(--dim); color: var(--dim); }
+.chk-btn { flex: 0 0 auto; padding: 5px 12px; font-size: 13px; font-weight: 600; background: var(--blue); border-color: var(--blue); color: #fff; border-radius: 8px; }
+.chk-btn:hover:not(:disabled) { background: var(--blue-dark); border-color: var(--blue-dark); }
 .ko-btn.on { border-style: solid; border-color: var(--red); background: var(--red-bg); color: var(--red); text-decoration: line-through; }
 
 .gridin-wrap { max-width: 420px; }
@@ -1567,6 +1569,7 @@ function start(items) {
   S = {
     items, i: 0,
     ans: {}, checked: {}, flags: {}, ko: {},
+    sel: {}, miss: {}, tried: {},
     started: Date.now(), ended: null,
     qStart: Date.now(),
     paused: false, timerHidden: false,
@@ -1702,6 +1705,8 @@ function choiceHTML(q, c, picked, staticMode) {
   let cls = 'choice';
   if (!staticMode) {
     if (picked === letter && !checked) cls += ' sel';
+    // Retry mode: the letters already tried stay red, and nothing else is marked.
+    if (!checked && (S.miss[q.id] || []).includes(letter)) cls += ' wrong';
     if (checked) {
       const prog = PROG[q.id];
       const wasWrong = prog && prog.marker === 'Red';
@@ -1718,6 +1723,7 @@ function choiceHTML(q, c, picked, staticMode) {
     <span class="badge">${esc(letter)}</span>
     <span style="flex:1; min-width:0;">${body}</span>
     ${staticMode ? '' : `<button class="ko-btn${ko}" data-ko="${esc(letter)}" title="Eliminate choice"><span style="text-decoration:line-through">${esc(letter)}</span></button>`}
+    ${staticMode || checked || picked !== letter ? '' : `<button class="chk-btn" data-chk="${esc(letter)}">Check</button>`}
   </div>`;
 }
 
@@ -1781,7 +1787,8 @@ function renderPanes(q) {
 
 function renderAnswerArea(q) {
   const target = $('answer-area');
-  const picked = S.ans[q.id];
+  // Before grading this is the pre-Check selection; after it, the answer given.
+  const picked = S.checked[q.id] ? S.ans[q.id] : S.sel[q.id];
   const checked = S.checked[q.id];
   let html = '';
   if (q.spr) {
@@ -1804,6 +1811,9 @@ function renderAnswerArea(q) {
       const submit = () => { S.ans[q.id] = gi.value.trim(); grade(q); };
       $('gi-submit').onclick = submit;
       gi.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+      // Retry mode leaves the box open on a wrong entry, so the verdict has to be
+      // printed here - the branch below only runs once the question is closed.
+      if (S.tried[q.id]) $('spr-verdict').innerHTML = '<div class="verdict bad">✗ Not right — try again.</div>';
     } else {
       const ok = isRight(q, picked);
       const v = $('spr-verdict');
@@ -1824,7 +1834,28 @@ function renderAnswerArea(q) {
         if (idx >= 0) S.ko[q.id].splice(idx, 1); else S.ko[q.id].push(letter);
         koBtn.classList.toggle('on');
       };
-      if (!S.checked[q.id]) el.onclick = () => { S.ans[q.id] = letter; grade(q); };
+      if (S.checked[q.id]) return;
+      // Selecting must not re-render: a re-render throws away any highlight the
+      // student has made inside a choice. Move the classes and the button by hand.
+      const bindCheck = (b) => b.onclick = (ev) => { ev.stopPropagation(); S.ans[q.id] = letter; grade(q); };
+      el.onclick = (e) => {
+        if (e.target.closest('.ko-btn, .chk-btn, mark')) return;
+        S.sel[q.id] = letter;
+        target.querySelectorAll('.choice').forEach(x => {
+          if (x !== el) x.classList.remove('sel');
+          const b = x.querySelector('.chk-btn');
+          if (b && x !== el) b.remove();
+        });
+        el.classList.add('sel');
+        if (el.querySelector('.chk-btn')) return;
+        const chk = document.createElement('button');
+        chk.className = 'chk-btn';
+        chk.textContent = 'Check';
+        bindCheck(chk);
+        el.appendChild(chk);
+      };
+      const pre = el.querySelector('.chk-btn');
+      if (pre) bindCheck(pre);
     });
   }
 }
@@ -1862,27 +1893,45 @@ function isRight(q, val) {
 }
 
 function grade(q) {
-  S.checked[q.id] = true;
   const ok = isRight(q, S.ans[q.id]);
-  if (ok === null) { renderAnswerArea(q); return; }  // no stored answer: scoring it would be a guess
-  const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
-  p.attempts++;
-  p.corrects += (ok === true ? 1 : 0);
-  const wasWrong = p.marker === 'Red';
-  if (ok === true && wasWrong) {
-    p.marker = 'Orange';
-  } else if (ok === true) {
-    p.marker = 'Green';
+  const first = !S.tried[q.id];
+  S.tried[q.id] = true;
+
+  // Retry mode: a wrong answer marks only the choice that was picked and leaves
+  // the question open. Nothing turns green that the student did not choose.
+  const keepOpen = SET.retry && ok === false;
+  if (keepOpen) {
+    S.miss[q.id] = S.miss[q.id] || [];
+    if (!S.miss[q.id].includes(S.ans[q.id])) S.miss[q.id].push(S.ans[q.id]);
+    S.sel[q.id] = null;
   } else {
-    p.marker = 'Red';
+    S.checked[q.id] = true;
   }
-  p.last_reviewed = new Date().toISOString();
-  p.time_taken_ms = Math.round((Date.now()-S.qStart));
-  PROG[q.id] = p;
-  saveProgress([p]);
-  const ev = { question_id: q.id, ts: p.last_reviewed, correct: ok === true ? 1 : 0, time_taken_ms: p.time_taken_ms };
+
+  if (ok === null) { renderAnswerArea(q); return; }  // no stored answer: scoring it would be a guess
+
+  const now = new Date().toISOString();
+  const ms = Math.round(Date.now() - S.qStart);
+
+  // Only the first Check on a question moves the record. Otherwise a student
+  // walks any question to Green by clicking every option in turn.
+  if (first) {
+    const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
+    p.attempts++;
+    p.corrects += (ok === true ? 1 : 0);
+    const wasWrong = p.marker === 'Red';
+    p.marker = ok === true ? (wasWrong ? 'Orange' : 'Green') : 'Red';
+    p.last_reviewed = now;
+    p.time_taken_ms = ms;
+    PROG[q.id] = p;
+    saveProgress([p]);
+  }
+
+  // The attempt log is the history, and a retry is work that was really done.
+  const ev = { question_id: q.id, ts: now, correct: ok === true ? 1 : 0, time_taken_ms: ms };
   LOG.push(ev);
   saveLog([ev]);
+
   renderAnswerArea(q);
 }
 
@@ -1935,7 +1984,7 @@ document.addEventListener('keydown', (e) => {
     const q = curQ();
     if (q.choices && q.choices.length && !S.checked[q.id]) {
       const c = q.choices[parseInt(e.key)-1];
-      if (c) { S.ans[q.id] = c.letter; grade(q); }
+      if (c) { S.sel[q.id] = c.letter; renderAnswerArea(q); }
     }
   }
 });
