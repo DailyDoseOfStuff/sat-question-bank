@@ -430,13 +430,11 @@ img.minl { mix-blend-mode: multiply; }
   <aside class="nav">
     <div class="nav-brand"><span class="dot">S</span><span>SAT Question Bank</span></div>
 
-    <div class="nav-grp">Practice</div>
-    <button class="nav-i on" data-tab="practice"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v6H4z"/><path d="M4 15h9v4H4z"/></svg><span>Question Bank</span></button>
-    <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
-
-    <div class="nav-grp">Progress</div>
-    <button class="nav-i" data-tab="mistakes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 15H4z"/><path d="M12 9v4M12 16.2v.1"/></svg><span>Mistakes</span></button>
     <button class="nav-i" data-tab="dash"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span>Dashboard</span></button>
+    <button class="nav-i" data-tab="mistakes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 15H4z"/><path d="M12 9v4M12 16.2v.1"/></svg><span>Mistakes</span></button>
+    <button class="nav-i" data-tab="practice"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v6H4z"/><path d="M4 15h9v4H4z"/></svg><span>Question Bank</span></button>
+    <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
+    <button class="nav-i" data-tab="settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.3 5.3l1.9 1.9M16.8 16.8l1.9 1.9M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9"/></svg><span>Settings</span></button>
 
     <div class="nav-sp"></div>
     <div class="nav-user">
@@ -569,6 +567,10 @@ img.minl { mix-blend-mode: multiply; }
         <div class="panel"><div id="mk-list"></div></div>
       </div>
 
+      <div id="tab-settings" class="hide">
+        <div class="panel"><div class="panel-h"><h3>Settings</h3></div><div id="set-body"></div></div>
+      </div>
+
       <div id="tab-browse" class="hide">
         <div class="panel">
           <div class="panel-h">
@@ -683,7 +685,7 @@ let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null }
 // nothing, so a returning user would open the app to an empty question bank.
 if (F.src === 'pt') { F.src = 'official'; LS.set('filters', F); }
 let S = null;
-let TAB = 'practice';
+let TAB = 'dash';
 
 // ---------------- theme ----------------
 function applyTheme(t) {
@@ -818,6 +820,7 @@ async function load() {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
   }
   refresh();
+  setTab(TAB);
 }
 
 // ---------------- home ----------------
@@ -825,14 +828,21 @@ const TICK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke
 const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
 
 const NAV = document.querySelectorAll('.nav-i');
-NAV.forEach(b => b.onclick = () => {
-  TAB = b.dataset.tab;
-  NAV.forEach(x => x.classList.toggle('on', x === b));
-  ['practice','dash','browse','mistakes'].forEach(t => $('tab-'+t).classList.toggle('hide', TAB !== t));
-  if (TAB === 'dash') drawDash();
-  if (TAB === 'browse') drawBrowse();
-  if (TAB === 'mistakes') drawMistakes();
-});
+const TABS = ['practice','dash','browse','mistakes','settings'];
+
+// One entry point, so the boot-time tab and a rail click cannot drift apart.
+function setTab(t) {
+  TAB = t;
+  NAV.forEach(x => x.classList.toggle('on', x.dataset.tab === t));
+  TABS.forEach(k => $('tab-'+k).classList.toggle('hide', k !== t));
+  if (t === 'dash') drawDash();
+  if (t === 'browse') drawBrowse();
+  if (t === 'mistakes') drawMistakes();
+  if (t === 'settings') drawSettings();
+}
+NAV.forEach(b => b.onclick = () => setTab(b.dataset.tab));
+
+function drawSettings() { /* filled in by the settings task */ }
 
 function greet() {
   const h = new Date().getHours();
@@ -1897,6 +1907,7 @@ function showHome() {
   $('view-home').classList.remove('hide');
   closeDesmos();
   refresh();
+  setTab(TAB);
 }
 
 // ---- Export a question to an AI assistant ----
