@@ -1608,3 +1608,22 @@ set you assemble: "Clear" leaves a selection matching nothing and "Select all" i
 where the dropdown already starts. `dd()` takes `noBulk`; the Question Bank and
 Mistakes filters keep both rows, where picking through a long topic list is the
 point.
+
+**Deployed and re-checked live.** `/api/progress`, `/api/attempts` and
+`/api/settings` all answer 401 unauthenticated, a noise `Authorization` header gets
+401 without leaving the Worker, `/api/questions` carries
+`Cache-Control: public, max-age=300, s-maxage=3600`, and all four security headers
+are still on the page. Twelve questions walked in the real player on
+`helpmeaceit.page`: no empty stem, no broken image, no KaTeX error, no console
+error. Supabase's advisors are down to the two items above.
+
+**A worktree's `public/qimg` is a symlink, and wrangler's manifest skipped it.**
+Every crop 404'd on the live site again - not because the files were missing from
+the asset store (`wrangler` reported "4915 already uploaded") but because the
+deploy that put them there was made from a checkout where `public/qimg` is a
+directory junction, so the asset walker never listed them into the manifest. `find`
+and `du` also report the directory as empty while `ls` and Node's `readdirSync`
+both see all 4,915 files, which is what makes this easy to miss. Materialise it
+before deploying - `cp -rL public/qimg public/qimg_real && rm public/qimg && mv
+public/qimg_real public/qimg` - and check wrangler's own line: it should read
+"Read 4918 files from the assets directory", not 3.
