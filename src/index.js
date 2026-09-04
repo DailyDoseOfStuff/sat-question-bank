@@ -117,7 +117,9 @@ export default {
 
     if (p === '/api/progress' && req.method === 'GET') {
       const u = await whoami(req, env);
-      if (!u) return json([]);
+      // Not an empty list: a rejected token that reads back as "no rows" is
+      // indistinguishable from an account whose progress has been wiped.
+      if (!u) return json({ error: 'unauthorized' }, 401);
       await touchUser(env, u);
       const r = await env.DB.prepare('SELECT * FROM progress WHERE user_id = ?').bind(u.id).all();
       return json(r.results || []);
@@ -150,7 +152,7 @@ export default {
     // a repeat of the same (question, timestamp) is ignored rather than updated.
     if (p === '/api/attempts' && req.method === 'GET') {
       const u = await whoami(req, env);
-      if (!u) return json([]);
+      if (!u) return json({ error: 'unauthorized' }, 401);
       const r = await env.DB.prepare(
         'SELECT question_id, ts, correct, time_taken_ms FROM attempts WHERE user_id = ? ORDER BY ts'
       ).bind(u.id).all();

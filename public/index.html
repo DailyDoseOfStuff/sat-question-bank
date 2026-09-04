@@ -119,6 +119,9 @@ img { max-width: 100%; height: auto; }
 .card .v { font-size: 30px; font-weight: 700; letter-spacing: -.02em; margin-top: 8px; }
 
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 18px; overflow: hidden; }
+/* a filter dropdown is absolutely positioned inside the card, so a card that clips
+   its overflow cuts the menu off at its own border. */
+.panel:has(> .ctrls) { overflow: visible; }
 .panel-h { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; padding: 17px 20px; border-bottom: 1px solid var(--border); }
 .panel-h h3 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; }
 .panel-b { padding: 18px 20px; }
@@ -156,12 +159,13 @@ img { max-width: 100%; height: auto; }
 .box.some svg { display: none; }
 
 /* settings page */
+#set-body { padding: 4px 20px; }
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .set-row:last-child { border-bottom: 0; }
 .set-row .set-l { min-width: 0; }
 .set-row .set-l b { display: block; font-size: 14.5px; }
 .set-row .set-l span { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
-.set-row select, .set-row textarea { font-family: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.set-row select, .set-row textarea { font-family: inherit; font-size: 14px; color: var(--text); background-color: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
 .set-row textarea { width: min(420px, 50vw); min-height: 92px; resize: vertical; }
 .sw { flex: 0 0 auto; width: 44px; height: 26px; border-radius: 999px; border: 1px solid var(--border2); background: var(--bg2); position: relative; padding: 0; }
 .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .14s; }
@@ -761,7 +765,7 @@ function saveSettings() {
 function setSetting(k, v) {
   SET[k] = v;
   saveSettings();
-  if (k === 'theme') applyTheme();
+  if (k === 'theme') { applyTheme(); if (TAB === 'settings') drawSettings(); }
   if (k === 'count' || k === 'rand') drawFilters();
 }
 
@@ -803,25 +807,26 @@ const demoji = (h) => MOJIBAKE.reduce((a, [bad, good]) => a.split(bad).join(good
 // and leaving it in the stem prints the answer above the choices.
 const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 
-// Progress is fetched on its own so a sign-in or sign-out can swap accounts
-// without pulling all 3,843 questions down again.
+// Progress belongs to the account, and only to the account. It is fetched on its
+// own so a sign-in or sign-out can swap accounts without pulling all 3,770
+// questions down again. A guest's answers live in memory for that sitting only:
+// nothing local is merged in, so a stale local copy can never overwrite what the
+// server holds, and a failed fetch can never be mistaken for an empty account.
 async function loadProgress() {
-  const local = LS.get('progress', {});
-  PROG = authToken ? {} : local;
-  if (!authToken) { LOG = LS.get('log', []); refresh(); return; }
+  PROG = {}; LOG = [];
+  if (!authToken) { refresh(); return; }
   try {
     const r = await fetch('/api/progress', { headers: sbHeaders() });
-    if (r.ok) (await r.json()).forEach(p => PROG[p.question_id] = p);
-  } catch (e) {}
-  // Anything answered before signing in is this person's work too: hand the rows
-  // the account has not seen to the server, then keep the merged set.
-  const orphans = Object.values(local).filter(p => !PROG[p.question_id]);
-  if (orphans.length) {
-    orphans.forEach(p => PROG[p.question_id] = p);
-    saveProgress(orphans);
+    if (!r.ok) throw new Error('progress ' + r.status);
+    (await r.json()).forEach(p => PROG[p.question_id] = p);
+    // One row per answer. `progress` only ever holds a question's latest state, so
+    // it cannot say how many questions were done on a given day; this log can.
+    const a = await fetch('/api/attempts', { headers: sbHeaders() });
+    if (!a.ok) throw new Error('attempts ' + a.status);
+    LOG = await a.json();
+  } catch (e) {
+    warnSync('Could not load your saved progress. Reload the page — nothing has been lost.');
   }
-  LS.set('progress', {});
-  await loadLog();
   refresh();
 }
 
@@ -829,43 +834,19 @@ async function loadProgress() {
 // to whatever the account already has, except on a first sign-in with no row yet.
 async function loadSettings() {
   if (!authToken) return;
-  let remote = {};
+  let remote = null;
   try {
     const r = await fetch('/api/settings', { headers: sbHeaders() });
-    remote = r.ok ? await r.json() : {};
-  } catch (e) { remote = {}; }
+    if (r.ok) remote = await r.json();
+  } catch (e) {}
   if (remote && Object.keys(remote).length) {
     SET = Object.assign({}, SET_DEFAULTS, remote);
     LS.set('settings', SET);
-  } else {
-    saveSettings();   // first sign-in: push what the guest had up
-  }
+  } else if (remote) {
+    saveSettings();   // the account has no row yet: push what the guest had up
+  }                   // a failed read pushes nothing, or it overwrites the account
   applyTheme();
   if (TAB === 'settings') drawSettings();
-}
-
-// One row per answer. `progress` only ever holds a question's latest state, so
-// re-drilling an old question used to move it out of the day it was first done;
-// this log is append-only and keeps the history the graphs are drawn from.
-async function loadLog() {
-  const local = LS.get('log', []);
-  try {
-    const r = await fetch('/api/attempts', { headers: sbHeaders() });
-    LOG = r.ok ? await r.json() : [];
-  } catch (e) { LOG = []; }
-  const seen = new Set(LOG.map(a => a.question_id + '|' + a.ts));
-  const orphans = local.filter(a => !seen.has(a.question_id + '|' + a.ts));
-  if (orphans.length) { LOG = LOG.concat(orphans); saveLog(orphans); }
-  LS.set('log', []);
-}
-
-function saveLog(rows) {
-  if (!authToken) { LS.set('log', LOG); return; }
-  fetch('/api/attempts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
-    body: JSON.stringify(rows)
-  }).catch(() => {});
 }
 
 // Every screen reads the same PROG/LOG, so they are redrawn together rather than
@@ -875,15 +856,27 @@ function refresh() {
   drawHomeStats(); drawFilters(); drawDash(); drawMistakes();
 }
 
-// One row or many. Signed out there is no account to put it in, so it waits in
-// localStorage for a sign-in instead of being dropped on reload.
-function saveProgress(rows) {
-  if (!authToken) { LS.set('progress', PROG); return; }
-  fetch('/api/progress', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
-    body: JSON.stringify(rows)
-  }).catch(() => {});
+// One row or many. Signed out there is no account to put it in and the answer
+// stays in memory. A save that the server refuses is a lost answer, so it is
+// reported rather than swallowed.
+function saveProgress(rows) { push('/api/progress', rows); }
+function saveLog(rows) { push('/api/attempts', rows); }
+
+let warned = false;
+function warnSync(msg) { if (!warned) { warned = true; alert(msg); } }
+
+async function push(url, rows) {
+  if (!authToken) return;
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+      body: JSON.stringify(rows)
+    });
+    if (!r.ok) throw new Error(r.status);
+  } catch (e) {
+    warnSync('Your last answer did not save. Sign in again to keep your progress.');
+  }
 }
 
 async function load() {
@@ -2137,7 +2130,7 @@ $('btn-more').onclick = (e) => {
   $('mm-clear-ko').onclick = () => { S.ko[curQ().id] = []; loadQuestion(); closeMenus(); };
   $('mm-explanation').onclick = () => { openExplanation(); closeMenus(); };
 };
-$('btn-dash').onclick = () => confirmModal('End this practice session? Progress on answered questions is saved.', () => { stopTimer(); S = null; showHome(); });
+$('btn-dash').onclick = () => confirmModal('End this practice session? ' + (authToken ? 'Progress on answered questions is saved.' : 'You are not signed in, so this session’s answers are not kept.'), () => { stopTimer(); S = null; showHome(); });
 function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.more-menu')) closeMenus(); });
 
@@ -2444,6 +2437,8 @@ function authModal() {
 }
 
 // go
+// Guest work is session-only now; an older build left it in localStorage.
+['satq_progress', 'satq_log'].forEach(k => localStorage.removeItem(k));
 (async () => { await initAuth(); await load(); })();
 
 })();

@@ -1206,3 +1206,48 @@ in the new order landing on the dashboard, five filter dropdowns, select-then-Ch
 grading only on Check, and the explanation open on an unanswered question. The
 old scalar filter shape stored by a previous visit migrated correctly in place
 (`'Math'` → `['Math']`, skill pick preserved).
+
+### Settings chrome, clipped dropdowns, and progress that belongs to the account (2026-09-04)
+
+**Three chevrons in one `<select>`.** `.set-row select` set `background: var(--panel)`
+— the *shorthand*, which resets `background-repeat` to `repeat` and the position to
+`0 0`. The generic `select` rule's arrow was overridden away by specificity, but
+`:root[data-theme="dark"] select` (0,2,1) outranks `.set-row select` (0,1,1), so in
+dark mode the arrow came back *without* the no-repeat that shipped with it and tiled
+across the control. `background-color` and it is one arrow again. `#set-body` also
+had no horizontal padding, so every settings row sat flush against the card edge.
+
+**A filter dropdown cannot escape a card that clips.** `.panel` carries
+`overflow: hidden` for its rounded corners and `.dd-p` is absolutely positioned
+inside it, so the Topic/Difficulty menus were cut off at the card border.
+`.panel:has(> .ctrls) { overflow: visible }` — the three panels that hold filter
+dropdowns, not every card.
+
+**Progress belongs to the account, and only to the account.** The guest-merge path
+is deleted. It cleared `satq_progress` / `satq_log` *before* the fire-and-forget POST
+that was meant to hand them over, so a rejected token turned a sign-in into a wipe;
+and a stale local blob could overwrite server rows with older counts. Now: a guest's
+answers live in memory for the sitting and are gone on reload (what was asked for),
+a sign-in reads the account and nothing else, and the old keys are removed at boot.
+`loadLog()` folded into `loadProgress()`; `saveProgress`/`saveLog` are one `push()`.
+
+**Silence was the other half of the bug.** Every save was `.catch(() => {})` with no
+`r.ok` check, so a 401 dropped an answer without a word, and `GET /api/progress` and
+`/api/attempts` returned `[]` for an unreadable token — a rejected sign-in and an
+empty account looked identical. Both GETs now 401, and the client reports a failed
+read or write once per session instead of showing a blank slate. `loadSettings()`
+likewise pushed the guest's settings up when the read merely *failed*, overwriting
+the account's own; it only does that now when the account genuinely has no row.
+
+Not reproduced here: the remote DB holds 6 `progress` rows and **0** `attempts` rows
+for the one account, from the same six answers. Both endpoints and both statements
+were checked by hand and are sound, and a guest run writes both, so the likeliest
+origin is that those six came through the old merge from a localStorage blob written
+before `attempts` existed. That path no longer exists.
+
+Verified locally in the browser: settings margins and a single chevron in both
+themes, the Topic menu overlaying the Topics table instead of being cut off, a guest
+answer graded with nothing written to localStorage and nothing left after a reload,
+both GETs returning 401 without a valid token, and no console errors. The signed-in
+merge/pull could not be exercised — this session has no account credentials, and
+Supabase's e-mail rate limit refused a throwaway one.
