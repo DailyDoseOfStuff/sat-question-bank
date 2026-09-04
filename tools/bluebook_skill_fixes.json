@@ -1,0 +1,26 @@
+{
+ "_comment": "18 restored rows carried a skill that is not one College Board uses - a domain repeated as its own skill (\"Algebra\", \"Geometry & Trigonometry\"), or an ad-hoc label (\"Knowledge gap\", \"Nonlinear equations / discriminant\"). Each split the topic list into an entry with nothing official behind it. The replacement is the official skill in the row's own domain, chosen by reading the question.",
+
+ "pt10_math_m2_q08": "One-variable data: Distributions and measures of center and spread",
+ "pt8_math_m2_q21": "One-variable data: Distributions and measures of center and spread",
+ "pt6_math_m2_q16": "Probability and conditional probability",
+ "pt8_math_m2_q16": "Percentages",
+ "pt8_math_m2_q22": "Inference from sample statistics and margin of error",
+
+ "pt10_math_m2_q22": "Linear functions",
+ "pt6_math_m2_q8": "Linear functions",
+ "pt4_math_m1_q20": "Linear inequalities in one or two variables",
+ "pt6_math_m2_q19": "Systems of two linear equations in two variables",
+
+ "pt4_math_m2_q10": "Nonlinear functions",
+ "pt6_math_m2_q20": "Nonlinear functions",
+ "pt4_math_m2_q13": "Nonlinear equations in one variable",
+ "pt4_math_m2_q19": "Nonlinear equations in one variable",
+
+ "pt6_math_m2_q17": "Right triangles and trigonometry",
+ "pt8_math_m2_q20": "Right triangles and trigonometry",
+ "pt8_math_m2_q17": "Lines, angles, and triangles",
+ "pt6_math_m2_q21": "Circles",
+
+ "nx_3af5a62034e78102ad5ad11aaef44253": "Boundaries"
+}

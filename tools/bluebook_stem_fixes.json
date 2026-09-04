@@ -1,0 +1,38 @@
+{
+ "_comment": "id -> [substring to find in the backup stem, replacement]. Whole-stem entries replace the note-style summaries that promised a table or graph the row does not carry. Every number used already appears in the row itself.",
+
+ "nx_3af5a62034e78102ad5ad11aaef44253": [
+  "known for his remarkable so small that",
+  "known for his remarkable ______ so small that"
+ ],
+
+ "pt8_rw_m2_q22": [
+  "street. By expertly using perspective",
+  "street. ______ By expertly using perspective"
+ ],
+
+ "pt10_math_m2_q22": [
+  "<p>$220 for the first 2 hours, plus an hourly fee after. Total cost for 5 hours = $400. Which f(x) gives total cost for x>=2 hours? 60x+100 / 60x+220 / 80x / 80x+220</p>",
+  "<p>$220 for the first 2 hours, plus an hourly fee after. Total cost for 5 hours = $400.</p><p><strong>Which f(x) gives total cost for x &ge; 2 hours?</strong></p>"
+ ],
+
+ "pt6_math_m2_q8": [
+  "<p>Table: cars (c) 3, 5, 10 → max passengers/crew (p) 174, 284, 559. Linear relationship between c and p.</p>",
+  "<div class=\"qtable\"><table><tr><th>Number of cars, <em>c</em></th><th>Maximum number of passengers and crew, <em>p</em></th></tr><tr><td>3</td><td>174</td></tr><tr><td>5</td><td>284</td></tr><tr><td>10</td><td>559</td></tr></table></div><p>The table shows three values of <em>c</em> and their corresponding values of <em>p</em>. There is a linear relationship between <em>c</em> and <em>p</em>.</p>"
+ ],
+
+ "pt6_math_m2_q20": [
+  "<p>Table: x = −27, −9, 5 → g(x) = 3, 0, 21, where g(x) = f(x)/(x+3) and f is linear.</p>",
+  "<div class=\"qtable\"><table><tr><th><em>x</em></th><th><em>g</em>(<em>x</em>)</th></tr><tr><td>&minus;27</td><td>3</td></tr><tr><td>&minus;9</td><td>0</td></tr><tr><td>5</td><td>7</td></tr></table></div><p>The table shows three values of <em>x</em> and their corresponding values of <em>g</em>(<em>x</em>), where <em>g</em>(<em>x</em>) = <em>f</em>(<em>x</em>)/(<em>x</em> + 3) and <em>f</em> is a linear function.</p>"
+ ],
+
+ "pt6_rw_m2_q13": [
+  "<p>Table: baseline precipitation (somewhat concentrated / evenly distributed) vs % change in aquifer input, surface irrigation, groundwater irrigation. Persad et al. concluded concentrating precipitation triggers more irrigation, but the change is highly sensitive to baseline concentration.</p><p><strong>Which choice best describes data from the table that support Persad and colleagues' conclusion?</strong></p>",
+  "<p>Persad and colleagues modeled what happens to irrigation when a region's yearly precipitation becomes concentrated into fewer, heavier events. Where the baseline precipitation was already somewhat concentrated, the model showed aquifer input rising 4.9%, surface irrigation rising 0.4%, and groundwater irrigation rising 0.9%. Where the baseline precipitation had been evenly distributed, surface irrigation rose 9.0% and groundwater irrigation rose 7.9%. The researchers concluded that concentrating precipitation triggers more irrigation, but that the size of the change is highly sensitive to how concentrated the baseline precipitation already was.</p><p><strong>Which choice best describes data that support Persad and colleagues' conclusion?</strong></p>"
+ ],
+
+ "pt8_rw_m2_q12": [
+  "<p>Graph: type A flies (DptA silenced) stay near 90% survival after A. sicerae infection; type B and type AB flies (DptB silenced, alone or with DptA) drop to near 0%. Text also states DptA activity — not DptB — correlates with resistance to a different bacterium, P. rettgeri.</p><p><strong>Which choice most logically completes the statement about what the data in the graph suggest?</strong></p>",
+  "<p>In an experiment, flies whose <em>DptA</em> gene was silenced (type A) stayed near 90% survival after infection with <em>A. sicerae</em>, while flies whose <em>DptB</em> gene was silenced &mdash; alone (type B) or together with <em>DptA</em> (type AB) &mdash; dropped to near 0% survival. Separately, it is <em>DptA</em> activity, not <em>DptB</em>, that correlates with resistance to a different bacterium, <em>P. rettgeri</em>.</p><p><strong>Which choice most logically completes the statement about what these data suggest?</strong></p>"
+ ]
+}

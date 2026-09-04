@@ -315,6 +315,11 @@ img.minl { mix-blend-mode: multiply; }
 :root[data-theme="dark"] .choice .qfig img { filter: invert(1); mix-blend-mode: screen; }
 /* .cb figure carries the one HTML table in the bank; without these it takes the
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
+/* Three practice-test rows draw their figure as inline SVG rather than a crop,
+   in flat #000/#fff/greys. Nothing here is a bitmap, so the dark-mode handling
+   the crops get would otherwise skip them and the ink would be black on black. */
+.cb svg { max-width: 100%; height: auto; mix-blend-mode: multiply; }
+:root[data-theme="dark"] .cb svg { filter: invert(1); mix-blend-mode: screen; }
 .qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
 .cb figure figcaption { color: var(--dim); margin-top: 6px; }
 /* 926 rationales carry their own figure crops as a bare <img alt="Figure"> with

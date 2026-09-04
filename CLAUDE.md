@@ -1231,3 +1231,78 @@ the Browse preview modal both rendered these choices compactly and correctly,
 because neither puts the choice inside the player's
 `<span style="flex:1; min-width:0">`. Only the real player stretches them. Check
 the screen the user is actually looking at.
+
+### 73 questions were missing from the bank (2026-09-03, night)
+
+Reported as "fix those missing questions". The bank was **3,770 rows, not
+3,843**: every `source='Bluebook'` practice-test row had been dumped to
+`backup/bluebook_rows_2026-09-03.json` and dropped from both databases. One
+`progress` row (`pt10_rw_m1_q13`) still pointed at a question that no longer
+existed, and "My PT Mistakes" had nothing behind it at all.
+
+`tools/restore_bluebook.cjs` puts them back and writes
+`migrations/0007_restore_bluebook.sql`. Nothing was wrong with them that the
+script does not fix; `--test` is its self-check and asserts every claim below.
+
+**What was actually broken in those 73, found by auditing them rather than by
+trusting the backup:**
+
+- **Their choices carry `id` where the rest of the bank carries `letter`.** They
+  rendered only because `load()` falls back to position, and only while all four
+  stay in order. Now written with an explicit `letter`.
+- **Two rows lost the blank their own choices fill.** `nx_3af5a620` read "known
+  for his remarkable so small that", and `pt8_rw_m2_q22` ran two sentences
+  together with no slot for the transition. Both get `______`, which is the
+  convention every other completion row uses.
+- **Five rows carried a note-style summary in place of the figure it announced.**
+  "Table: cars (c) 3, 5, 10 -> max passengers/crew (p) 174, 284, 559", "Graph:
+  type A flies (DptA silenced) stay near 90% survival". `pt6_rw_m2_q13` was the
+  one that could not be answered: its choices cite 9.0%, 7.9%, +4.9%, +0.4% and
+  +0.9%, and **not one of those numbers appeared anywhere in the row**. The
+  replacements in `tools/bluebook_stem_fixes.json` are real `<table>`s or prose,
+  and every figure in them already appears somewhere in the row - none invented.
+- **`pt6_math_m2_q20` contradicted itself.** Its table gave g(-27)=3, g(-9)=0,
+  g(5)=21 with g(x)=f(x)/(x+3) and f linear. The first two give f(x)=4x+36 and
+  the stored answer (0, 36); the third demands slope 12. Working every choice
+  backwards, only (0, 36) is consistent with any two rows, so the 21 is a
+  transcription error for **7**. A wrong number that still looks like a question
+  is the kind of defect a render sweep cannot see.
+- **`pt10_math_m2_q22` printed its own four choices inside its stem** - the same
+  defect `migrations/0003` fixed for `pt10_math_m2_q16`.
+- **18 rows named a skill College Board does not use**, either a domain repeated
+  as its own skill (`Algebra`, `Geometry & Trigonometry`) or an ad-hoc label
+  (`Knowledge gap`, `Nonlinear equations / discriminant`). Each opened a
+  topic-list entry with nothing official behind it.
+  `tools/bluebook_skill_fixes.json` maps them, and the self-check holds *every*
+  restored row's `section|domain|skill` to a triple the CollegeBoard rows
+  already use - which is what proves the 55 untouched ones too. 29 skills, 0
+  strays.
+- **`stem_text` is dropped rather than restored.** It is off the wire, and one
+  row's copy is a different question's text.
+
+**All 73 now carry a rationale.** They are in neither PDF, so there was nothing
+to extract; `tools/bluebook_explanations.json` is written from the question
+itself. The self-check requires each one to name the answer that is *stored*
+(`Choice X is the best answer` / `The correct answer is`) - an explanation
+arguing for a different choice would be worse than none.
+
+**Frontend, one rule.** Three of these rows draw their figure as **inline SVG**,
+not a crop, in flat `#000`/`#fff`/greys - so the dark-mode handling scoped to
+`img` skipped them and the ink was black on a black page. `.cb svg` now takes
+the same `multiply` / `invert`+`screen` treatment the crops get. The white
+backing rect on `pt4_math_m2_q4` disappears into the page exactly as intended.
+
+**Verified over all 3,843**, twice. A DB audit that mirrors `load()`'s own
+normalisation - demoji, leaked-rationale strip, letter fallback, the `B - text`
+reduction, the grid-in answer recovery - and then a sweep through the render
+path in the browser: no empty stem, no empty or duplicate choice, four choices
+per MCQ, **exactly one letter that grades right**, every grid-in answer graded
+right by the player's own `isRight()` while junk still grades wrong, no
+`.katex-error`, no raw LaTeX, no mojibake, no scaffolding, an explanation on
+every row, and all 4,915 `/qimg` references resolving with 0 orphans.
+Hand-checked in the real player besides: all three SVG rows in both themes, a
+reconstructed table, the seven-column HTML table, grading, and the explanation
+modal.
+
+Local and remote identical at **3,843 rows, 0 without an explanation, 0 with a
+non-College-Board topic**. Live at `https://helpmeaceit.page`.

@@ -19,6 +19,10 @@ tools/*
 !tools/apply_choice_tables.cjs
 !tools/apply_answerable.cjs
 !tools/d1_dump.cjs
+!tools/restore_bluebook.cjs
+!tools/bluebook_explanations.json
+!tools/bluebook_stem_fixes.json
+!tools/bluebook_skill_fixes.json
 tools/templates.npz
 backup/
 d1_chunks/
