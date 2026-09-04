@@ -1035,10 +1035,20 @@ column), `backup/bluebook_rows_2026-09-03.sql` (re-runnable `INSERT`s),
 `backup/bluebook_remote_progress_2026-09-03.json`. The referencing `progress` and
 `attempts` rows went with them.
 
-**The local delete had to be run twice.** The first pass landed on the remote
-only; the local sqlite still held all 73, and the check that was supposed to
-catch it — "3,770 CollegeBoard rows" — is true either way. Count the rows you
-deleted, not the rows you kept. Both databases are now 3,770, all CollegeBoard.
+**The delete had to be run three times, and the first two reports of success were
+wrong.** The check used — "3,770 CollegeBoard rows" — is true whether or not the
+73 Bluebook rows are still there, so it confirmed nothing. Count what you deleted
+or `GROUP BY` the column you filtered on; do not check a number the delete cannot
+change. Two further traps behind it:
+
+- `wrangler dev` holds the local D1 in memory and flushes on shutdown, so a
+  `wrangler d1 execute --local` delete run while the server is up is silently
+  overwritten when the server stops. Stop it first.
+- The remote delete had never run at all. It was caught only by reading
+  `/api/questions` off the deployed site, which returned 3,843. **Verify a remote
+  change against the deployed endpoint, not against the tool that made it.**
+
+Both databases and the live site are now 3,770, all CollegeBoard.
 
 Consequence, already handled: the Source filter's `pt` option matched nothing, so
 it is gone, and a stored `F.src === 'pt'` is migrated to `official` at load —
@@ -1148,12 +1158,6 @@ pulled up by `--dp-crop` and grown by the same amount. The panel and its chrome
 are white in both themes, because the College Board embed has no dark mode and a
 white calculator inside a dark card reads as two surfaces.
 
-**`wrangler dev` holds the local D1 in memory and flushes on shutdown.** The first
-attempt at the Bluebook delete ran while the dev server was up; the server later
-wrote its own stale snapshot back over it, and the 73 rows reappeared. Stop the
-dev server before any `wrangler d1 execute --local` that writes, and re-check
-afterwards. This cost two rounds of the same delete.
-
 **Verification.**
 
 - All 3,770 rows through the app's own render path in the browser — stem,
@@ -1186,3 +1190,19 @@ untested here — it needs two real Supabase logins, and this session has no
 credentials. `/api/settings` resolves its caller through the same `whoami()` the
 progress and attempts routes use, so it inherits their guarantee, but that is an
 argument, not a measurement.
+
+**Typeface (2026-09-03).** `--sans` led with Inter and no webfont was ever loaded,
+so the app rendered in whatever system UI font the reader had. It is Roboto now —
+the College Board's own face, checked against `satsuite.collegeboard.org`, which
+computes `Roboto, sans-serif` on its body and on its headings (474 elements).
+`@fontsource-variable/roboto@5.3.0` off jsdelivr, which `script-src`/`style-src`/
+`font-src` already allow in both CSP sources, so neither `public/_headers` nor the
+`CSP` constant in `src/index.js` changed. One variable file covers 100–900 and
+`unicode-range` keeps the download to latin. Pinned with an SRI hash like
+supabase-js and KaTeX. KaTeX keeps `KaTeX_Main` for math.
+
+Deployed and verified live at `helpmeaceit.page`: Roboto Variable loaded, the rail
+in the new order landing on the dashboard, five filter dropdowns, select-then-Check
+grading only on Check, and the explanation open on an unanswered question. The
+old scalar filter shape stored by a previous visit migrated correctly in place
+(`'Math'` → `['Math']`, skill pick preserved).
