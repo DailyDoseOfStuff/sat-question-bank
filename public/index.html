@@ -795,6 +795,25 @@ async function loadProgress() {
   refresh();
 }
 
+// The account is the record. A guest's local settings are a holding pen and lose
+// to whatever the account already has, except on a first sign-in with no row yet.
+async function loadSettings() {
+  if (!authToken) return;
+  let remote = {};
+  try {
+    const r = await fetch('/api/settings', { headers: sbHeaders() });
+    remote = r.ok ? await r.json() : {};
+  } catch (e) { remote = {}; }
+  if (remote && Object.keys(remote).length) {
+    SET = Object.assign({}, SET_DEFAULTS, remote);
+    LS.set('settings', SET);
+  } else {
+    saveSettings();   // first sign-in: push what the guest had up
+  }
+  applyTheme();
+  if (TAB === 'settings') drawSettings();
+}
+
 // One row per answer. `progress` only ever holds a question's latest state, so
 // re-drilling an old question used to move it out of the day it was first done;
 // this log is append-only and keeps the history the graphs are drawn from.
@@ -875,6 +894,7 @@ async function load() {
       }
     });
     await loadProgress();
+    await loadSettings();
     $('src-pill').textContent = `${QS.length.toLocaleString()} official College Board questions · synced with Cloudflare D1`;
   } catch(e) {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
@@ -2089,7 +2109,7 @@ async function initAuth() {
   sb.auth.onAuthStateChange(async (_e, s) => {
     const was = uid;
     applySession(s);
-    if (uid !== was) await loadProgress();
+    if (uid !== was) { await loadProgress(); await loadSettings(); }
   });
 }
 

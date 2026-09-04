@@ -44,3 +44,11 @@ CREATE TABLE IF NOT EXISTS attempts (
   UNIQUE (user_id, question_id, ts)
 );
 CREATE INDEX IF NOT EXISTS attempts_user_ts ON attempts (user_id, ts);
+
+-- One JSON blob per account. These settings change shape often and are read as a
+-- whole; a column per toggle would be a migration for every new preference.
+CREATE TABLE IF NOT EXISTS settings (
+  user_id TEXT PRIMARY KEY,
+  json TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT
+);
