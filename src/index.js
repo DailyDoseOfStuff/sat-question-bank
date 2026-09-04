@@ -56,9 +56,24 @@ const asset = async (env, req) => {
 // X-User-Id header, which let any client read or overwrite any account's progress.
 // Asking Supabase to validate the token costs one fetch and no crypto here, and it
 // works for both the Google and the email/password sign-ins.
+// Cheap pre-filter, not a verification: is this even shaped like a live JWT? The
+// signature still has to be checked by Supabase, but without this any stranger can
+// put a line of noise in Authorization and make the Worker spend a call on
+// Supabase's auth endpoint - which is the account's shared rate limit, so a curl
+// loop from one machine is an auth outage for everyone. Garbage now costs the
+// attacker a request and this Worker nothing.
+function looksLive(t) {
+  const seg = t.split('.');
+  if (seg.length !== 3) return false;
+  try {
+    const c = JSON.parse(atob(seg[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof c.exp === 'number' && c.exp * 1000 > Date.now();
+  } catch (e) { return false; }
+}
+
 async function whoami(req, env) {
   const t = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
-  if (!t) return null;
+  if (!t || !looksLive(t)) return null;
   const r = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
     headers: { Authorization: `Bearer ${t}`, apikey: env.SUPABASE_ANON_KEY }
   });

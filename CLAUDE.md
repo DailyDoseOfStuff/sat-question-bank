@@ -1563,6 +1563,18 @@ is generic, but the neighbouring ones are not - the rate-limit message names how
 long ago an address was last used. One message for every way a sign-in can fail,
 detail to the console. Password `minlength` 6 -> 8.
 
+**6. A stranger could spend the account's Supabase auth budget.** `whoami()` only
+checked that an `Authorization` header was non-empty before calling
+`{SUPABASE_URL}/auth/v1/user`, so one line of noise in that header bought an
+outbound call - and the Worker's calls all leave from Cloudflare's addresses, so
+they land on one shared rate limit rather than the attacker's. A curl loop from a
+single machine is therefore an auth outage for every real user. `looksLive()` is a
+pre-filter, not a verification: three dot-separated segments, a payload that
+base64url-decodes to JSON, and an `exp` in the future. Supabase still checks the
+signature; garbage now costs the attacker a request and this Worker nothing.
+Verified on the running server - noise and an expired token are refused without
+leaving the Worker, a well-formed forgery goes out and comes back 401.
+
 **Accepted, with the reason:**
 
 - `script-src 'unsafe-inline'`. The question HTML goes from D1 into `innerHTML`,
