@@ -1627,3 +1627,59 @@ both see all 4,915 files, which is what makes this easy to miss. Materialise it
 before deploying - `cp -rL public/qimg public/qimg_real && rm public/qimg && mv
 public/qimg_real public/qimg` - and check wrangler's own line: it should read
 "Read 4918 files from the assets directory", not 3.
+
+### The crops 404'd again, and progress would not load (2026-09-04, later)
+
+**Images: a deploy from a sibling worktree wiped them from the asset manifest.**
+Not the app, not the CSP, not the database — all 4,915 `/qimg` references resolve
+locally and every one of them is referenced by a row. Deployment `78bbf6a1`
+(06:24) was made from `.claude/worktrees/chatbot-ui-fixes-brainstorm-2aae49`,
+where `public/qimg` is a **directory junction** (the directory is gitignored, so
+a worktree gets a link rather than a copy). wrangler's asset walker does not
+follow it: the deploy succeeds, reports "Read 3 files from the assets
+directory", and writes a manifest with no crops in it. The Worker script and
+`index.html` in that deploy were current — live HTML is byte-identical to the
+local file once CRLF is normalised — which is why only the images were gone.
+
+Two things make this easy to misdiagnose: the 404 carries the security headers,
+which come from `public/_headers` and therefore look like the Worker answered;
+and `find`/`du` report the junction as empty while `ls` and Node's `readdirSync`
+both see all 4,915 files, so a file count proves nothing.
+
+`tools/predeploy.cjs` now refuses the deploy if `public/qimg` is missing, is a
+symlink, or holds under 4,000 files, wired as npm's `predeploy` hook so
+`npm run deploy` cannot skip it. It only guards that path — `npx wrangler deploy`
+still bypasses it, so deploy through npm. The junction in the sibling worktree
+was materialised (`cp -rL`), and `chatbot-removal-ai-export-614748` has no crops
+at all; do not deploy from there.
+
+**Progress: `authToken` was a snapshot of a token that expires hourly.**
+`sbHeaders()` read a module-level `authToken` set by `applySession()`. A Supabase
+access token lasts an hour; supabase-js renews it in the background and
+`onAuthStateChange` does write the new one back — but `initAuth()` awaits
+`getSession()` and `load()` runs on the very next line, so a page booted while
+the stored token had already expired sent the dead one to `/api/progress` and
+`/api/attempts`, got 401 from both, and printed "Could not load your saved
+progress" — which is the "stored but cannot load" report. The refresh landed
+milliseconds later, but `onAuthStateChange` only refetches when `uid` changes,
+and a token refresh does not change it, so nothing retried.
+
+`sbHeaders()` is now `async` and asks `sb.auth.getSession()` for the live token
+on each call, which refreshes it first if it has to. Five call sites await it.
+This also closes the same hole on the write path, where a stale token turned an
+answer into "Your last answer did not save".
+
+Not the cause, checked and ruled out: `whoami()` and `looksLive()` are fine —
+Supabase's edge logs show every Worker call to `/auth/v1/user` answering **200**
+(the two 403s at 05:55 and 05:59 are this repo's own forged-token tests). The
+`INSERT ... SELECT ... WHERE EXISTS` for `attempts` was run against the remote
+D1 with a `PROBE` user id and inserted, so the security pass's rewrite is not
+what left `attempts` empty; those 6 progress rows with no attempt rows predate
+it (00:02–00:22 UTC, before the 06:11 deploy).
+
+**"Most of them should be tables" — 103 of them are.** 952 of the 3,770 rows
+still reference a crop. The table reconstruction only ever applied to ruled
+blocks, and the remaining crops are the two things that cannot become text: the
+439 questions whose notation College Board embedded as a **bitmap** (no glyph
+identity to hash — measured and abandoned, see the raster-matching section), and
+real diagrams — graphs, scatterplots, geometry figures — which are art.

@@ -756,12 +756,12 @@ function applyTheme() {
   document.querySelectorAll('[data-theme-toggle]').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
 }
 
-function saveSettings() {
+async function saveSettings() {
   LS.set('settings', SET);
   if (!authToken) return;
   fetch('/api/settings', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+    headers: { 'Content-Type': 'application/json', ...(await sbHeaders()) },
     body: JSON.stringify(SET)
   }).catch(() => {});
 }
@@ -821,12 +821,12 @@ async function loadProgress() {
   PROG = {}; LOG = [];
   if (!authToken) { refresh(); return; }
   try {
-    const r = await fetch('/api/progress', { headers: sbHeaders() });
+    const r = await fetch('/api/progress', { headers: await sbHeaders() });
     if (!r.ok) throw new Error('progress ' + r.status);
     (await r.json()).forEach(p => PROG[p.question_id] = p);
     // One row per answer. `progress` only ever holds a question's latest state, so
     // it cannot say how many questions were done on a given day; this log can.
-    const a = await fetch('/api/attempts', { headers: sbHeaders() });
+    const a = await fetch('/api/attempts', { headers: await sbHeaders() });
     if (!a.ok) throw new Error('attempts ' + a.status);
     LOG = await a.json();
   } catch (e) {
@@ -841,7 +841,7 @@ async function loadSettings() {
   if (!authToken) return;
   let remote = null;
   try {
-    const r = await fetch('/api/settings', { headers: sbHeaders() });
+    const r = await fetch('/api/settings', { headers: await sbHeaders() });
     if (r.ok) remote = await r.json();
   } catch (e) {}
   if (remote && Object.keys(remote).length) {
@@ -875,7 +875,7 @@ async function push(url, rows) {
   try {
     const r = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+      headers: { 'Content-Type': 'application/json', ...(await sbHeaders()) },
       body: JSON.stringify(rows)
     });
     if (!r.ok) throw new Error(r.status);
@@ -2361,7 +2361,17 @@ $('btn-export').onclick = async (e) => {
 // the Worker resolves the owner from it. uid only decides what the header shows.
 let sb = null, uid = null, authToken = null;
 const $authBtn = $('btn-auth'), $userName = $('user-name');
-function sbHeaders() { return authToken ? { Authorization: 'Bearer ' + authToken } : {}; }
+// Asked for per request, not read off a snapshot: a Supabase access token lasts an
+// hour and supabase-js renews it in the background, so a page open across that
+// boundary - or one booted while the stored token was already expired - held a dead
+// token here and every save and every read came back 401. getSession() hands back
+// the live token and refreshes it first if it has to.
+async function sbHeaders() {
+  if (!authToken) return {};
+  const { data: { session } } = await sb.auth.getSession();
+  authToken = session?.access_token || null;
+  return authToken ? { Authorization: 'Bearer ' + authToken } : {};
+}
 
 async function initAuth() {
   try {
