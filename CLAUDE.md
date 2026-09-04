@@ -1206,9 +1206,28 @@ is the line of slope 2 its rationale names; `ab7740a8`'s D is the nonlinear
 table 6/12/24/48; `1ee962ec`'s C is (0,0), (3,-12), (6,0), exactly the points
 its rationale lists.
 
-Left alone, and why: `1ee962ec` and `4acd05cd` print their last choice's final
-table row at the top of the next page as its own ruled block, which `table_of`
-will not read (two horizontal rules, not three). One shows it as text above the
-table, the other loses it. Both remain answerable - the correct choice is
-complete and unique in each - and the fix is a special case in the table reader
-for a two-row fragment, which is more risk than a distractor row is worth.
+`1ee962ec` and `4acd05cd` print their last choice's final table row at the top
+of the next page as its own ruled block, which `table_of` will not read (two
+horizontal rules, not three). One showed it as loose text beside the table, the
+other lost it. Both rows are now named in `apply_answerable.cjs`
+(`CHOICE_ROWS`), read off the source pages. These are the only two page-broken
+choice tables in the bank, so a general two-row-fragment reader would risk all
+103 reconstructed tables to fix two rows.
+
+### The choice tables all looked alike (2026-09-03, evening)
+
+Reported as "1ee962ec shows that all the answer choices are the same". The data
+was right and all four differed; the CSS was wrong. `.choice table` carried
+`width: 100%`, so a 2-column, 4-row mini-table was stretched across the whole
+answer pane and every choice read as the same sparse grid of x/y headers with a
+digit lost in each corner. The rule was written before any question in the bank
+had a table in a choice (CLAUDE.md recorded it as untested); there are 88 now,
+and all 88 arrive wrapped in `<div class="qtable">`, whose own rules already
+size and border them correctly. The three `.choice table` rules were duplicates
+of those except for the width, so they are deleted rather than patched.
+
+Worth remembering for the next report of this shape: the isolated harness and
+the Browse preview modal both rendered these choices compactly and correctly,
+because neither puts the choice inside the player's
+`<span style="flex:1; min-width:0">`. Only the real player stretches them. Check
+the screen the user is actually looking at.

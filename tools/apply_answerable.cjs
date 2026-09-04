@@ -39,12 +39,26 @@ const STEMS = {
   ],
 };
 
+// A choice table whose last row is printed at the top of the next page.
+// table_of will not read a two-rule fragment, so the row is either lost
+// (4acd05cd) or left beside the table as loose text (1ee962ec). These are the
+// only two in the bank; both rows were read off the source page.
+const CHOICE_ROWS = {
+  '1ee962ec': { letter: 'D', drop: '<p>-6 0</p>', row: ['-6', '0'] },
+  '4acd05cd': { letter: 'D', row: ['2', '-1'] },
+};
+
 const CHOICES = {
   '36f068e2': JSON.stringify('ABCD'.split('').map(letter => ({
     letter,
     content: `<div class="qfig"><img src="/qimg/36f068e2_ch${letter}.webp" alt="Choice ${letter}"></div>`,
   }))),
 };
+
+// Drop the loose text the fragment came out as, and append it as a real row.
+const patchRow = (content, r) =>
+  (r.drop ? content.replace(r.drop, '') : content)
+    .replace('</table>', `<tr><td>${r.row[0]}</td><td>${r.row[1]}</td></tr></table>`);
 
 function selftest() {
   const a = require('assert');
@@ -57,6 +71,11 @@ function selftest() {
   for (const [id, [from, to]] of Object.entries(STEMS)) {
     a.notEqual(from, to, id);
     a.ok(!to.includes('( )'), id);
+  }
+  for (const [id, r] of Object.entries(CHOICE_ROWS)) {
+    a.equal(r.row.length, 2, id);
+    a.equal(patchRow('<div class="qtable"><table><tr><td>1</td><td>2</td></tr></table></div>', r),
+            `<div class="qtable"><table><tr><td>1</td><td>2</td></tr><tr><td>${r.row[0]}</td><td>${r.row[1]}</td></tr></table></div>`, id);
   }
   a.equal(JSON.parse(CHOICES['36f068e2']).length, 4);
   a.equal(new Set(JSON.parse(CHOICES['36f068e2']).map(c => c.content)).size, 4);
@@ -78,6 +97,17 @@ const put = (id, col, value) => {
 
 for (const [id, v] of Object.entries(ANSWERS)) put(id, 'correct_answer', JSON.stringify([v]));
 for (const [id, json] of Object.entries(CHOICES)) put(id, 'choices_json', json);
+for (const [id, r] of Object.entries(CHOICE_ROWS)) {
+  const row = db.prepare('SELECT choices_json FROM questions WHERE id=?').get(id);
+  if (!row) { console.log('not in bank, skipped:', id); continue; }
+  const ch = JSON.parse(row.choices_json);
+  const c = ch.find(x => x.letter === r.letter);
+  if (c.content.includes(`<td>${r.row[0]}</td><td>${r.row[1]}</td>`)) {
+    console.log('choice row already present, skipped:', id); continue;
+  }
+  c.content = patchRow(c.content, r);
+  put(id, 'choices_json', JSON.stringify(ch));
+}
 for (const [id, [from, to]] of Object.entries(STEMS)) {
   const row = db.prepare('SELECT stem_html FROM questions WHERE id=?').get(id);
   if (!row) { console.log('not in bank, skipped:', id); continue; }
