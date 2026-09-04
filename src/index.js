@@ -149,7 +149,9 @@ export default {
 
     if (p === '/api/progress' && req.method === 'GET') {
       const u = await whoami(req, env);
-      if (!u) return json([]);
+      // Not an empty list: a rejected token that reads back as "no rows" is
+      // indistinguishable from an account whose progress has been wiped.
+      if (!u) return json({ error: 'unauthorized' }, 401);
       await touchUser(env, u);
       const r = await env.DB.prepare('SELECT * FROM progress WHERE user_id = ?').bind(u.id).all();
       return json(r.results || []);
@@ -186,7 +188,7 @@ export default {
     // a repeat of the same (question, timestamp) is ignored rather than updated.
     if (p === '/api/attempts' && req.method === 'GET') {
       const u = await whoami(req, env);
-      if (!u) return json([]);
+      if (!u) return json({ error: 'unauthorized' }, 401);
       const r = await env.DB.prepare(
         'SELECT question_id, ts, correct, time_taken_ms FROM attempts WHERE user_id = ? ORDER BY ts'
       ).bind(u.id).all();
@@ -221,7 +223,10 @@ export default {
     // names someone else's id gets its own row, not theirs.
     if (p === '/api/settings' && req.method === 'GET') {
       const u = await whoami(req, env);
-      if (!u) return json({});
+      // 401, not {}, for the same reason the progress and attempts reads say 401:
+      // an empty object reads as "this account has no settings row yet", and the
+      // client answers that by pushing its own defaults up over the account's.
+      if (!u) return json({ error: 'unauthorized' }, 401);
       const r = await env.DB.prepare('SELECT json FROM settings WHERE user_id = ?').bind(u.id).first();
       let out = {};
       try { out = r && r.json ? JSON.parse(r.json) : {}; } catch (e) { out = {}; }
