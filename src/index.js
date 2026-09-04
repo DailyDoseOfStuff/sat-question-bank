@@ -43,8 +43,16 @@ const json = (body, status = 200) =>
   });
 
 // ASSETS.fetch hands back an immutable Response, so the headers go on a copy.
+// A miss is answered with public/404.html rather than the platform's bare "Not
+// Found". This is done here and not with [assets] not_found_handling, which is
+// applied by the asset router *before* the Worker runs and therefore 404s every
+// API route and /auth/callback along with it (measured).
 const asset = async (env, req) => {
-  const r = await env.ASSETS.fetch(req);
+  let r = await env.ASSETS.fetch(req);
+  if (r.status === 404) {
+    const page = await env.ASSETS.fetch(new URL('/404.html', req.url));
+    if (page.ok) r = new Response(page.body, { status: 404, headers: page.headers });
+  }
   return new Response(r.body, {
     status: r.status,
     statusText: r.statusText,

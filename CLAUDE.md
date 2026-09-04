@@ -1683,3 +1683,23 @@ blocks, and the remaining crops are the two things that cannot become text: the
 439 questions whose notation College Board embedded as a **bitmap** (no glyph
 identity to hash — measured and abandoned, see the raster-matching section), and
 real diagrams — graphs, scatterplots, geometry figures — which are art.
+
+### A custom 404 page (2026-09-04)
+
+`public/404.html` - the app's own tokens, both themes, a link home and the path
+that missed. No webfont and no CDN; a 404 that has to fetch something renders
+twice. The theme is read from `satq_settings`, the same key the app writes, so a
+reader who picked dark does not get a white flash on the way to an error page.
+
+**`[assets] not_found_handling = "404-page"` is the wrong knob here, measured.**
+The asset router applies it *before* the Worker runs, so with it set every route
+the Worker owns 404s as well - `/api/questions` and `/auth/callback` both came
+back as the 404 page. The fallback lives in `asset()` in `src/index.js` instead:
+a miss re-fetches `/404.html` and returns it with status 404, `harden()` puts the
+security headers on it like any other response.
+
+Verified locally: `/` and `/auth/callback` 200, `/api/questions` 200 JSON,
+the four authenticated routes 401 unauthenticated, `/wrangler.toml` and
+`/schema.sql` the 404 page, a real crop still 200 image/webp, and a missing crop
+the 404 page. Rendered in both themes.
+
