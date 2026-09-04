@@ -569,21 +569,9 @@ img.minl { mix-blend-mode: multiply; }
             </div>
           </div>
           <div class="ctrls" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
-            <label class="ctrl"><span>Section</span>
-              <select id="mk-sec">
-                <option value="all">Both sections</option>
-                <option value="Math">Math</option>
-                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
-              </select></label>
-            <label class="ctrl"><span>Difficulty</span>
-              <select id="mk-diff">
-                <option value="all">All difficulties</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select></label>
-            <label class="ctrl"><span>Topic</span>
-              <select id="mk-skill"><option value="all">All topics</option></select></label>
+            <div class="dd" id="md-sec"></div>
+            <div class="dd" id="md-diff"></div>
+            <div class="dd" id="md-topic"></div>
           </div>
         </div>
         <div class="panel"><div id="mk-list"></div></div>
@@ -595,6 +583,11 @@ img.minl { mix-blend-mode: multiply; }
 
       <div id="tab-browse" class="hide">
         <div class="panel">
+          <div class="ctrls" style="margin-bottom:14px">
+            <div class="dd" id="bd-sec"></div>
+            <div class="dd" id="bd-diff"></div>
+            <div class="dd" id="bd-topic"></div>
+          </div>
           <div class="panel-h">
             <input type="text" id="browse-q" placeholder="Search domain, skill, id&#8230;" style="flex:1;max-width:380px">
             <span id="browse-count" style="color:var(--dim);font-size:13px"></span>
@@ -1400,7 +1393,7 @@ document.querySelectorAll('#db-range button').forEach(b => b.onclick = () => {
 });
 
 // ---------------- mistakes ----------------
-const MK = { sec:'all', diff:'all', skill:'all', status:'wrong' };
+const MK = { sec:null, diff:null, skills:null, status:'wrong' };
 // Tags out, then entities decoded, or the preview prints "Wigan&#x27;s". The
 // decode goes through a textarea because its content is raw text: no elements are
 // built and no <img> in the stem gets fetched just to read a two-line preview.
@@ -1420,25 +1413,38 @@ wrongSet.one = (q) => {
   const fixed = PROG[q.id].marker === 'Orange';
   if (MK.status === 'wrong' && fixed) return false;
   if (MK.status === 'fixed' && !fixed) return false;
-  if (MK.sec !== 'all' && q.section !== MK.sec) return false;
-  if (MK.diff !== 'all' && (q.difficulty||'').toLowerCase() !== MK.diff.toLowerCase()) return false;
-  if (MK.skill !== 'all' && (q.skill || 'Other') !== MK.skill) return false;
+  if (MK.sec && !MK.sec.includes(q.section)) return false;
+  if (MK.diff && !MK.diff.map(d => d.toLowerCase()).includes((q.difficulty||'').toLowerCase())) return false;
+  if (MK.skills && !MK.skills.includes(q.skill || 'Other')) return false;
   return true;
 };
 
 function drawMistakes() {
   // Built with every filter except the topic one, so choosing a topic does not
   // empty the dropdown it was chosen from, and no topic is offered with nothing
-  // behind it. A pick that the other filters have made impossible falls back to all.
+  // behind it. Picks the other filters have made impossible are dropped.
   const pool = QS.filter(q => {
-    const save = MK.skill; MK.skill = 'all';
-    const ok = wrongSet.one(q); MK.skill = save; return ok;
+    const save = MK.skills; MK.skills = null;
+    const ok = wrongSet.one(q); MK.skills = save; return ok;
   });
-  const skills = [...new Set(pool.map(q => q.skill || 'Other'))].sort();
-  if (MK.skill !== 'all' && !skills.includes(MK.skill)) MK.skill = 'all';
-  $('mk-skill').innerHTML = '<option value="all">All topics</option>' +
-    skills.map(sk => `<option value="${esc(sk)}"${sk === MK.skill ? ' selected' : ''}>${esc(sk)}</option>`).join('');
-  $('mk-sec').value = MK.sec; $('mk-diff').value = MK.diff;
+  const groups = {};
+  pool.forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+  const live = new Set(Object.values(groups).flatMap(x => [...x]));
+  if (MK.skills) {
+    MK.skills = MK.skills.filter(sk => live.has(sk));
+    if (!MK.skills.length || MK.skills.length === live.size) MK.skills = null;
+  }
+
+  dd($('md-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => MK.sec, set: (x) => { MK.sec = x; drawMistakes(); } });
+  dd($('md-diff'), { label: 'Difficulty', allLabel: 'All difficulties',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => MK.diff, set: (x) => { MK.diff = x; drawMistakes(); } });
+  dd($('md-topic'), { label: 'Topic', allLabel: 'All topics',
+    opts: Object.keys(groups).sort().flatMap(d =>
+      [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d })))),
+    get: () => MK.skills, set: (x) => { MK.skills = x; drawMistakes(); } });
 
   const list = wrongSet();
   $('mk-count').textContent = `${list.length.toLocaleString()} question${list.length === 1 ? '' : 's'}`;
@@ -1466,7 +1472,6 @@ function drawMistakes() {
   });
 }
 
-['sec','diff','skill'].forEach(k => $('mk-'+k).onchange = (e) => { MK[k] = e.target.value; drawMistakes(); });
 document.querySelectorAll('#mk-status button').forEach(b => b.onclick = () => {
   MK.status = b.dataset.s;
   document.querySelectorAll('#mk-status button').forEach(x => x.classList.toggle('on', x === b));
@@ -1479,10 +1484,41 @@ $('mk-drill').onclick = () => {
 };
 
 // ---------------- browse ----------------
+// Browse filters are its own state. Changing the practice set must not silently
+// re-filter this table, and the reverse.
+let FB = LS.get('browse', { sec:null, diff:null, skills:null });
+const saveFB = () => { LS.set('browse', FB); browsePage = 0; drawBrowse(); };
+
+function browseBase() {
+  const secs = FB.sec ? new Set(FB.sec) : null;
+  const diffs = FB.diff ? new Set(FB.diff.map(d => d.toLowerCase())) : null;
+  const sks = FB.skills ? new Set(FB.skills) : null;
+  return QS.filter(q => {
+    if (secs && !secs.has(q.section)) return false;
+    if (diffs && !diffs.has((q.difficulty || '').toLowerCase())) return false;
+    if (sks && !sks.has(q.skill || 'Other')) return false;
+    return true;
+  });
+}
+
 let browsePage = 0;
 function drawBrowse() {
+  dd($('bd-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => FB.sec, set: (x) => { FB.sec = x; FB.skills = null; saveFB(); } });
+  dd($('bd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => FB.diff, set: (x) => { FB.diff = x; saveFB(); } });
+  {
+    const groups = {};
+    browseBase().forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+    const opts = Object.keys(groups).sort().flatMap(d =>
+      [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d }))));
+    dd($('bd-topic'), { label: 'Topic', allLabel: 'All topics',
+      opts, get: () => FB.skills, set: (x) => { FB.skills = x; saveFB(); } });
+  }
   const q = ($('browse-q').value||'').toLowerCase();
-  let list = QS.filter(x => !q || [x.id,x.domain,x.skill,x.section,x.difficulty].join(' ').toLowerCase().includes(q));
+  let list = browseBase().filter(x => !q || [x.id,x.domain,x.skill,x.section,x.difficulty].join(' ').toLowerCase().includes(q));
   $('browse-count').textContent = `${list.length.toLocaleString()} questions`;
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per));
   browsePage = Math.min(browsePage, pages-1);
