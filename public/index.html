@@ -509,42 +509,21 @@ img.minl { mix-blend-mode: multiply; }
             </div>
           </div>
           <div class="ctrls">
-            <label class="ctrl"><span>Section</span>
-              <select id="f-sec">
-                <option value="all">Both sections</option>
-                <option value="Math">Math</option>
-                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
-              </select></label>
-            <label class="ctrl"><span>Difficulty</span>
-              <select id="f-diff">
-                <option value="all">Any difficulty</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select></label>
-            <label class="ctrl"><span>Source</span>
-              <select id="f-src">
-                <option value="official">Question Bank</option>
-                <option value="mistakes">My mistakes</option>
-              </select></label>
-            <label class="ctrl"><span>Questions</span>
-              <select id="num-q">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="30">30</option>
-                <option value="50">50</option>
-                <option value="0">All</option>
-              </select></label>
+            <div class="dd" id="dd-sec"></div>
+            <div class="dd" id="dd-diff"></div>
+            <div class="dd" id="dd-topic"></div>
+            <div class="dd" id="dd-src"></div>
+            <div class="dd" id="dd-count"></div>
+            <label class="set-row" style="border:0;padding:0;gap:10px">
+              <div class="set-l"><b>Random order</b></div>
+              <button class="sw" id="f-rand" aria-pressed="false"></button>
+            </label>
           </div>
         </div>
 
         <div class="panel">
           <div class="panel-h">
             <h3>Topics</h3>
-            <div class="frow">
-              <button id="topic-all">Select all</button>
-              <button id="topic-none">Clear</button>
-            </div>
           </div>
           <div class="tl-head"><span>Topic</span><span>Progress</span><span></span><span>Accuracy</span></div>
           <div id="topic-list"></div>
@@ -723,10 +702,7 @@ const LS = {
 };
 
 let QS = [], PROG = {}, LOG = [];
-let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null });
-// 'pt' was the practice-test bank, deleted 2026-09-03. A stored 'pt' now matches
-// nothing, so a returning user would open the app to an empty question bank.
-if (F.src === 'pt') { F.src = 'official'; LS.set('filters', F); }
+let F;
 let S = null;
 let TAB = 'dash';
 
@@ -779,6 +755,20 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 });
 
 applyTheme();
+
+// F holds the practice-set filters. It reads SET.count, so it is initialised after
+// the settings block rather than beside the other top-level state.
+F = LS.get('filters', { sec:null, diff:null, src:'official', skills:null, count:SET.count, rand:SET.rand });
+// 'pt' was the practice-test bank, deleted 2026-09-03. A stored 'pt' now matches
+// nothing, so a returning user would open the app to an empty question bank.
+if (F.src === 'pt') F.src = 'official';
+// sec/diff were single-value strings ('all' | 'Math'). Carry them into the array
+// shape the multiselects use; 'all' becomes null, which means everything.
+if (typeof F.sec === 'string') F.sec = F.sec === 'all' ? null : [F.sec];
+if (typeof F.diff === 'string') F.diff = F.diff === 'all' ? null : [F.diff];
+if (typeof F.count !== 'number') F.count = SET.count;
+if (typeof F.rand !== 'boolean') F.rand = SET.rand;
+LS.set('filters', F);
 
 // ---------------- data ----------------
 // The PDF extractor wrote some text as UTF-8 bytes decoded through CP437.
@@ -1060,12 +1050,14 @@ function greet() {
 const everWrong = (id) => { const p = PROG[id]; return !!p && (p.marker === 'Red' || p.marker === 'Orange'); };
 
 function base() {
+  const secs = F.sec ? new Set(F.sec) : null;
+  const diffs = F.diff ? new Set(F.diff.map(d => d.toLowerCase())) : null;
   return QS.filter(q => {
     // Mistakes is not a source, it cuts across the bank. Every remaining row is
     // CollegeBoard: the practice-test rows were deleted on 2026-09-03.
     if (F.src === 'mistakes' && !everWrong(q.id)) return false;
-    if (F.sec !== 'all' && q.section !== F.sec) return false;
-    if (F.diff !== 'all' && (q.difficulty||'').toLowerCase() !== F.diff.toLowerCase()) return false;
+    if (secs && !secs.has(q.section)) return false;
+    if (diffs && !diffs.has((q.difficulty || '').toLowerCase())) return false;
     return true;
   });
 }
@@ -1078,9 +1070,8 @@ const inPick = (sel, q) => !sel || sel.has(q.skill || 'Other');
 function pool() {
   const sel = picked();
   const a = base().filter(q => inPick(sel, q));
-  for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-  const n = parseInt($('num-q').value);
-  return n > 0 ? a.slice(0, n) : a;
+  if (F.rand) for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return F.count > 0 ? a.slice(0, F.count) : a;
 }
 
 // One pass over a list of questions and the progress rows. The dashboard reads
@@ -1116,14 +1107,51 @@ function drawHomeStats() {
     <div class="card"><div class="k">Accuracy</div><div class="v mono">${att?Math.round(corr/att*100):0}%</div></div>`;
 }
 
+const SECTIONS = ['Math', 'Reading & Writing'];
+const DIFFS = ['Easy', 'Medium', 'Hard'];
+
+// Domain -> skills, over what the other filters left, so the topic list never
+// offers a topic with nothing behind it.
+function topicOpts() {
+  const groups = {};
+  base().forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+  return Object.keys(groups).sort().flatMap(d =>
+    [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d }))));
+}
+
 function drawFilters() {
-  $('f-sec').value = F.sec; $('f-diff').value = F.diff; $('f-src').value = F.src;
+  dd($('dd-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => F.sec, set: (x) => { F.sec = x; F.skills = null; saveF(); } });
+
+  dd($('dd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => F.diff, set: (x) => { F.diff = x; saveF(); } });
+
+  dd($('dd-topic'), { label: 'Topic', allLabel: 'All topics',
+    opts: topicOpts(), get: () => F.skills, set: (x) => { F.skills = x; saveF(); } });
+
+  dd($('dd-src'), { label: 'Source', allLabel: 'Question Bank',
+    opts: [{ v:'official', label:'Question Bank' }, { v:'mistakes', label:'My mistakes' }],
+    get: () => [F.src], set: (x) => { F.src = (x && x.length ? x[x.length-1] : 'official'); F.skills = null; saveF(); } });
+
+  dd($('dd-count'), { label: 'Questions', allLabel: 'All',
+    opts: [['10','10'],['20','20'],['30','30'],['50','50'],['0','All']].map(([v,l]) => ({ v, label: l })),
+    get: () => [String(F.count)], set: (x) => { F.count = parseInt(x && x.length ? x[x.length-1] : '0', 10); saveF(); } });
+
+  $('f-rand').classList.toggle('on', !!F.rand);
+  $('f-rand').setAttribute('aria-pressed', String(!!F.rand));
+
   drawTopics();
   const sel = picked();
   const n = base().filter(q => inPick(sel, q)).length;
   $('start-count').textContent = `${n.toLocaleString()} matching questions`;
   $('btn-start').disabled = n === 0;
 }
+
+function saveF() { LS.set('filters', F); drawFilters(); }
+
+$('f-rand').onclick = () => { F.rand = !F.rand; saveF(); };
 
 const SHUT = new Set(LS.get('shut', []));
 
@@ -1154,11 +1182,6 @@ function drawTopics() {
   }).join('') || '<div class="empty">No topics match these filters.</div>';
 
   const el = $('topic-list');
-  el.querySelectorAll('.tl-row').forEach(r => r.onclick = () => toggle([r.dataset.s], all));
-  el.querySelectorAll('.dom-h .tick').forEach(k => k.onclick = (e) => {
-    e.stopPropagation();
-    toggle([...groups[k.dataset.dom]], all);
-  });
   el.querySelectorAll('.dom-h').forEach(h => h.onclick = () => {
     const d = h.parentElement.dataset.d;
     SHUT.has(d) ? SHUT.delete(d) : SHUT.add(d);
@@ -1167,28 +1190,6 @@ function drawTopics() {
   });
 }
 
-// Ticking every topic is the same as ticking none of them, so it collapses back
-// to null rather than pinning a list that goes stale the next time the bank grows.
-function toggle(some, all) {
-  const sel = new Set(F.skills || all);
-  const on = some.every(sk => sel.has(sk));
-  some.forEach(sk => on ? sel.delete(sk) : sel.add(sk));
-  F.skills = (sel.size === all.length && all.every(sk => sel.has(sk))) ? null : [...sel];
-  LS.set('filters', F);
-  drawFilters();
-}
-
-['sec','diff','src'].forEach(k => $('f-'+k).onchange = (e) => {
-  F[k] = e.target.value;
-  // Section and source change which topics exist at all; a carried-over pick
-  // would silently hide half the new list.
-  if (k !== 'diff') F.skills = null;
-  LS.set('filters', F);
-  drawFilters();
-});
-$('num-q').onchange = drawFilters;
-$('topic-all').onclick = () => { F.skills = null; LS.set('filters', F); drawFilters(); };
-$('topic-none').onclick = () => { F.skills = []; LS.set('filters', F); drawFilters(); };
 $('btn-start').onclick = () => start(pool());
 
 // ---------------- dashboard ----------------
