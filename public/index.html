@@ -46,7 +46,7 @@
   --border2: #3a3f4b;
   --text: #e5e7eb;
   --dim: #9ca3af;
-  --dim2: #6b7280;
+  --dim2: #98a1b0;
   --blue: #3b82f6;
   --blue-dark: #60a5fa;
   --blue-bg: #1e3a5f;
@@ -222,8 +222,10 @@ select:hover { border-color: var(--border2); }
 .heat i.fut { opacity: 0; }
 .heat i.l1, .heat-key i.l1 { background: #b7ecce; } .heat i.l2, .heat-key i.l2 { background: #79dfa8; }
 .heat i.l3, .heat-key i.l3 { background: #35d07f; } .heat i.l4, .heat-key i.l4 { background: #1a8f53; }
-:root[data-theme="dark"] .heat i.l1, .heat-key i.l1 { background: #143d28; } :root[data-theme="dark"] .heat i.l2, .heat-key i.l2 { background: #1a6640; }
-:root[data-theme="dark"] .heat i.l3, .heat-key i.l3 { background: #27a463; } :root[data-theme="dark"] .heat i.l4, .heat-key i.l4 { background: #35d07f; }
+:root[data-theme="dark"] .heat i.l1, :root[data-theme="dark"] .heat-key i.l1 { background: #143d28; }
+:root[data-theme="dark"] .heat i.l2, :root[data-theme="dark"] .heat-key i.l2 { background: #1a6640; }
+:root[data-theme="dark"] .heat i.l3, :root[data-theme="dark"] .heat-key i.l3 { background: #27a463; }
+:root[data-theme="dark"] .heat i.l4, :root[data-theme="dark"] .heat-key i.l4 { background: #35d07f; }
 
 /* mistakes drill */
 .mk-card { padding: 15px 20px; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -305,6 +307,9 @@ img.minl { mix-blend-mode: multiply; }
 .cb .qfig { margin: 16px 0; }
 .cb .qfig img { display: block; border-radius: 8px; max-width: 100%; }
 .cb .qfig img, .cb .qimg img { cursor: zoom-in; }
+/* A figure keeps its own colours (inverting a coloured chart misreports it), so
+   on a dark panel its black axes and labels disappear. Put it on white paper. */
+:root[data-theme="dark"] .cb .qfig img { background: #fff; padding: 6px; }
 /* .cb figure carries the one HTML table in the bank; without these it takes the
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
 .qtable, .cb figure { margin: 16px 0; overflow-x: auto; }
@@ -345,8 +350,11 @@ img.minl { mix-blend-mode: multiply; }
 .choice.right .badge { border-color: var(--green); background: var(--green); color: #fff; }
 .choice.wrong { border-color: var(--red); background: var(--red-bg); }
 .choice.wrong .badge { border-color: var(--red); background: var(--red); color: #fff; }
-.choice.corrected { border-color: var(--orange); background: var(--orange-bg); }
-.choice.corrected .badge { border-color: var(--orange); background: var(--orange); color: #fff; }
+/* A correct choice reads green whether or not this question was missed before.
+   Orange still means "wrong once, right now" in the question map, the results
+   pills and the mistakes cards, where that is information the student wants. */
+.choice.corrected { border-color: var(--green); background: var(--green-bg); }
+.choice.corrected .badge { border-color: var(--green); background: var(--green); color: #fff; }
 .choice.dim { opacity: .55; }
 .ko-btn { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 3px; border-radius: 50%; border: 1.5px dashed var(--border2); background: transparent; color: var(--dim2); font-size: 11px; font-weight: 700; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .ko-btn:hover { border-color: var(--dim); color: var(--dim); }
@@ -1664,7 +1672,7 @@ function openExplanation() {
     <div class="dr-b" style="padding:0;overflow:visible;">
       ${head}
       <h4>Explanation</h4>
-      <div class="cb expl">${answered ? (q.explanation_html || '<p>No explanation available for this question.</p>') : '<p style="color:var(--dim);">Hidden until you answer.</p>'}</div>
+      <div class="cb expl">${q.explanation_html || '<p>No explanation available for this question.</p>'}</div>
       <h4>Question info</h4>
       <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
       <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
