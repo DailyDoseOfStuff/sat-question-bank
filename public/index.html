@@ -695,16 +695,55 @@ if (F.src === 'pt') { F.src = 'official'; LS.set('filters', F); }
 let S = null;
 let TAB = 'dash';
 
-// ---------------- theme ----------------
-function applyTheme(t) {
+// ---------------- settings ----------------
+// One object, one storage key. These change shape often; a column per toggle is
+// churn for nothing. Guests keep them in localStorage, accounts on the server.
+const SET_DEFAULTS = { theme: 'system', retry: false, rand: false, count: 0, ai: '' };
+let SET = Object.assign({}, SET_DEFAULTS, LS.get('settings', {}));
+
+// The theme used to live under its own key. Carry a stored one over once, so a
+// returning user does not get flipped back to their system setting.
+const oldTheme = LS.get('theme', null);
+if (oldTheme && !LS.get('settings', null)) { SET.theme = oldTheme; LS.set('settings', SET); }
+
+function resolvedTheme() {
+  return SET.theme === 'system'
+    ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : SET.theme;
+}
+
+function applyTheme() {
+  const t = resolvedTheme();
   document.documentElement.dataset.theme = t;
-  LS.set('theme', t);
   document.querySelectorAll('[data-theme-toggle]').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
 }
-document.querySelectorAll('[data-theme-toggle]').forEach(b => b.onclick = () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+function saveSettings() {
+  LS.set('settings', SET);
+  if (!authToken) return;
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+    body: JSON.stringify(SET)
+  }).catch(() => {});
+}
+
+// A change to one setting: write it, apply it, redraw whatever reads it.
+function setSetting(k, v) {
+  SET[k] = v;
+  saveSettings();
+  if (k === 'theme') applyTheme();
+  if (k === 'count' || k === 'rand') drawFilters();
+}
+
+document.querySelectorAll('[data-theme-toggle]').forEach(b => b.onclick = () =>
+  setSetting('theme', resolvedTheme() === 'dark' ? 'light' : 'dark'));
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (SET.theme === 'system') applyTheme();
 });
-applyTheme(LS.get('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+applyTheme();
 
 // ---------------- data ----------------
 // The PDF extractor wrote some text as UTF-8 bytes decoded through CP437.
