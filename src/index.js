@@ -92,6 +92,11 @@ async function whoami(req, env) {
 
 // Every account that signs in gets a row, so progress has an owner to hang off and
 // the account survives a Supabase-side name or email change.
+// Only ever called from a route that is already writing. It used to run on
+// GET /api/progress as well, which made a *read* spend D1's daily row-write
+// budget - and once that budget is gone the read throws instead of returning the
+// account's answers, so a full database reads as "Could not load your saved
+// progress" on every reload. A read must not write.
 async function touchUser(env, u) {
   const name = u.user_metadata?.full_name || u.user_metadata?.name || '';
   await env.DB.prepare(
@@ -160,7 +165,6 @@ export default {
       // Not an empty list: a rejected token that reads back as "no rows" is
       // indistinguishable from an account whose progress has been wiped.
       if (!u) return json({ error: 'unauthorized' }, 401);
-      await touchUser(env, u);
       const r = await env.DB.prepare('SELECT * FROM progress WHERE user_id = ?').bind(u.id).all();
       return json(r.results || []);
     }
@@ -173,6 +177,7 @@ export default {
         .filter(r => r && typeof r.question_id === 'string' && r.question_id)
         .slice(0, MAX_ROWS);
       if (!rows.length) return json({ ok: true, saved: 0 });
+      await touchUser(env, u);
       // Only a question that exists. Without this the primary key bounds nothing:
       // question_id is whatever the client typed, so an account can write rows for
       // 500 invented ids per request, for ever.

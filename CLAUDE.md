@@ -1703,3 +1703,41 @@ the four authenticated routes 401 unauthenticated, `/wrangler.toml` and
 `/schema.sql` the 404 page, a real crop still 200 image/webp, and a missing crop
 the 404 page. Rendered in both themes.
 
+
+### "Could not load your saved progress": a read that wrote (2026-09-04, later)
+
+Reported as progress not loading, with the alert returning on every reload. Not
+auth, and not the client: `wrangler tail` on production caught the real thing.
+
+```
+GET https://helpmeaceit.page/api/progress - Exception Thrown
+Error: D1_ERROR: Your account has exceeded D1's free tier daily row write limit.
+    at async touchUser (index.js:72:3)
+    at async Object.fetch (index.js:109:7)
+```
+
+`touchUser()` upserts the `users` row and was called from **`GET /api/progress`**.
+So a read spent D1's daily row-write budget, and once that budget is gone the read
+*throws* — 500, not 401 — and the account's answers are unreachable while the
+database is perfectly intact. `GET /api/attempts` writes nothing and answered 200
+throughout, which is exactly why only half the data appeared to vanish.
+
+Measured on production with a real signed-in token: **11 of 12** `/api/progress`
+reads returned 500 before, **10 of 10** return 200 after. `touchUser` now runs only
+from `POST /api/progress`, a route that is already writing.
+
+Two things this cost time on, worth remembering:
+
+- Supabase's edge logs show every Worker call to `/auth/v1/user` answering **200**
+  through the whole failing session, so `whoami()` was never the problem. Checking
+  the auth provider's own logs ruled out the entire token path in one query.
+- The client's `warnSync` uses `alert()`, which **blocks the page's JS thread** —
+  in the browser-automation logs that shows up as "the renderer may be frozen",
+  and in Supabase's log timeline as unexplained ~6 second gaps between the
+  Worker's calls. Those gaps are a human clicking OK.
+
+Note the plan limit is account-wide and resets at midnight UTC: until it does,
+*writes* still fail (saving an answer reports "Your last answer did not save"),
+even though reading now works. The free tier is 100,000 rows written per day and
+index updates count toward it, so a full re-import of `questions` is a large
+fraction of a day's budget on its own.
