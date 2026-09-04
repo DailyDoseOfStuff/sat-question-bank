@@ -1019,3 +1019,170 @@ select id, provider_type, referrer from auth.flow_state order by created_at desc
 An allowed `redirect_to` is stored verbatim; a disallowed one is replaced by SITE_URL.
 `https://helpmeaceit.page/auth/callback` stores verbatim, so it is on the list, and
 SITE_URL is the apex.
+
+### UI pass: navigation, filters, answering, settings (2026-09-03)
+
+Spec `docs/superpowers/specs/2026-09-03-ui-fixes-design.md`, plan
+`docs/superpowers/plans/2026-09-03-ui-fixes.md`. `public/index.html` throughout,
+plus two routes in `src/index.js` and one migration.
+
+**The 73 `source='Bluebook'` practice-test rows are deleted.** They were one
+person's own practice-test mistakes and made no sense in a bank every user
+shares. Backed up first, and the remote id set was checked identical to the local
+one before either delete ran: `backup/bluebook_rows_2026-09-03.json` (every
+column), `backup/bluebook_rows_2026-09-03.sql` (re-runnable `INSERT`s),
+`backup/bluebook_remote_ids_2026-09-03.txt`,
+`backup/bluebook_remote_progress_2026-09-03.json`. The referencing `progress` and
+`attempts` rows went with them.
+
+**The local delete had to be run twice.** The first pass landed on the remote
+only; the local sqlite still held all 73, and the check that was supposed to
+catch it — "3,770 CollegeBoard rows" — is true either way. Count the rows you
+deleted, not the rows you kept. Both databases are now 3,770, all CollegeBoard.
+
+Consequence, already handled: the Source filter's `pt` option matched nothing, so
+it is gone, and a stored `F.src === 'pt'` is migrated to `official` at load —
+without that a returning user opens the app to an empty bank. Orphaned crops
+under `public/qimg/` are left; they are small and well under the asset cap.
+
+**Landing screen and rail.** `TAB` defaults to `dash`; a new user met a filter
+form before they had anything to filter. Order is Dashboard, Mistakes, Question
+Bank, Browse, then Settings pinned at the foot — the old Practice/Progress group
+headings no longer described it and are gone. Tab switching goes through one
+`setTab()` so the boot tab and a rail click cannot drift apart.
+
+**Filters are one multiselect component, three screens.** `dd(host, cfg)` renders
+a rounded trigger over rounded-square checkboxes, with optional group headers
+(domain → skills) carrying an indeterminate state, Escape and click-outside to
+close. A `null` selection means everything — the convention `F.skills` already
+used, so a first-time visitor is never filtered to nothing, and ticking the last
+option collapses back to `null` rather than pinning a set that goes stale the
+next time the bank grows.
+
+- Question Bank: Section, Difficulty and Topic are multi; Source and Questions
+  stay single. `F.sec`/`F.diff` widened from `'all' | '<value>'` strings to
+  arrays, migrated in place at load.
+- The topic table stopped being a filter control. It still shows coverage and
+  accuracy per skill; ticking lives in the Topic dropdown. Two controls editing
+  one piece of state is what made that screen confusing. `toggle()` and the
+  Select all / Clear buttons went with it.
+- Browse filters over its own `FB` state under its own storage key, so the
+  practice set and the browse table cannot silently re-filter each other.
+- Mistakes uses the same component; `MK` widened the same way. Its topic list is
+  still built with every filter except the topic one, so picking a topic cannot
+  empty the dropdown it came from.
+
+**`pool()` used to shuffle unconditionally.** Random order is now a switch that
+defaults off, and the default set size is All (`F.count = 0`) rather than 20.
+
+**Answering is two steps.** A click used to grade instantly, so a misclick was a
+wrong answer on the record; the `sel` class existed and was unreachable.
+Selecting now takes `sel` and raises an inline **Check** button on that row only.
+Selecting deliberately does *not* re-render the choice list — a re-render throws
+away any highlight the student made inside a choice — so the classes and the
+button are moved by hand. The `1`–`4` keyboard shortcut selects rather than
+grades.
+
+**Retry mode** (Settings, off by default): a wrong Check marks only the choice
+that was picked and leaves the question open. Nothing turns green that the
+student did not choose, so elimination cannot reveal the answer. Grid-ins keep
+the box open and print "Not right — try again" instead of the answer; that
+verdict is printed from the *un*-checked branch, because the closed-question
+branch never runs in retry.
+
+Attempt accounting, so the dashboard keeps meaning what it says: **the first
+Check on a question writes the `progress` row; every Check appends an `attempts`
+row.** Without the first rule a student walks any question to Green by clicking
+every option in turn; without the second the heatmap loses work that was really
+done. Verified: two Checks on one question gave two attempt rows and one
+`progress.attempts` increment.
+
+**A correct choice is green.** `.choice.corrected` was orange, which reads as a
+warning rather than "this is the right answer". Orange stays where it still
+carries information — the question map, the results pills, the mistakes cards —
+where "wrong once, right now" is a distinct state.
+
+**The explanation is no longer gated.** It printed "Hidden until you answer." in
+a question bank, which is a study aid withheld for no reason. It still does not
+open itself.
+
+**Dark mode: one complaint, three defects.**
+
+1. `--dim2` was `#6b7280` on `--panel` `#181b21` — 3.1:1, under the 4.5:1 floor,
+   and it carries every chart x-label, y-axis number, heatmap month and weekday
+   strip and chart caption. Now `#98a1b0`, measured 6.62:1.
+2. The four dark heatmap level rules were written
+   `:root[data-theme="dark"] .heat i.l1, .heat-key i.l1 { … }` — the second
+   selector in each pair was never scoped, so the legend key painted dark-mode
+   greens in light mode. Both halves carry the prefix now.
+3. `.qfig img` keeps its own colours in dark mode (correctly — inverting a
+   coloured chart misreports it), so a black-on-transparent axis vanished against
+   the panel. Figures get a white plate. Notation crops (`img.minl`) keep their
+   existing invert, which is right for black-on-white glyphs.
+
+**Highlighter.** Yellow `#fff3a3`, pink `#ffc2e0`, blue `#bfe3ff` — the three
+Bluebook offers. Select inside `.stem`, `.cb` or a `.choice` and a floating bar
+appears; clicking an existing `<mark>` reopens it to recolour or remove.
+Session-only: the question re-renders on Next and the marks go with it, which is
+the wanted lifetime, so there is no storage and no API. `mark.hl` sets its ink
+explicitly because the three pastels are light backgrounds and the inherited
+`--text` is near-white in dark mode. Highlighting inside a choice must never
+answer it — that is what the `mark` guard in the choice click handler is for.
+
+**Settings.** One object, one storage key (`satq_settings`): theme
+(light/dark/**system**, following `prefers-color-scheme` live), retry mode,
+random order, default question count, and free-text AI instructions that nothing
+reads yet. The old `satq_theme` key is carried over once. Signed in they go to
+the account: `GET`/`POST /api/settings`, one JSON blob per user in a new
+`settings` table (`migrations/0005_settings.sql`, applied local and remote), the
+caller resolved from the Supabase access token exactly as `/api/progress` does —
+never from a client-supplied id. A blob, not a column per toggle, because this
+shape will keep changing.
+
+**Calculator.** The header the student sees is Desmos's own, inside the
+cross-origin embed, so it can be clipped but not restyled. Measured against the
+live embed before cropping: `.dcg-sample-calculator__header`, 50px, containing
+"Graphing Calculator" and "College Board Version" and **zero** interactive
+elements — so nothing is lost. The iframe sits in an `overflow: hidden` wrapper,
+pulled up by `--dp-crop` and grown by the same amount. The panel and its chrome
+are white in both themes, because the College Board embed has no dark mode and a
+white calculator inside a dark card reads as two surfaces.
+
+**`wrangler dev` holds the local D1 in memory and flushes on shutdown.** The first
+attempt at the Bluebook delete ran while the dev server was up; the server later
+wrote its own stale snapshot back over it, and the 73 rows reappeared. Stop the
+dev server before any `wrangler d1 execute --local` that writes, and re-check
+afterwards. This cost two rounds of the same delete.
+
+**Verification.**
+
+- All 3,770 rows through the app's own render path in the browser — stem,
+  choices and rationale into the DOM, `renderMathInElement` over them, then
+  asserted: non-empty render, no `Passage`/`Prompt` scaffolding, no mojibake, no
+  `.katex-error`, four choices on every MCQ, the stored answer among them.
+  **3,770 checked, 0 failures.**
+- All 4,915 `/qimg` references resolve to files on disk, 0 missing.
+- Contrast measured in the live page: dark `--dim2` on `--panel` is **6.62:1**;
+  the heatmap legend swatch matches the grid swatch in each theme and differs
+  between them; `.qfig img` computes `rgb(255,255,255)` in dark.
+- Interaction paths driven by hand in the real player: select-then-Check both
+  ways round, retry mode (one choice marked, nothing revealed, question stays
+  open, 2 attempt rows against 1 progress increment), all three highlighter
+  colours plus removal and clear-on-Next, a highlight inside a choice not
+  selecting it, the calculator crop at `-50px` in both themes and on both tabs,
+  and the filter counts agreeing with the payload (Medium + Hard = 1,258 + 1,269
+  = 2,527, browse Math-only 1,947 with the practice count unmoved).
+
+**Not done here, and why.** The end-to-end walk of every question through the
+real player — click a choice, open the explanation, Next — could not be run: the
+automation pane throttles background timers to about one question every five
+seconds, which is roughly five hours for the bank. The render sweep above covers
+the same assertions off the same data through the same render code; what it does
+not cover is per-question layout. A partial player walk was clean as far as it
+got.
+
+Per-account isolation (two accounts, guest merge, settings round-trip) is also
+untested here — it needs two real Supabase logins, and this session has no
+credentials. `/api/settings` resolves its caller through the same `whoami()` the
+progress and attempts routes use, so it inherits their guarantee, but that is an
+argument, not a measurement.
