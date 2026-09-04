@@ -1590,3 +1590,21 @@ answer graded with nothing written to localStorage and nothing left after a relo
 both GETs returning 401 without a valid token, and no console errors. The signed-in
 merge/pull could not be exercised — this session has no account credentials, and
 Supabase's e-mail rate limit refused a throwaway one.
+
+**Does a deploy wipe data? No, and it is now measured rather than assumed.**
+`npm run deploy` is `wrangler deploy` and nothing else: it uploads the Worker
+script and `public/`. There is no CI, no post-deploy script, no `[[migrations]]`
+in `wrangler.toml`, and no SQL anywhere in that path — a D1 table only changes
+when someone runs `wrangler d1 execute` or `d1 migrations apply` by hand. Checked
+across the deploy of these fixes: `questions` 3,770 / `progress` 6 / `attempts` 0
+/ `users` 1 / `settings` 1, identical before and after, same six progress rows.
+`backup/progress_2026-09-04.sql` and `backup/settings_2026-09-04.sql` were taken
+first anyway. Live page verified equal to `public/index.html` byte for byte —
+`wrangler` printed "No updated asset files to upload", so check the served file,
+not the tool's own summary.
+
+**Browse lost the Select all / Clear rows.** Browse is a table you narrow, not a
+set you assemble: "Clear" leaves a selection matching nothing and "Select all" is
+where the dropdown already starts. `dd()` takes `noBulk`; the Question Bank and
+Mistakes filters keep both rows, where picking through a long topic list is the
+point.

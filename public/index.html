@@ -982,9 +982,9 @@ function dd(host, cfg) {
         return `<button class="dd-o" type="button" data-v="${esc(o.v)}" data-head="1">${box(nOn === kids.length ? 'on' : nOn ? 'some' : '')}<b>${esc(o.label)}</b></button>`;
       }
       return `<button class="dd-o${o.group ? ' sub' : ''}" type="button" data-v="${esc(o.v)}">${box(on(o.v) ? 'on' : '')}<b>${esc(o.label)}</b></button>`;
-    }).join('') + `<div class="dd-sep"></div>
+    }).join('') + (cfg.noBulk ? '' : `<div class="dd-sep"></div>
       <button class="dd-o" type="button" data-all="1">${box('')}<b>Select all</b></button>
-      <button class="dd-o" type="button" data-none="1">${box('')}<b>Clear</b></button>`;
+      <button class="dd-o" type="button" data-none="1">${box('')}<b>Clear</b></button>`);
     host.appendChild(panel);
     panel.onclick = (ev) => {
       const b = ev.target.closest('.dd-o');
@@ -1526,10 +1526,10 @@ function browseBase() {
 
 let browsePage = 0;
 function drawBrowse() {
-  dd($('bd-sec'), { label: 'Section', allLabel: 'Both sections',
+  dd($('bd-sec'), { label: 'Section', allLabel: 'Both sections', noBulk: true,
     opts: SECTIONS.map(v => ({ v, label: v })),
     get: () => FB.sec, set: (x) => { FB.sec = x; FB.skills = null; saveFB(); } });
-  dd($('bd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
+  dd($('bd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty', noBulk: true,
     opts: DIFFS.map(v => ({ v, label: v })),
     get: () => FB.diff, set: (x) => { FB.diff = x; saveFB(); } });
   {
@@ -1537,7 +1537,7 @@ function drawBrowse() {
     browseBase().forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
     const opts = Object.keys(groups).sort().flatMap(d =>
       [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d }))));
-    dd($('bd-topic'), { label: 'Topic', allLabel: 'All topics',
+    dd($('bd-topic'), { label: 'Topic', allLabel: 'All topics', noBulk: true,
       opts, get: () => FB.skills, set: (x) => { FB.skills = x; saveFB(); } });
   }
   const q = ($('browse-q').value||'').toLowerCase();
