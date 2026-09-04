@@ -127,6 +127,28 @@ img { max-width: 100%; height: auto; }
 .ctrl > span { font-size: 11.5px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
 .ctrl select { width: 100%; }
 
+/* filter dropdowns */
+.dd { position: relative; }
+.dd-t { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.dd-t:hover:not(:disabled) { border-color: var(--border2); background: var(--panel); }
+.dd-t .dd-lab { display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.dd-t .dd-val { display: block; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-t .chev { margin-left: auto; flex: 0 0 14px; color: var(--dim); transition: transform .14s; }
+.dd.open .dd-t { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-bg); }
+.dd.open .dd-t .chev { transform: rotate(180deg); }
+.dd.set .dd-t { border-color: var(--blue); background: var(--blue-bg); }
+.dd-p { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 100%; max-width: 340px; max-height: 320px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 34px rgba(0,0,0,.18); padding: 6px; }
+.dd-o { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; font-size: 14px; color: var(--text); }
+.dd-o:hover { background: var(--bg2); }
+.dd-o.sub { padding-left: 30px; font-size: 13.5px; color: var(--dim); }
+.dd-o.sub b { font-weight: 500; color: var(--text); }
+.dd-sep { height: 1px; background: var(--border); margin: 5px 2px; }
+.box { flex: 0 0 16px; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--border2); display: flex; align-items: center; justify-content: center; color: transparent; }
+.box.on { background: var(--mint); border-color: var(--mint); color: var(--mint-ink); }
+.box.some { background: var(--mint); border-color: var(--mint); }
+.box.some::after { content: ""; width: 8px; height: 2px; border-radius: 1px; background: var(--mint-ink); }
+.box.some svg { display: none; }
+
 /* settings page */
 .set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border); }
 .set-row:last-child { border-bottom: 0; }
@@ -906,6 +928,82 @@ async function load() {
 // ---------------- home ----------------
 const TICK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
 const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
+
+// ---------------- filter dropdown ----------------
+// One control, three screens. `opts` is a flat list of { v, label, group } where a
+// group header is its own row that toggles every option under it. `sel` is null
+// for "everything" - the same convention F.skills already uses, so a first-time
+// visitor is never filtered down to nothing.
+function ddSummary(opts, sel, allLabel) {
+  if (!sel) return allLabel;
+  if (!sel.length) return 'None selected';
+  const names = opts.filter(o => !o.head && sel.includes(o.v)).map(o => o.label);
+  if (names.length === opts.filter(o => !o.head).length) return allLabel;
+  return names.length <= 2 ? names.join(', ') : names.length + ' selected';
+}
+
+const ddCloseAll = () => document.querySelectorAll('.dd.open').forEach(d => {
+  d.classList.remove('open');
+  const p = d.querySelector('.dd-p');
+  if (p) p.remove();
+});
+
+function dd(host, cfg) {
+  // cfg: { label, allLabel, opts:[{v,label,head,group}], get():sel|null, set(sel) }
+  const sel = cfg.get();
+  const set = sel ? new Set(sel) : null;
+  const on = (v) => !set || set.has(v);
+  const box = (state) => `<span class="box ${state}">${TICK}</span>`;
+
+  host.className = 'dd' + (sel && sel.length !== cfg.opts.filter(o => !o.head).length ? ' set' : '');
+  host.innerHTML =
+    `<button class="dd-t" type="button">
+       <span><span class="dd-lab">${esc(cfg.label)}</span><span class="dd-val">${esc(ddSummary(cfg.opts, sel, cfg.allLabel))}</span></span>${CHEV}
+     </button>`;
+
+  host.querySelector('.dd-t').onclick = (e) => {
+    e.stopPropagation();
+    const wasOpen = host.classList.contains('open');
+    ddCloseAll();
+    if (wasOpen) return;
+    host.classList.add('open');
+    const panel = document.createElement('div');
+    panel.className = 'dd-p';
+    panel.innerHTML = cfg.opts.map(o => {
+      if (o.head) {
+        const kids = cfg.opts.filter(k => k.group === o.v && !k.head).map(k => k.v);
+        const nOn = kids.filter(on).length;
+        return `<button class="dd-o" type="button" data-v="${esc(o.v)}" data-head="1">${box(nOn === kids.length ? 'on' : nOn ? 'some' : '')}<b>${esc(o.label)}</b></button>`;
+      }
+      return `<button class="dd-o${o.group ? ' sub' : ''}" type="button" data-v="${esc(o.v)}">${box(on(o.v) ? 'on' : '')}<b>${esc(o.label)}</b></button>`;
+    }).join('') + `<div class="dd-sep"></div>
+      <button class="dd-o" type="button" data-all="1">${box('')}<b>Select all</b></button>
+      <button class="dd-o" type="button" data-none="1">${box('')}<b>Clear</b></button>`;
+    host.appendChild(panel);
+    panel.onclick = (ev) => {
+      const b = ev.target.closest('.dd-o');
+      if (!b) return;
+      ev.stopPropagation();
+      const all = cfg.opts.filter(o => !o.head).map(o => o.v);
+      if (b.dataset.all) return cfg.set(null);
+      if (b.dataset.none) return cfg.set([]);
+      const next = new Set(sel || all);
+      const touch = b.dataset.head
+        ? cfg.opts.filter(k => k.group === b.dataset.v && !k.head).map(k => k.v)
+        : [b.dataset.v];
+      const allOn = touch.every(v => next.has(v));
+      touch.forEach(v => allOn ? next.delete(v) : next.add(v));
+      // Everything ticked is the same as nothing ticked, and does not go stale
+      // the next time the bank grows.
+      cfg.set(next.size === all.length ? null : [...next]);
+    };
+  };
+}
+
+document.addEventListener('click', ddCloseAll);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ddCloseAll(); });
+
+window.__dd = dd;   // reachable for the DOM assertions; harmless in production
 
 const NAV = document.querySelectorAll('.nav-i');
 const TABS = ['practice','dash','browse','mistakes','settings'];
