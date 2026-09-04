@@ -9,6 +9,12 @@
      the signed-in session token. integrity makes the browser refuse anything else. -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4" crossorigin="anonymous"
         integrity="sha384-yiVMs0R/Jyz7OhoXa/DsEMUSBLjEhr/QJta2ONO+zB6I8/GmNg/7AUFrZmAJV7KV"></script>
+<!-- Roboto is the College Board's own typeface: satsuite.collegeboard.org computes
+     "Roboto, sans-serif" on its body and its headings. Served from jsdelivr, which
+     the CSP already allows, so no policy change. One variable file per subset
+     covers every weight, and unicode-range means only latin is fetched. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/roboto@5.3.0/index.css" crossorigin="anonymous"
+      integrity="sha384-Y23FeFsfbJ1SMLFnR7D/MRVqAs5jMN+M5d+nmSsYm/bGTK7iwdTBrQ6g8mc7HmRL">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" crossorigin="anonymous"
       integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+">
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" crossorigin="anonymous"
@@ -35,7 +41,7 @@
   --red-bg: #fef2f2;
   --orange: #ea580c;
   --orange-bg: #fff7ed;
-  --sans: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --sans: "Roboto Variable", Roboto, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -46,7 +52,7 @@
   --border2: #3a3f4b;
   --text: #e5e7eb;
   --dim: #9ca3af;
-  --dim2: #6b7280;
+  --dim2: #98a1b0;
   --blue: #3b82f6;
   --blue-dark: #60a5fa;
   --blue-bg: #1e3a5f;
@@ -126,6 +132,41 @@ img { max-width: 100%; height: auto; }
 .ctrl { display: flex; flex-direction: column; gap: 7px; }
 .ctrl > span { font-size: 11.5px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .05em; }
 .ctrl select { width: 100%; }
+
+/* filter dropdowns */
+.dd { position: relative; }
+.dd-t { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.dd-t:hover:not(:disabled) { border-color: var(--border2); background: var(--panel); }
+.dd-t .dd-lab { display: block; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--dim); }
+.dd-t .dd-val { display: block; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-t .chev { margin-left: auto; flex: 0 0 14px; color: var(--dim); transition: transform .14s; }
+.dd.open .dd-t { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-bg); }
+.dd.open .dd-t .chev { transform: rotate(180deg); }
+.dd.set .dd-t { border-color: var(--blue); background: var(--blue-bg); }
+.dd-p { position: absolute; z-index: 60; top: calc(100% + 6px); left: 0; min-width: 100%; max-width: 340px; max-height: 320px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 34px rgba(0,0,0,.18); padding: 6px; }
+.dd-o { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: transparent; border-radius: 8px; padding: 8px 10px; font-size: 14px; color: var(--text); }
+.dd-o:hover { background: var(--bg2); }
+.dd-o.sub { padding-left: 30px; font-size: 13.5px; color: var(--dim); }
+.dd-o.sub b { font-weight: 500; color: var(--text); }
+.dd-sep { height: 1px; background: var(--border); margin: 5px 2px; }
+.box { flex: 0 0 16px; width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid var(--border2); display: flex; align-items: center; justify-content: center; color: transparent; }
+.box.on { background: var(--mint); border-color: var(--mint); color: var(--mint-ink); }
+.box.some { background: var(--mint); border-color: var(--mint); }
+.box.some::after { content: ""; width: 8px; height: 2px; border-radius: 1px; background: var(--mint-ink); }
+.box.some svg { display: none; }
+
+/* settings page */
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.set-row:last-child { border-bottom: 0; }
+.set-row .set-l { min-width: 0; }
+.set-row .set-l b { display: block; font-size: 14.5px; }
+.set-row .set-l span { display: block; color: var(--dim); font-size: 13px; margin-top: 2px; }
+.set-row select, .set-row textarea { font-family: inherit; font-size: 14px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.set-row textarea { width: min(420px, 50vw); min-height: 92px; resize: vertical; }
+.sw { flex: 0 0 auto; width: 44px; height: 26px; border-radius: 999px; border: 1px solid var(--border2); background: var(--bg2); position: relative; padding: 0; }
+.sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .14s; }
+.sw.on { background: var(--mint); border-color: var(--mint); }
+.sw.on::after { transform: translateX(18px); }
 .startbar { display: flex; align-items: center; gap: 14px; }
 #btn-start { padding: 11px 26px; border-radius: 11px; font-size: 14.5px; }
 
@@ -222,8 +263,10 @@ select:hover { border-color: var(--border2); }
 .heat i.fut { opacity: 0; }
 .heat i.l1, .heat-key i.l1 { background: #b7ecce; } .heat i.l2, .heat-key i.l2 { background: #79dfa8; }
 .heat i.l3, .heat-key i.l3 { background: #35d07f; } .heat i.l4, .heat-key i.l4 { background: #1a8f53; }
-:root[data-theme="dark"] .heat i.l1, .heat-key i.l1 { background: #143d28; } :root[data-theme="dark"] .heat i.l2, .heat-key i.l2 { background: #1a6640; }
-:root[data-theme="dark"] .heat i.l3, .heat-key i.l3 { background: #27a463; } :root[data-theme="dark"] .heat i.l4, .heat-key i.l4 { background: #35d07f; }
+:root[data-theme="dark"] .heat i.l1, :root[data-theme="dark"] .heat-key i.l1 { background: #143d28; }
+:root[data-theme="dark"] .heat i.l2, :root[data-theme="dark"] .heat-key i.l2 { background: #1a6640; }
+:root[data-theme="dark"] .heat i.l3, :root[data-theme="dark"] .heat-key i.l3 { background: #27a463; }
+:root[data-theme="dark"] .heat i.l4, :root[data-theme="dark"] .heat-key i.l4 { background: #35d07f; }
 
 /* mistakes drill */
 .mk-card { padding: 15px 20px; border-bottom: 1px solid var(--border); cursor: pointer; }
@@ -313,6 +356,9 @@ img.minl { mix-blend-mode: multiply; }
 .choice .qfig img { display: block; max-width: min(100%, 340px); border-radius: 8px;
                     mix-blend-mode: multiply; }
 :root[data-theme="dark"] .choice .qfig img { filter: invert(1); mix-blend-mode: screen; }
+/* A figure keeps its own colours (inverting a coloured chart misreports it), so
+   on a dark panel its black axes and labels disappear. Put it on white paper. */
+:root[data-theme="dark"] .cb .qfig img { background: #fff; padding: 6px; }
 /* .cb figure carries the one HTML table in the bank; without these it takes the
    UA's 0 40px margin and no scroll box, and its last column is unreachable. */
 /* Three practice-test rows draw their figure as inline SVG rather than a crop,
@@ -355,11 +401,26 @@ img.minl { mix-blend-mode: multiply; }
 .choice.right .badge { border-color: var(--green); background: var(--green); color: #fff; }
 .choice.wrong { border-color: var(--red); background: var(--red-bg); }
 .choice.wrong .badge { border-color: var(--red); background: var(--red); color: #fff; }
-.choice.corrected { border-color: var(--orange); background: var(--orange-bg); }
-.choice.corrected .badge { border-color: var(--orange); background: var(--orange); color: #fff; }
+/* A correct choice reads green whether or not this question was missed before.
+   Orange still means "wrong once, right now" in the question map, the results
+   pills and the mistakes cards, where that is information the student wants. */
+.choice.corrected { border-color: var(--green); background: var(--green-bg); }
+.choice.corrected .badge { border-color: var(--green); background: var(--green); color: #fff; }
 .choice.dim { opacity: .55; }
 .ko-btn { flex: 0 0 22px; width: 22px; height: 22px; margin-top: 3px; border-radius: 50%; border: 1.5px dashed var(--border2); background: transparent; color: var(--dim2); font-size: 11px; font-weight: 700; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
 .ko-btn:hover { border-color: var(--dim); color: var(--dim); }
+.chk-btn { flex: 0 0 auto; padding: 5px 12px; font-size: 13px; font-weight: 600; background: var(--blue); border-color: var(--blue); color: #fff; border-radius: 8px; }
+.chk-btn:hover:not(:disabled) { background: var(--blue-dark); border-color: var(--blue-dark); }
+
+/* highlighter - the three colours Bluebook offers. mark.hl sets its ink
+   explicitly: the pastels are light backgrounds and --text is near-white in dark. */
+mark.hl { background: #fff3a3; color: #111827; border-radius: 3px; padding: 0 1px; cursor: pointer; }
+mark.hl-p { background: #ffc2e0; }
+mark.hl-b { background: #bfe3ff; }
+#hl-bar { position: fixed; z-index: 80; display: flex; align-items: center; gap: 6px; padding: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+#hl-bar button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
+#hl-bar .hl-y { background: #fff3a3; } #hl-bar .hl-p { background: #ffc2e0; } #hl-bar .hl-b { background: #bfe3ff; }
+#hl-bar .hl-x { background: var(--panel); color: var(--dim); font-size: 14px; line-height: 1; border-color: var(--border); }
 .ko-btn.on { border-style: solid; border-color: var(--red); background: var(--red-bg); color: var(--red); text-decoration: line-through; }
 
 .gridin-wrap { max-width: 420px; }
@@ -405,11 +466,18 @@ img.minl { mix-blend-mode: multiply; }
 
 /* desmos */
 .desmos-panel { position: fixed; left: 18px; bottom: 74px; width: min(520px, 44vw); height: min(560px, 68vh); min-width: 340px; min-height: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; resize: both; }
-.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; background: var(--bg2); cursor: move; user-select: none; }
+.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; font-weight: 600; background: #fff; color: #111827; cursor: move; user-select: none; }
 .desmos-panel .dp-tabs { display: flex; gap: 6px; }
-.desmos-panel .dp-tab { border: 1px solid var(--border); background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; }
+.desmos-panel .dp-tab { border: 1px solid #e5e7eb; background: #fff; color: #6b7280; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; }
 .desmos-panel .dp-tab.on { background: var(--blue); border-color: var(--blue); color: #fff; }
-.desmos-panel iframe { flex: 1; border: 0; width: 100%; }
+/* The embed draws its own 50px title strip - "Graphing Calculator / College Board
+   Version", no controls in it - which we cannot restyle across origins. Crop it:
+   the wrapper clips, and the iframe grows by the same amount so the calculator
+   still fills the panel. The embed has no dark mode, so the panel is white in
+   both themes; otherwise a white calculator sits inside a dark card. */
+.desmos-panel { --dp-crop: 50px; background: #fff; }
+.desmos-panel .dp-frame { flex: 1; position: relative; overflow: hidden; background: #fff; }
+.desmos-panel iframe { position: absolute; left: 0; top: calc(-1 * var(--dp-crop)); width: 100%; height: calc(100% + var(--dp-crop)); border: 0; }
 
 /* more menu */
 .more-menu { position: fixed; z-index: 70; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.16); padding: 6px; min-width: 210px; }
@@ -440,13 +508,11 @@ img.minl { mix-blend-mode: multiply; }
   <aside class="nav">
     <div class="nav-brand"><span class="dot">S</span><span>SAT Question Bank</span></div>
 
-    <div class="nav-grp">Practice</div>
-    <button class="nav-i on" data-tab="practice"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v6H4z"/><path d="M4 15h9v4H4z"/></svg><span>Question Bank</span></button>
-    <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
-
-    <div class="nav-grp">Progress</div>
-    <button class="nav-i" data-tab="mistakes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 15H4z"/><path d="M12 9v4M12 16.2v.1"/></svg><span>Mistakes</span></button>
     <button class="nav-i" data-tab="dash"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 19V11M12 19V5M19 19v-6"/></svg><span>Dashboard</span></button>
+    <button class="nav-i" data-tab="mistakes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3l8 15H4z"/><path d="M12 9v4M12 16.2v.1"/></svg><span>Mistakes</span></button>
+    <button class="nav-i" data-tab="practice"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v6H4z"/><path d="M4 15h9v4H4z"/></svg><span>Question Bank</span></button>
+    <button class="nav-i" data-tab="browse"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Browse</span></button>
+    <button class="nav-i" data-tab="settings"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.6v2.6M12 18.8v2.6M2.6 12h2.6M18.8 12h2.6M5.3 5.3l1.9 1.9M16.8 16.8l1.9 1.9M18.7 5.3l-1.9 1.9M7.2 16.8l-1.9 1.9"/></svg><span>Settings</span></button>
 
     <div class="nav-sp"></div>
     <div class="nav-user">
@@ -478,43 +544,21 @@ img.minl { mix-blend-mode: multiply; }
             </div>
           </div>
           <div class="ctrls">
-            <label class="ctrl"><span>Section</span>
-              <select id="f-sec">
-                <option value="all">Both sections</option>
-                <option value="Math">Math</option>
-                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
-              </select></label>
-            <label class="ctrl"><span>Difficulty</span>
-              <select id="f-diff">
-                <option value="all">Any difficulty</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select></label>
-            <label class="ctrl"><span>Source</span>
-              <select id="f-src">
-                <option value="official">Question Bank</option>
-                <option value="pt">Practice tests</option>
-                <option value="mistakes">My mistakes</option>
-              </select></label>
-            <label class="ctrl"><span>Questions</span>
-              <select id="num-q">
-                <option value="10">10</option>
-                <option value="20" selected>20</option>
-                <option value="30">30</option>
-                <option value="50">50</option>
-                <option value="0">All</option>
-              </select></label>
+            <div class="dd" id="dd-sec"></div>
+            <div class="dd" id="dd-diff"></div>
+            <div class="dd" id="dd-topic"></div>
+            <div class="dd" id="dd-src"></div>
+            <div class="dd" id="dd-count"></div>
+            <label class="set-row" style="border:0;padding:0;gap:10px">
+              <div class="set-l"><b>Random order</b></div>
+              <button class="sw" id="f-rand" aria-pressed="false"></button>
+            </label>
           </div>
         </div>
 
         <div class="panel">
           <div class="panel-h">
             <h3>Topics</h3>
-            <div class="frow">
-              <button id="topic-all">Select all</button>
-              <button id="topic-none">Clear</button>
-            </div>
           </div>
           <div class="tl-head"><span>Topic</span><span>Progress</span><span></span><span>Accuracy</span></div>
           <div id="topic-list"></div>
@@ -560,28 +604,25 @@ img.minl { mix-blend-mode: multiply; }
             </div>
           </div>
           <div class="ctrls" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
-            <label class="ctrl"><span>Section</span>
-              <select id="mk-sec">
-                <option value="all">Both sections</option>
-                <option value="Math">Math</option>
-                <option value="Reading &amp; Writing">Reading &amp; Writing</option>
-              </select></label>
-            <label class="ctrl"><span>Difficulty</span>
-              <select id="mk-diff">
-                <option value="all">All difficulties</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select></label>
-            <label class="ctrl"><span>Topic</span>
-              <select id="mk-skill"><option value="all">All topics</option></select></label>
+            <div class="dd" id="md-sec"></div>
+            <div class="dd" id="md-diff"></div>
+            <div class="dd" id="md-topic"></div>
           </div>
         </div>
         <div class="panel"><div id="mk-list"></div></div>
       </div>
 
+      <div id="tab-settings" class="hide">
+        <div class="panel"><div class="panel-h"><h3>Settings</h3></div><div id="set-body"></div></div>
+      </div>
+
       <div id="tab-browse" class="hide">
         <div class="panel">
+          <div class="ctrls" style="margin-bottom:14px">
+            <div class="dd" id="bd-sec"></div>
+            <div class="dd" id="bd-diff"></div>
+            <div class="dd" id="bd-topic"></div>
+          </div>
           <div class="panel-h">
             <input type="text" id="browse-q" placeholder="Search domain, skill, id&#8230;" style="flex:1;max-width:380px">
             <span id="browse-count" style="color:var(--dim);font-size:13px"></span>
@@ -689,20 +730,73 @@ const LS = {
 };
 
 let QS = [], PROG = {}, LOG = [];
-let F = LS.get('filters', { sec:'all', diff:'all', src:'official', skills:null });
+let F;
 let S = null;
-let TAB = 'practice';
+let TAB = 'dash';
 
-// ---------------- theme ----------------
-function applyTheme(t) {
+// ---------------- settings ----------------
+// One object, one storage key. These change shape often; a column per toggle is
+// churn for nothing. Guests keep them in localStorage, accounts on the server.
+const SET_DEFAULTS = { theme: 'system', retry: false, rand: false, count: 0, ai: '' };
+let SET = Object.assign({}, SET_DEFAULTS, LS.get('settings', {}));
+
+// The theme used to live under its own key. Carry a stored one over once, so a
+// returning user does not get flipped back to their system setting.
+const oldTheme = LS.get('theme', null);
+if (oldTheme && !LS.get('settings', null)) { SET.theme = oldTheme; LS.set('settings', SET); }
+
+function resolvedTheme() {
+  return SET.theme === 'system'
+    ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : SET.theme;
+}
+
+function applyTheme() {
+  const t = resolvedTheme();
   document.documentElement.dataset.theme = t;
-  LS.set('theme', t);
   document.querySelectorAll('[data-theme-toggle]').forEach(b => b.textContent = t === 'dark' ? '☀️' : '🌙');
 }
-document.querySelectorAll('[data-theme-toggle]').forEach(b => b.onclick = () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+function saveSettings() {
+  LS.set('settings', SET);
+  if (!authToken) return;
+  fetch('/api/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...sbHeaders() },
+    body: JSON.stringify(SET)
+  }).catch(() => {});
+}
+
+// A change to one setting: write it, apply it, redraw whatever reads it.
+function setSetting(k, v) {
+  SET[k] = v;
+  saveSettings();
+  if (k === 'theme') applyTheme();
+  if (k === 'count' || k === 'rand') drawFilters();
+}
+
+document.querySelectorAll('[data-theme-toggle]').forEach(b => b.onclick = () =>
+  setSetting('theme', resolvedTheme() === 'dark' ? 'light' : 'dark'));
+
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (SET.theme === 'system') applyTheme();
 });
-applyTheme(LS.get('theme', matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+applyTheme();
+
+// F holds the practice-set filters. It reads SET.count, so it is initialised after
+// the settings block rather than beside the other top-level state.
+F = LS.get('filters', { sec:null, diff:null, src:'official', skills:null, count:SET.count, rand:SET.rand });
+// 'pt' was the practice-test bank, deleted 2026-09-03. A stored 'pt' now matches
+// nothing, so a returning user would open the app to an empty question bank.
+if (F.src === 'pt') F.src = 'official';
+// sec/diff were single-value strings ('all' | 'Math'). Carry them into the array
+// shape the multiselects use; 'all' becomes null, which means everything.
+if (typeof F.sec === 'string') F.sec = F.sec === 'all' ? null : [F.sec];
+if (typeof F.diff === 'string') F.diff = F.diff === 'all' ? null : [F.diff];
+if (typeof F.count !== 'number') F.count = SET.count;
+if (typeof F.rand !== 'boolean') F.rand = SET.rand;
+LS.set('filters', F);
 
 // ---------------- data ----------------
 // The PDF extractor wrote some text as UTF-8 bytes decoded through CP437.
@@ -739,6 +833,25 @@ async function loadProgress() {
   LS.set('progress', {});
   await loadLog();
   refresh();
+}
+
+// The account is the record. A guest's local settings are a holding pen and lose
+// to whatever the account already has, except on a first sign-in with no row yet.
+async function loadSettings() {
+  if (!authToken) return;
+  let remote = {};
+  try {
+    const r = await fetch('/api/settings', { headers: sbHeaders() });
+    remote = r.ok ? await r.json() : {};
+  } catch (e) { remote = {}; }
+  if (remote && Object.keys(remote).length) {
+    SET = Object.assign({}, SET_DEFAULTS, remote);
+    LS.set('settings', SET);
+  } else {
+    saveSettings();   // first sign-in: push what the guest had up
+  }
+  applyTheme();
+  if (TAB === 'settings') drawSettings();
 }
 
 // One row per answer. `progress` only ever holds a question's latest state, so
@@ -821,26 +934,135 @@ async function load() {
       }
     });
     await loadProgress();
+    await loadSettings();
     $('src-pill').textContent = `${QS.length.toLocaleString()} official College Board questions · synced with Cloudflare D1`;
   } catch(e) {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
   }
   refresh();
+  setTab(TAB);
 }
 
 // ---------------- home ----------------
 const TICK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
 const CHEV = '<svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>';
 
-const NAV = document.querySelectorAll('.nav-i');
-NAV.forEach(b => b.onclick = () => {
-  TAB = b.dataset.tab;
-  NAV.forEach(x => x.classList.toggle('on', x === b));
-  ['practice','dash','browse','mistakes'].forEach(t => $('tab-'+t).classList.toggle('hide', TAB !== t));
-  if (TAB === 'dash') drawDash();
-  if (TAB === 'browse') drawBrowse();
-  if (TAB === 'mistakes') drawMistakes();
+// ---------------- filter dropdown ----------------
+// One control, three screens. `opts` is a flat list of { v, label, group } where a
+// group header is its own row that toggles every option under it. `sel` is null
+// for "everything" - the same convention F.skills already uses, so a first-time
+// visitor is never filtered down to nothing.
+function ddSummary(opts, sel, allLabel) {
+  if (!sel) return allLabel;
+  if (!sel.length) return 'None selected';
+  const names = opts.filter(o => !o.head && sel.includes(o.v)).map(o => o.label);
+  if (names.length === opts.filter(o => !o.head).length) return allLabel;
+  return names.length <= 2 ? names.join(', ') : names.length + ' selected';
+}
+
+const ddCloseAll = () => document.querySelectorAll('.dd.open').forEach(d => {
+  d.classList.remove('open');
+  const p = d.querySelector('.dd-p');
+  if (p) p.remove();
 });
+
+function dd(host, cfg) {
+  // cfg: { label, allLabel, opts:[{v,label,head,group}], get():sel|null, set(sel) }
+  const sel = cfg.get();
+  const set = sel ? new Set(sel) : null;
+  const on = (v) => !set || set.has(v);
+  const box = (state) => `<span class="box ${state}">${TICK}</span>`;
+
+  host.className = 'dd' + (sel && sel.length !== cfg.opts.filter(o => !o.head).length ? ' set' : '');
+  host.innerHTML =
+    `<button class="dd-t" type="button">
+       <span><span class="dd-lab">${esc(cfg.label)}</span><span class="dd-val">${esc(ddSummary(cfg.opts, sel, cfg.allLabel))}</span></span>${CHEV}
+     </button>`;
+
+  host.querySelector('.dd-t').onclick = (e) => {
+    e.stopPropagation();
+    const wasOpen = host.classList.contains('open');
+    ddCloseAll();
+    if (wasOpen) return;
+    host.classList.add('open');
+    const panel = document.createElement('div');
+    panel.className = 'dd-p';
+    panel.innerHTML = cfg.opts.map(o => {
+      if (o.head) {
+        const kids = cfg.opts.filter(k => k.group === o.v && !k.head).map(k => k.v);
+        const nOn = kids.filter(on).length;
+        return `<button class="dd-o" type="button" data-v="${esc(o.v)}" data-head="1">${box(nOn === kids.length ? 'on' : nOn ? 'some' : '')}<b>${esc(o.label)}</b></button>`;
+      }
+      return `<button class="dd-o${o.group ? ' sub' : ''}" type="button" data-v="${esc(o.v)}">${box(on(o.v) ? 'on' : '')}<b>${esc(o.label)}</b></button>`;
+    }).join('') + `<div class="dd-sep"></div>
+      <button class="dd-o" type="button" data-all="1">${box('')}<b>Select all</b></button>
+      <button class="dd-o" type="button" data-none="1">${box('')}<b>Clear</b></button>`;
+    host.appendChild(panel);
+    panel.onclick = (ev) => {
+      const b = ev.target.closest('.dd-o');
+      if (!b) return;
+      ev.stopPropagation();
+      const all = cfg.opts.filter(o => !o.head).map(o => o.v);
+      if (b.dataset.all) return cfg.set(null);
+      if (b.dataset.none) return cfg.set([]);
+      const next = new Set(sel || all);
+      const touch = b.dataset.head
+        ? cfg.opts.filter(k => k.group === b.dataset.v && !k.head).map(k => k.v)
+        : [b.dataset.v];
+      const allOn = touch.every(v => next.has(v));
+      touch.forEach(v => allOn ? next.delete(v) : next.add(v));
+      // Everything ticked is the same as nothing ticked, and does not go stale
+      // the next time the bank grows.
+      cfg.set(next.size === all.length ? null : [...next]);
+    };
+  };
+}
+
+document.addEventListener('click', ddCloseAll);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ddCloseAll(); });
+
+window.__dd = dd;   // reachable for the DOM assertions; harmless in production
+
+const NAV = document.querySelectorAll('.nav-i');
+const TABS = ['practice','dash','browse','mistakes','settings'];
+
+// One entry point, so the boot-time tab and a rail click cannot drift apart.
+function setTab(t) {
+  TAB = t;
+  NAV.forEach(x => x.classList.toggle('on', x.dataset.tab === t));
+  TABS.forEach(k => $('tab-'+k).classList.toggle('hide', k !== t));
+  if (t === 'dash') drawDash();
+  if (t === 'browse') drawBrowse();
+  if (t === 'mistakes') drawMistakes();
+  if (t === 'settings') drawSettings();
+}
+NAV.forEach(b => b.onclick = () => setTab(b.dataset.tab));
+
+function drawSettings() {
+  const row = (k, title, note, control) =>
+    `<div class="set-row" data-k="${k}"><div class="set-l"><b>${title}</b><span>${note}</span></div>${control}</div>`;
+  const sw = (k) => `<button class="sw ${SET[k] ? 'on' : ''}" data-sw="${k}" aria-pressed="${!!SET[k]}"></button>`;
+  const opt = (v, lab, cur) => `<option value="${esc(v)}"${String(cur)===String(v)?' selected':''}>${esc(lab)}</option>`;
+
+  $('set-body').innerHTML =
+    row('theme', 'Appearance', 'System follows your device setting.',
+      `<select data-set="theme">${['system','light','dark'].map(v => opt(v, v[0].toUpperCase()+v.slice(1), SET.theme)).join('')}</select>`) +
+    row('retry', 'Retry mode', 'A wrong answer marks only the choice you picked and leaves the question open. The correct answer is never revealed for you.', sw('retry')) +
+    row('rand', 'Random order', 'Shuffle a practice set instead of taking it in bank order.', sw('rand')) +
+    row('count', 'Default questions per set', 'What the Questions dropdown starts on.',
+      `<select data-set="count">${[['10','10'],['20','20'],['30','30'],['50','50'],['0','All']].map(([v,l]) => opt(v, l, SET.count)).join('')}</select>`) +
+    row('ai', 'AI instructions', 'Personalization passed to the AI assistant. Nothing reads this yet.',
+      `<textarea data-set="ai" placeholder="e.g. Explain like I am new to algebra. Keep it short.">${esc(SET.ai)}</textarea>`);
+
+  $('set-body').querySelectorAll('[data-sw]').forEach(b => b.onclick = () => {
+    setSetting(b.dataset.sw, !SET[b.dataset.sw]);
+    drawSettings();
+  });
+  $('set-body').querySelectorAll('select[data-set]').forEach(sel => sel.onchange = () =>
+    setSetting(sel.dataset.set, sel.dataset.set === 'count' ? parseInt(sel.value, 10) : sel.value));
+  const ta = $('set-body').querySelector('textarea[data-set="ai"]');
+  ta.onchange = () => setSetting('ai', ta.value);
+}
 
 function greet() {
   const h = new Date().getHours();
@@ -856,13 +1078,14 @@ function greet() {
 const everWrong = (id) => { const p = PROG[id]; return !!p && (p.marker === 'Red' || p.marker === 'Orange'); };
 
 function base() {
+  const secs = F.sec ? new Set(F.sec) : null;
+  const diffs = F.diff ? new Set(F.diff.map(d => d.toLowerCase())) : null;
   return QS.filter(q => {
-    // The practice-test rows are the ones the import tagged source Bluebook.
-    // Mistakes are not a source at all, they cut across both.
-    if (F.src === 'mistakes') { if (!everWrong(q.id)) return false; }
-    else if ((q.source === 'Bluebook') !== (F.src === 'pt')) return false;
-    if (F.sec !== 'all' && q.section !== F.sec) return false;
-    if (F.diff !== 'all' && (q.difficulty||'').toLowerCase() !== F.diff.toLowerCase()) return false;
+    // Mistakes is not a source, it cuts across the bank. Every remaining row is
+    // CollegeBoard: the practice-test rows were deleted on 2026-09-03.
+    if (F.src === 'mistakes' && !everWrong(q.id)) return false;
+    if (secs && !secs.has(q.section)) return false;
+    if (diffs && !diffs.has((q.difficulty || '').toLowerCase())) return false;
     return true;
   });
 }
@@ -875,9 +1098,8 @@ const inPick = (sel, q) => !sel || sel.has(q.skill || 'Other');
 function pool() {
   const sel = picked();
   const a = base().filter(q => inPick(sel, q));
-  for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
-  const n = parseInt($('num-q').value);
-  return n > 0 ? a.slice(0, n) : a;
+  if (F.rand) for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return F.count > 0 ? a.slice(0, F.count) : a;
 }
 
 // One pass over a list of questions and the progress rows. The dashboard reads
@@ -913,14 +1135,51 @@ function drawHomeStats() {
     <div class="card"><div class="k">Accuracy</div><div class="v mono">${att?Math.round(corr/att*100):0}%</div></div>`;
 }
 
+const SECTIONS = ['Math', 'Reading & Writing'];
+const DIFFS = ['Easy', 'Medium', 'Hard'];
+
+// Domain -> skills, over what the other filters left, so the topic list never
+// offers a topic with nothing behind it.
+function topicOpts() {
+  const groups = {};
+  base().forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+  return Object.keys(groups).sort().flatMap(d =>
+    [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d }))));
+}
+
 function drawFilters() {
-  $('f-sec').value = F.sec; $('f-diff').value = F.diff; $('f-src').value = F.src;
+  dd($('dd-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => F.sec, set: (x) => { F.sec = x; F.skills = null; saveF(); } });
+
+  dd($('dd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => F.diff, set: (x) => { F.diff = x; saveF(); } });
+
+  dd($('dd-topic'), { label: 'Topic', allLabel: 'All topics',
+    opts: topicOpts(), get: () => F.skills, set: (x) => { F.skills = x; saveF(); } });
+
+  dd($('dd-src'), { label: 'Source', allLabel: 'Question Bank',
+    opts: [{ v:'official', label:'Question Bank' }, { v:'mistakes', label:'My mistakes' }],
+    get: () => [F.src], set: (x) => { F.src = (x && x.length ? x[x.length-1] : 'official'); F.skills = null; saveF(); } });
+
+  dd($('dd-count'), { label: 'Questions', allLabel: 'All',
+    opts: [['10','10'],['20','20'],['30','30'],['50','50'],['0','All']].map(([v,l]) => ({ v, label: l })),
+    get: () => [String(F.count)], set: (x) => { F.count = parseInt(x && x.length ? x[x.length-1] : '0', 10); saveF(); } });
+
+  $('f-rand').classList.toggle('on', !!F.rand);
+  $('f-rand').setAttribute('aria-pressed', String(!!F.rand));
+
   drawTopics();
   const sel = picked();
   const n = base().filter(q => inPick(sel, q)).length;
   $('start-count').textContent = `${n.toLocaleString()} matching questions`;
   $('btn-start').disabled = n === 0;
 }
+
+function saveF() { LS.set('filters', F); drawFilters(); }
+
+$('f-rand').onclick = () => { F.rand = !F.rand; saveF(); };
 
 const SHUT = new Set(LS.get('shut', []));
 
@@ -951,11 +1210,6 @@ function drawTopics() {
   }).join('') || '<div class="empty">No topics match these filters.</div>';
 
   const el = $('topic-list');
-  el.querySelectorAll('.tl-row').forEach(r => r.onclick = () => toggle([r.dataset.s], all));
-  el.querySelectorAll('.dom-h .tick').forEach(k => k.onclick = (e) => {
-    e.stopPropagation();
-    toggle([...groups[k.dataset.dom]], all);
-  });
   el.querySelectorAll('.dom-h').forEach(h => h.onclick = () => {
     const d = h.parentElement.dataset.d;
     SHUT.has(d) ? SHUT.delete(d) : SHUT.add(d);
@@ -964,28 +1218,6 @@ function drawTopics() {
   });
 }
 
-// Ticking every topic is the same as ticking none of them, so it collapses back
-// to null rather than pinning a list that goes stale the next time the bank grows.
-function toggle(some, all) {
-  const sel = new Set(F.skills || all);
-  const on = some.every(sk => sel.has(sk));
-  some.forEach(sk => on ? sel.delete(sk) : sel.add(sk));
-  F.skills = (sel.size === all.length && all.every(sk => sel.has(sk))) ? null : [...sel];
-  LS.set('filters', F);
-  drawFilters();
-}
-
-['sec','diff','src'].forEach(k => $('f-'+k).onchange = (e) => {
-  F[k] = e.target.value;
-  // Section and source change which topics exist at all; a carried-over pick
-  // would silently hide half the new list.
-  if (k !== 'diff') F.skills = null;
-  LS.set('filters', F);
-  drawFilters();
-});
-$('num-q').onchange = drawFilters;
-$('topic-all').onclick = () => { F.skills = null; LS.set('filters', F); drawFilters(); };
-$('topic-none').onclick = () => { F.skills = []; LS.set('filters', F); drawFilters(); };
 $('btn-start').onclick = () => start(pool());
 
 // ---------------- dashboard ----------------
@@ -1196,7 +1428,7 @@ document.querySelectorAll('#db-range button').forEach(b => b.onclick = () => {
 });
 
 // ---------------- mistakes ----------------
-const MK = { sec:'all', diff:'all', skill:'all', status:'wrong' };
+const MK = { sec:null, diff:null, skills:null, status:'wrong' };
 // Tags out, then entities decoded, or the preview prints "Wigan&#x27;s". The
 // decode goes through a textarea because its content is raw text: no elements are
 // built and no <img> in the stem gets fetched just to read a two-line preview.
@@ -1216,25 +1448,38 @@ wrongSet.one = (q) => {
   const fixed = PROG[q.id].marker === 'Orange';
   if (MK.status === 'wrong' && fixed) return false;
   if (MK.status === 'fixed' && !fixed) return false;
-  if (MK.sec !== 'all' && q.section !== MK.sec) return false;
-  if (MK.diff !== 'all' && (q.difficulty||'').toLowerCase() !== MK.diff.toLowerCase()) return false;
-  if (MK.skill !== 'all' && (q.skill || 'Other') !== MK.skill) return false;
+  if (MK.sec && !MK.sec.includes(q.section)) return false;
+  if (MK.diff && !MK.diff.map(d => d.toLowerCase()).includes((q.difficulty||'').toLowerCase())) return false;
+  if (MK.skills && !MK.skills.includes(q.skill || 'Other')) return false;
   return true;
 };
 
 function drawMistakes() {
   // Built with every filter except the topic one, so choosing a topic does not
   // empty the dropdown it was chosen from, and no topic is offered with nothing
-  // behind it. A pick that the other filters have made impossible falls back to all.
+  // behind it. Picks the other filters have made impossible are dropped.
   const pool = QS.filter(q => {
-    const save = MK.skill; MK.skill = 'all';
-    const ok = wrongSet.one(q); MK.skill = save; return ok;
+    const save = MK.skills; MK.skills = null;
+    const ok = wrongSet.one(q); MK.skills = save; return ok;
   });
-  const skills = [...new Set(pool.map(q => q.skill || 'Other'))].sort();
-  if (MK.skill !== 'all' && !skills.includes(MK.skill)) MK.skill = 'all';
-  $('mk-skill').innerHTML = '<option value="all">All topics</option>' +
-    skills.map(sk => `<option value="${esc(sk)}"${sk === MK.skill ? ' selected' : ''}>${esc(sk)}</option>`).join('');
-  $('mk-sec').value = MK.sec; $('mk-diff').value = MK.diff;
+  const groups = {};
+  pool.forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+  const live = new Set(Object.values(groups).flatMap(x => [...x]));
+  if (MK.skills) {
+    MK.skills = MK.skills.filter(sk => live.has(sk));
+    if (!MK.skills.length || MK.skills.length === live.size) MK.skills = null;
+  }
+
+  dd($('md-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => MK.sec, set: (x) => { MK.sec = x; drawMistakes(); } });
+  dd($('md-diff'), { label: 'Difficulty', allLabel: 'All difficulties',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => MK.diff, set: (x) => { MK.diff = x; drawMistakes(); } });
+  dd($('md-topic'), { label: 'Topic', allLabel: 'All topics',
+    opts: Object.keys(groups).sort().flatMap(d =>
+      [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d })))),
+    get: () => MK.skills, set: (x) => { MK.skills = x; drawMistakes(); } });
 
   const list = wrongSet();
   $('mk-count').textContent = `${list.length.toLocaleString()} question${list.length === 1 ? '' : 's'}`;
@@ -1262,7 +1507,6 @@ function drawMistakes() {
   });
 }
 
-['sec','diff','skill'].forEach(k => $('mk-'+k).onchange = (e) => { MK[k] = e.target.value; drawMistakes(); });
 document.querySelectorAll('#mk-status button').forEach(b => b.onclick = () => {
   MK.status = b.dataset.s;
   document.querySelectorAll('#mk-status button').forEach(x => x.classList.toggle('on', x === b));
@@ -1275,10 +1519,41 @@ $('mk-drill').onclick = () => {
 };
 
 // ---------------- browse ----------------
+// Browse filters are its own state. Changing the practice set must not silently
+// re-filter this table, and the reverse.
+let FB = LS.get('browse', { sec:null, diff:null, skills:null });
+const saveFB = () => { LS.set('browse', FB); browsePage = 0; drawBrowse(); };
+
+function browseBase() {
+  const secs = FB.sec ? new Set(FB.sec) : null;
+  const diffs = FB.diff ? new Set(FB.diff.map(d => d.toLowerCase())) : null;
+  const sks = FB.skills ? new Set(FB.skills) : null;
+  return QS.filter(q => {
+    if (secs && !secs.has(q.section)) return false;
+    if (diffs && !diffs.has((q.difficulty || '').toLowerCase())) return false;
+    if (sks && !sks.has(q.skill || 'Other')) return false;
+    return true;
+  });
+}
+
 let browsePage = 0;
 function drawBrowse() {
+  dd($('bd-sec'), { label: 'Section', allLabel: 'Both sections',
+    opts: SECTIONS.map(v => ({ v, label: v })),
+    get: () => FB.sec, set: (x) => { FB.sec = x; FB.skills = null; saveFB(); } });
+  dd($('bd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
+    opts: DIFFS.map(v => ({ v, label: v })),
+    get: () => FB.diff, set: (x) => { FB.diff = x; saveFB(); } });
+  {
+    const groups = {};
+    browseBase().forEach(q => (groups[q.domain || 'Other'] = groups[q.domain || 'Other'] || new Set()).add(q.skill || 'Other'));
+    const opts = Object.keys(groups).sort().flatMap(d =>
+      [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d }))));
+    dd($('bd-topic'), { label: 'Topic', allLabel: 'All topics',
+      opts, get: () => FB.skills, set: (x) => { FB.skills = x; saveFB(); } });
+  }
   const q = ($('browse-q').value||'').toLowerCase();
-  let list = QS.filter(x => !q || [x.id,x.domain,x.skill,x.section,x.difficulty].join(' ').toLowerCase().includes(q));
+  let list = browseBase().filter(x => !q || [x.id,x.domain,x.skill,x.section,x.difficulty].join(' ').toLowerCase().includes(q));
   $('browse-count').textContent = `${list.length.toLocaleString()} questions`;
   const per = 50, pages = Math.max(1, Math.ceil(list.length/per));
   browsePage = Math.min(browsePage, pages-1);
@@ -1327,6 +1602,7 @@ function start(items) {
   S = {
     items, i: 0,
     ans: {}, checked: {}, flags: {}, ko: {},
+    sel: {}, miss: {}, tried: {},
     started: Date.now(), ended: null,
     qStart: Date.now(),
     paused: false, timerHidden: false,
@@ -1463,6 +1739,8 @@ function choiceHTML(q, c, picked, staticMode) {
   let cls = 'choice';
   if (!staticMode) {
     if (picked === letter && !checked) cls += ' sel';
+    // Retry mode: the letters already tried stay red, and nothing else is marked.
+    if (!checked && (S.miss[q.id] || []).includes(letter)) cls += ' wrong';
     if (checked) {
       const prog = PROG[q.id];
       const wasWrong = prog && prog.marker === 'Red';
@@ -1479,6 +1757,7 @@ function choiceHTML(q, c, picked, staticMode) {
     <span class="badge">${esc(letter)}</span>
     <span style="flex:1; min-width:0;">${body}</span>
     ${staticMode ? '' : `<button class="ko-btn${ko}" data-ko="${esc(letter)}" title="Eliminate choice"><span style="text-decoration:line-through">${esc(letter)}</span></button>`}
+    ${staticMode || checked || picked !== letter ? '' : `<button class="chk-btn" data-chk="${esc(letter)}">Check</button>`}
   </div>`;
 }
 
@@ -1542,7 +1821,8 @@ function renderPanes(q) {
 
 function renderAnswerArea(q) {
   const target = $('answer-area');
-  const picked = S.ans[q.id];
+  // Before grading this is the pre-Check selection; after it, the answer given.
+  const picked = S.checked[q.id] ? S.ans[q.id] : S.sel[q.id];
   const checked = S.checked[q.id];
   let html = '';
   if (q.spr) {
@@ -1565,6 +1845,9 @@ function renderAnswerArea(q) {
       const submit = () => { S.ans[q.id] = gi.value.trim(); grade(q); };
       $('gi-submit').onclick = submit;
       gi.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+      // Retry mode leaves the box open on a wrong entry, so the verdict has to be
+      // printed here - the branch below only runs once the question is closed.
+      if (S.tried[q.id]) $('spr-verdict').innerHTML = '<div class="verdict bad">✗ Not right — try again.</div>';
     } else {
       const ok = isRight(q, picked);
       const v = $('spr-verdict');
@@ -1585,7 +1868,28 @@ function renderAnswerArea(q) {
         if (idx >= 0) S.ko[q.id].splice(idx, 1); else S.ko[q.id].push(letter);
         koBtn.classList.toggle('on');
       };
-      if (!S.checked[q.id]) el.onclick = () => { S.ans[q.id] = letter; grade(q); };
+      if (S.checked[q.id]) return;
+      // Selecting must not re-render: a re-render throws away any highlight the
+      // student has made inside a choice. Move the classes and the button by hand.
+      const bindCheck = (b) => b.onclick = (ev) => { ev.stopPropagation(); S.ans[q.id] = letter; grade(q); };
+      el.onclick = (e) => {
+        if (e.target.closest('.ko-btn, .chk-btn, mark')) return;
+        S.sel[q.id] = letter;
+        target.querySelectorAll('.choice').forEach(x => {
+          if (x !== el) x.classList.remove('sel');
+          const b = x.querySelector('.chk-btn');
+          if (b && x !== el) b.remove();
+        });
+        el.classList.add('sel');
+        if (el.querySelector('.chk-btn')) return;
+        const chk = document.createElement('button');
+        chk.className = 'chk-btn';
+        chk.textContent = 'Check';
+        bindCheck(chk);
+        el.appendChild(chk);
+      };
+      const pre = el.querySelector('.chk-btn');
+      if (pre) bindCheck(pre);
     });
   }
 }
@@ -1623,29 +1927,112 @@ function isRight(q, val) {
 }
 
 function grade(q) {
-  S.checked[q.id] = true;
   const ok = isRight(q, S.ans[q.id]);
-  if (ok === null) { renderAnswerArea(q); return; }  // no stored answer: scoring it would be a guess
-  const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
-  p.attempts++;
-  p.corrects += (ok === true ? 1 : 0);
-  const wasWrong = p.marker === 'Red';
-  if (ok === true && wasWrong) {
-    p.marker = 'Orange';
-  } else if (ok === true) {
-    p.marker = 'Green';
+  const first = !S.tried[q.id];
+  S.tried[q.id] = true;
+
+  // Retry mode: a wrong answer marks only the choice that was picked and leaves
+  // the question open. Nothing turns green that the student did not choose.
+  const keepOpen = SET.retry && ok === false;
+  if (keepOpen) {
+    S.miss[q.id] = S.miss[q.id] || [];
+    if (!S.miss[q.id].includes(S.ans[q.id])) S.miss[q.id].push(S.ans[q.id]);
+    S.sel[q.id] = null;
   } else {
-    p.marker = 'Red';
+    S.checked[q.id] = true;
   }
-  p.last_reviewed = new Date().toISOString();
-  p.time_taken_ms = Math.round((Date.now()-S.qStart));
-  PROG[q.id] = p;
-  saveProgress([p]);
-  const ev = { question_id: q.id, ts: p.last_reviewed, correct: ok === true ? 1 : 0, time_taken_ms: p.time_taken_ms };
+
+  if (ok === null) { renderAnswerArea(q); return; }  // no stored answer: scoring it would be a guess
+
+  const now = new Date().toISOString();
+  const ms = Math.round(Date.now() - S.qStart);
+
+  // Only the first Check on a question moves the record. Otherwise a student
+  // walks any question to Green by clicking every option in turn.
+  if (first) {
+    const p = PROG[q.id] || { question_id: q.id, attempts:0, corrects:0 };
+    p.attempts++;
+    p.corrects += (ok === true ? 1 : 0);
+    const wasWrong = p.marker === 'Red';
+    p.marker = ok === true ? (wasWrong ? 'Orange' : 'Green') : 'Red';
+    p.last_reviewed = now;
+    p.time_taken_ms = ms;
+    PROG[q.id] = p;
+    saveProgress([p]);
+  }
+
+  // The attempt log is the history, and a retry is work that was really done.
+  const ev = { question_id: q.id, ts: now, correct: ok === true ? 1 : 0, time_taken_ms: ms };
   LOG.push(ev);
   saveLog([ev]);
+
   renderAnswerArea(q);
 }
+
+// ---------------- highlighter ----------------
+// Session-only: a re-render of the question drops the marks with it, which is
+// exactly the wanted lifetime. Nothing is stored and there is no API.
+const HL_ZONES = '.stem, .cb, .choice';
+
+function hlUnwrap(m) {
+  const p = m.parentNode;
+  while (m.firstChild) p.insertBefore(m.firstChild, m);
+  p.removeChild(m);
+  p.normalize();
+}
+
+const hlBarClose = () => { const b = $('hl-bar'); if (b) b.remove(); };
+
+function hlBar(x, y, onPick) {
+  hlBarClose();
+  const bar = document.createElement('div');
+  bar.id = 'hl-bar';
+  bar.innerHTML = `<button class="hl-y" data-c="hl-y" title="Yellow"></button>
+    <button class="hl-p" data-c="hl-p" title="Pink"></button>
+    <button class="hl-b" data-c="hl-b" title="Blue"></button>
+    <button class="hl-x" data-c="" title="Remove">✕</button>`;
+  bar.style.left = Math.max(8, Math.min(x - 60, innerWidth - 140)) + 'px';
+  bar.style.top = Math.max(8, y - 44) + 'px';
+  bar.onmousedown = (e) => e.preventDefault();   // keep the selection alive
+  bar.onclick = (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    onPick(b.dataset.c);
+    hlBarClose();
+  };
+  document.body.appendChild(bar);
+}
+
+document.addEventListener('mouseup', (e) => {
+  if (e.target.closest('#hl-bar')) return;
+  // Clicking an existing highlight reopens the bar over it.
+  const m = e.target.closest('mark.hl');
+  if (m) {
+    const r = m.getBoundingClientRect();
+    hlBar(r.left + r.width / 2, r.top, (c) => {
+      if (!c) return hlUnwrap(m);
+      m.className = 'hl ' + c;
+    });
+    return;
+  }
+  const sel = getSelection();
+  if (!sel || sel.isCollapsed || !sel.rangeCount) return hlBarClose();
+  const range = sel.getRangeAt(0);
+  const host = range.commonAncestorContainer;
+  const el = host.nodeType === 1 ? host : host.parentElement;
+  if (!el || !el.closest(HL_ZONES) || !el.closest('#view-test')) return hlBarClose();
+  const r = range.getBoundingClientRect();
+  hlBar(r.left + r.width / 2, r.top, (c) => {
+    if (!c) return;
+    const mark = document.createElement('mark');
+    mark.className = 'hl ' + c;
+    try { range.surroundContents(mark); }
+    catch (err) { mark.appendChild(range.extractContents()); range.insertNode(mark); }
+    getSelection().removeAllRanges();
+  });
+});
+
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hlBarClose(); });
 
 // ---------------- explanation popup ----------------
 function openExplanation() {
@@ -1664,7 +2051,7 @@ function openExplanation() {
     <div class="dr-b" style="padding:0;overflow:visible;">
       ${head}
       <h4>Explanation</h4>
-      <div class="cb expl">${answered ? (q.explanation_html || '<p>No explanation available for this question.</p>') : '<p style="color:var(--dim);">Hidden until you answer.</p>'}</div>
+      <div class="cb expl">${q.explanation_html || '<p>No explanation available for this question.</p>'}</div>
       <h4>Question info</h4>
       <div class="kv"><span>Domain</span><span>${esc(q.domain||'—')}</span></div>
       <div class="kv"><span>Skill</span><span>${esc(q.skill||'—')}</span></div>
@@ -1696,7 +2083,7 @@ document.addEventListener('keydown', (e) => {
     const q = curQ();
     if (q.choices && q.choices.length && !S.checked[q.id]) {
       const c = q.choices[parseInt(e.key)-1];
-      if (c) { S.ans[q.id] = c.letter; grade(q); }
+      if (c) { S.sel[q.id] = c.letter; renderAnswerArea(q); }
     }
   }
 });
@@ -1810,7 +2197,7 @@ $('btn-calc').onclick = () => {
           </div>
           <button class="icon-btn" id="dp-close" style="width:28px;height:28px;">✕</button>
         </div>
-        <iframe src="${DESMOS_SRC.graphing}" allow="fullscreen"></iframe>`;
+        <div class="dp-frame"><iframe src="${DESMOS_SRC.graphing}" allow="fullscreen"></iframe></div>`;
       document.body.appendChild(dp);
       desmosPanel = dp;
       $('dp-close').onclick = closeDesmos;
@@ -1907,6 +2294,7 @@ function showHome() {
   $('view-home').classList.remove('hide');
   closeDesmos();
   refresh();
+  setTab(TAB);
 }
 
 // ---- Export a question to an AI assistant ----
@@ -2004,7 +2392,7 @@ async function initAuth() {
   sb.auth.onAuthStateChange(async (_e, s) => {
     const was = uid;
     applySession(s);
-    if (uid !== was) await loadProgress();
+    if (uid !== was) { await loadProgress(); await loadSettings(); }
   });
 }
 

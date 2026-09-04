@@ -175,6 +175,31 @@ export default {
       return json({ ok: true, saved: rows.length });
     }
 
+    // Preferences, one JSON blob per account, so they follow the user across
+    // devices. Resolved from the token like everything else here: a client that
+    // names someone else's id gets its own row, not theirs.
+    if (p === '/api/settings' && req.method === 'GET') {
+      const u = await whoami(req, env);
+      if (!u) return json({});
+      const r = await env.DB.prepare('SELECT json FROM settings WHERE user_id = ?').bind(u.id).first();
+      let out = {};
+      try { out = r && r.json ? JSON.parse(r.json) : {}; } catch (e) { out = {}; }
+      return json(out);
+    }
+
+    if (p === '/api/settings' && req.method === 'POST') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
+      const b = await req.json().catch(() => null);
+      if (!b || typeof b !== 'object' || Array.isArray(b)) return json({ error: 'bad body' }, 400);
+      const blob = JSON.stringify(b).slice(0, 8000);
+      await env.DB.prepare(
+        `INSERT INTO settings (user_id, json, updated_at) VALUES (?,?,datetime('now'))
+         ON CONFLICT(user_id) DO UPDATE SET json=excluded.json, updated_at=excluded.updated_at`
+      ).bind(u.id, blob).run();
+      return json({ ok: true });
+    }
+
     // OAuth and the email-confirmation link both land here with the session in the
     // URL fragment. Serving the app itself lets supabase-js parse and persist it
     // under its own storage key; the previous hand-rolled page stashed the token
