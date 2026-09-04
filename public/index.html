@@ -450,11 +450,18 @@ mark.hl-b { background: #bfe3ff; }
 
 /* desmos */
 .desmos-panel { position: fixed; left: 18px; bottom: 74px; width: min(520px, 44vw); height: min(560px, 68vh); min-width: 340px; min-height: 260px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.22); z-index: 50; display: flex; flex-direction: column; overflow: hidden; resize: both; }
-.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; background: var(--bg2); cursor: move; user-select: none; }
+.desmos-panel .dp-h { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #e5e7eb; font-size: 13px; font-weight: 600; background: #fff; color: #111827; cursor: move; user-select: none; }
 .desmos-panel .dp-tabs { display: flex; gap: 6px; }
-.desmos-panel .dp-tab { border: 1px solid var(--border); background: var(--panel); color: var(--dim); font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; }
+.desmos-panel .dp-tab { border: 1px solid #e5e7eb; background: #fff; color: #6b7280; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 7px; cursor: pointer; }
 .desmos-panel .dp-tab.on { background: var(--blue); border-color: var(--blue); color: #fff; }
-.desmos-panel iframe { flex: 1; border: 0; width: 100%; }
+/* The embed draws its own 50px title strip - "Graphing Calculator / College Board
+   Version", no controls in it - which we cannot restyle across origins. Crop it:
+   the wrapper clips, and the iframe grows by the same amount so the calculator
+   still fills the panel. The embed has no dark mode, so the panel is white in
+   both themes; otherwise a white calculator sits inside a dark card. */
+.desmos-panel { --dp-crop: 50px; background: #fff; }
+.desmos-panel .dp-frame { flex: 1; position: relative; overflow: hidden; background: #fff; }
+.desmos-panel iframe { position: absolute; left: 0; top: calc(-1 * var(--dp-crop)); width: 100%; height: calc(100% + var(--dp-crop)); border: 0; }
 
 /* more menu */
 .more-menu { position: fixed; z-index: 70; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.16); padding: 6px; min-width: 210px; }
@@ -2173,7 +2180,7 @@ $('btn-calc').onclick = () => {
           </div>
           <button class="icon-btn" id="dp-close" style="width:28px;height:28px;">✕</button>
         </div>
-        <iframe src="${DESMOS_SRC.graphing}" allow="fullscreen"></iframe>`;
+        <div class="dp-frame"><iframe src="${DESMOS_SRC.graphing}" allow="fullscreen"></iframe></div>`;
       document.body.appendChild(dp);
       desmosPanel = dp;
       $('dp-close').onclick = closeDesmos;
