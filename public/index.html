@@ -2815,13 +2815,16 @@ function authModal(first) {
 ['satq_progress', 'satq_log'].forEach(k => localStorage.removeItem(k));
 (async () => {
   await initAuth();
-  await load();
-  // Flag first, not on dismiss: the box is a one-time offer either way, and a
-  // reload should not nag.
+  // Before load(), not after: the payload is 8MB, so waiting on it put the
+  // welcome box on screen seven seconds in, over a dashboard the visitor had
+  // already started reading. initAuth is all it needs - whether there is a
+  // session is what decides whether to ask. Flag on open, not on dismiss: the
+  // box is a one-time offer either way, and a reload should not nag.
   if (!uid && !localStorage.getItem('satq_welcomed')) {
     try { localStorage.setItem('satq_welcomed', '1'); } catch (e) {}
     authModal(true);
   }
+  await load();
 })();
 
 })();
