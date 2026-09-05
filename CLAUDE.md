@@ -1922,7 +1922,13 @@ the real player rather than by reading the CSS:
    meant "Talks on / cell / phone / daily", seven lines for one header, and 9 of
    the 103 still spilled past the edge into a scroll with no cue. At 13px with
    6px/9px cells **all 103 fit 375px** (0 overflow, was 9) and they are 20%
-   shorter; the badly-wrapping ones go 13 -> 5. At 320px 8 still scroll - the
+   shorter; the badly-wrapping ones go 13 -> 5. The rule is keyed to 980px, not
+   760: the 761-980 band still lays the player out as two panes, so its question
+   pane is *narrower* than the phone's single column (327px against 343), and it
+   was the worse case of the two. It also has to sit below the table's own base
+   rules in the file - written inside the 980px block further up, which comes
+   first, it loses the cascade to them and silently does nothing. At 320px 8
+   still scroll - the
    widest table in the bank is 1,087px of content, and there is no layout that
    fits it in 288px. Full-bleeding the scroller was tried and reverted: with the
    pane's padding moved inside it, the content width is unchanged.

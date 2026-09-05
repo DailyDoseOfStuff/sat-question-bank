@@ -613,12 +613,6 @@ mark.hl-b { background: #bfe3ff; }
   .pane-q { border-right: 0; border-bottom: 1px solid var(--border); }
   .panes.solo .pane-a > * { max-width: none; }
   .passage { font-size: 16px; line-height: 1.7; }
-  /* A four-column table has 343px here, so every column shrank to its longest
-     word - "Talks on / cell / phone / daily", seven lines for one header - and
-     9 of the 103 still spilled past the edge into a scroll nobody sees. At 13px
-     with tighter cells all 103 fit the screen and they are 20% shorter. */
-  .qtable table, .cb table { font-size: 13px; }
-  .qtable table th, .qtable table td, .cb table th, .cb table td { padding: 6px 9px; }
   .qhead { gap: 10px; margin-bottom: 14px; }
   .choices { gap: 10px; max-width: none; }
   /* Check appears inside the row it belongs to, and on a phone that took 75px
@@ -653,6 +647,17 @@ mark.hl-b { background: #bfe3ff; }
   .res-hero h1 { font-size: 23px; }
   #hl-bar { padding: 8px; }
   #hl-bar button { width: 30px; height: 30px; }
+}
+
+/* A four-column table gets 343px on a phone and only 327 in the 800px two-pane
+   layout, so every column shrank to its longest word - "Talks on / cell / phone
+   / daily", seven lines for one header - and 9 of the 103 still spilled past the
+   edge into a scroll nobody sees. At 13px with tighter cells they all fit and
+   are 20% shorter. Down here, not in the 980px block above: that block is
+   written before the table's own rules and would lose the cascade to them. */
+@media (max-width: 980px) {
+  .qtable table, .cb table { font-size: 13px; }
+  .qtable table th, .qtable table td, .cb table th, .cb table td { padding: 6px 9px; }
 }
 
 /* A 320px screen has 300px of bottom bar and the row wants 348 of it, so Next
