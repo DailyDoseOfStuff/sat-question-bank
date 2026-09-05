@@ -1896,3 +1896,67 @@ each at 375, 58px at 320) with the sign-in button gone, the collapsed rail's
 gear and arrow aligned with the tab icons, the desktop rail unchanged at 246px
 with its avatar and full-width button, all three legal modals opening and
 scrolling, and no console errors.
+
+### The question screen on a phone: a second pass (2026-09-05)
+
+`public/index.html` only. The previous pass measured the *home* screens at 375
+and 320px and found no overflow. The **test player** was never measured at 320,
+and at that width its bottom bar overflowed and clipped **Next** off the side of
+the screen - the primary control, unreachable. Six defects, all found by driving
+the real player rather than by reading the CSS:
+
+1. **The bottom bar overflowed at 320px** (367px of row in 320px of screen) and
+   wrapped "1228 of 3770" onto two lines at 375. Copy for AI moves into the More
+   menu, which already carries the explanation, and `#pos-lbl` is `nowrap`.
+   At <=360px Explanation also drops to a glyph; 375px keeps the word with 27px
+   to spare. Measured after: 320 and 375 both fit with nothing clipped.
+2. **The top bar wrapped to two rows at 320px** (324px of content), which is what
+   put the More menu on top of Calculator. `#btn-dash` is the arrow alone there.
+   The menu is also positioned off its own button's rect now rather than a fixed
+   `top: 52px`, so a wrapped bar could not have put it there anyway.
+3. **A dead black band under every short question.** A pane is content-height
+   once `.work` stops being a row of full-height columns, so the scroller's own
+   `--bg` showed below it - most of the screen on a grid-in. `.work` takes
+   `--panel` on mobile and the column is one surface.
+4. **Tables shrank every column to its longest word.** 343px for four columns
+   meant "Talks on / cell / phone / daily", seven lines for one header, and 9 of
+   the 103 still spilled past the edge into a scroll with no cue. At 13px with
+   6px/9px cells **all 103 fit 375px** (0 overflow, was 9) and they are 20%
+   shorter; the badly-wrapping ones go 13 -> 5. At 320px 8 still scroll - the
+   widest table in the bank is 1,087px of content, and there is no layout that
+   fits it in 288px. Full-bleeding the scroller was tried and reverted: with the
+   pane's padding moved inside it, the content width is unchanged.
+5. **Check squeezed the choice it belongs to.** The button is inside the choice
+   row, so on a phone the selected choice reflowed to four short lines while its
+   neighbours kept five words to a line. `.choice` wraps and `.chk-btn` takes its
+   own full-width row - also a thumb-sized target instead of a 75px one.
+6. **The highlighter bar opened on top of the clock.** `top: max(8, y - 44)`
+   ignores the player's 53px top bar, so a highlight in a passage's first line
+   put the swatches over it. It now goes below the selection when there is no
+   room above. `hlBar` takes the rect instead of a point.
+
+**408 stems carry the space-before-punctuation artifact** the rationales had -
+`at \(x = 1\) ?` - and on a phone the line is short enough that the question mark
+orphans onto a line of its own. `tidyExpl`'s spacing pass is now `tidySpace()`
+and stems go through it at load, the same way explanations do. 0 choices carry it.
+
+`.qnum` had no horizontal padding at all, so a four-digit question number filled
+its badge edge to edge. `padding: 0 8px`; `min-width: 34px` keeps short ones square.
+
+**Verified.** All 3,770 stems, explanations and choice lists through the app's own
+KaTeX path at a 375px pane: **0 KaTeX errors, 0 overflow outside `.qtable`, 103
+tables and 0 of them overflowing, 0 rows whose rendered text changed** (the
+spacing pass only ever deletes or inserts whitespace, so the string with all
+whitespace removed is the invariant - `node test_tidy_expl.cjs --sweep` asserts
+the same for explanations). 60 questions spread across the bank walked in the
+real player at 320px: 0 overflow, 0 KaTeX errors, every one with an answer
+control. By hand at 320 and 375 in both themes: select-then-Check grading green
+and red, the explanation modal, the question map, the Desmos sheet, the figure
+lightbox, the highlighter placing and applying a mark, Copy for AI from the More
+menu falling back to its modal, and the results screen. Desktop re-checked at
+1280: panes 639/625, the full "← Dashboard" and "Copy for AI" labels back,
+tables at 14.5px.
+
+One caveat that could not be measured here: the highlighter is bound to `mouseup`
+only. The emulator translates mouse to touch so it passes, but a real phone makes
+a selection with OS handles and may never fire it. Needs a device to tell.

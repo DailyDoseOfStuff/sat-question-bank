@@ -333,7 +333,7 @@ select:hover { border-color: var(--border2); }
 .panes.solo .pane-a > * { max-width: 920px; margin-left: auto; margin-right: auto; }
 
 .qhead { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
-.qnum { min-width: 34px; height: 34px; border-radius: 9px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
+.qnum { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 9px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
 .flag-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 500; color: var(--dim); border: 0; background: transparent; padding: 6px 8px; }
 .flag-btn .fi { font-size: 15px; }
 .flag-btn.on { color: var(--orange); font-weight: 600; }
@@ -591,33 +591,56 @@ mark.hl-b { background: #bfe3ff; }
      cost the row that Calculator and More need. */
   #btn-directions, #btn-hide-timer, #btn-pause, .top .theme-toggle { display: none; }
   .tbtn { padding: 7px 10px; font-size: 13px; }
+  /* "← Dashboard" beside the clock, Calculator and More is 324px of the 300px
+     this row has at 320px wide, so the bar wrapped onto a second line and the
+     More menu opened over Calculator. The arrow carries it. */
+  #btn-dash { font-size: 0; padding: 7px 12px; }
+  #btn-dash::after { content: "\2190"; font-size: 16px; }
   .timer { font-size: 17px; }
   .tdiv { display: none; }
 
   /* One column that scrolls as a whole. Two stacked panes with a scrollbar each
      means the passage and the question it asks about can never be on screen
-     together, which is the one thing the split layout exists to allow. */
-  .work { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+     together, which is the one thing the split layout exists to allow.
+     A pane is content-height once it stops being a full-height column, so the
+     scroller's own --bg showed through under every short question as a dead
+     black band; the whole column is one surface here. */
+  .work { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch;
+          background: var(--panel); }
   .work.desmos-shift .panes { margin-left: 0; }
   .panes { display: block; }
   .pane { overflow: visible; padding: 18px 16px 24px; }
   .pane-q { border-right: 0; border-bottom: 1px solid var(--border); }
   .panes.solo .pane-a > * { max-width: none; }
   .passage { font-size: 16px; line-height: 1.7; }
+  /* A four-column table has 343px here, so every column shrank to its longest
+     word - "Talks on / cell / phone / daily", seven lines for one header - and
+     9 of the 103 still spilled past the edge into a scroll nobody sees. At 13px
+     with tighter cells all 103 fit the screen and they are 20% shorter. */
+  .qtable table, .cb table { font-size: 13px; }
+  .qtable table th, .qtable table td, .cb table th, .cb table td { padding: 6px 9px; }
   .qhead { gap: 10px; margin-bottom: 14px; }
   .choices { gap: 10px; max-width: none; }
-  .choice { padding: 13px 14px; gap: 12px; font-size: 15.5px; }
+  /* Check appears inside the row it belongs to, and on a phone that took 75px
+     off the choice's own text - the selected choice reflowed to four short
+     lines while its neighbours kept five words to a line. It gets its own row,
+     which is also a thumb-sized target instead of a 75px one. */
+  .choice { padding: 13px 14px; gap: 12px; font-size: 15.5px; flex-wrap: wrap; }
+  .chk-btn { flex: 0 0 100%; margin-top: 10px; padding: 9px 12px; }
   .badge { flex-basis: 26px; width: 26px; height: 26px; font-size: 13.5px; }
   .gridin-wrap { max-width: none; }
 
   .bot { gap: 8px; padding: 8px 10px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
   .bot-l, .bot-r { gap: 6px; }
-  #pos-lbl { font-size: 12px; }
-  #btn-back, #btn-next { min-width: 0; padding: 9px 13px; }
-  /* the label does not fit beside Explanation, Back and Next; the glyph carries
-     it, the same way the rail's sign-in button drops to an arrow */
-  #btn-export { min-width: 0; padding: 9px 11px; font-size: 0; }
-  #btn-export::after { content: "\29C9"; font-size: 15px; }
+  /* "1228 of 3770" wrapped onto two lines, which is what made this row ragged,
+     and at 320px the row overflowed and clipped Next off the side of the screen.
+     Copy for AI is the one control here that is not needed mid-question, so it
+     moves to the More menu - which already carries the explanation - and its
+     slot plus the trimmed paddings are what buy the label its single line. */
+  #pos-lbl { font-size: 12px; white-space: nowrap; }
+  #btn-expl { padding: 9px 11px; font-size: 13px; }
+  #btn-back, #btn-next { min-width: 0; padding: 9px 10px; }
+  #btn-export { display: none; }
 
   /* the calculator has no half of the screen to dock into: it is a sheet */
   .desmos-panel { left: 8px; right: 8px; width: auto; min-width: 0; bottom: 68px;
@@ -630,6 +653,14 @@ mark.hl-b { background: #bfe3ff; }
   .res-hero h1 { font-size: 23px; }
   #hl-bar { padding: 8px; }
   #hl-bar button { width: 30px; height: 30px; }
+}
+
+/* A 320px screen has 300px of bottom bar and the row wants 348 of it, so Next
+   was clipped off the side. 375px fits the word with 27px to spare, so only the
+   smallest phones lose it; "Show explanation" is spelled out in the More menu. */
+@media (max-width: 360px) {
+  #btn-expl { min-width: 0; padding: 9px 11px; font-size: 0; }
+  #btn-expl::after { content: "\24D8"; font-size: 17px; }
 }
 </style>
 </head>
@@ -958,6 +989,12 @@ const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 // Tags and \( ... \) spans are matched first so the rewrite only ever touches
 // prose. A space inside LaTeX is the author's; \, is a thin space, not an artifact.
 const PROSE = /(<[^>]*>|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\])|([ \t]+)(?=[,;:!?]|\.(?!\d))|[ \t]{2,}/g;
+// 408 stems carry the same artifact, and it reads worst on a phone: the line is
+// short enough that "at \(x = 1\) ?" leaves the question mark orphaned on a line
+// of its own. Same rule, so the same function.
+function tidySpace(html) {
+  return (html || '').replace(PROSE, (m, keep, sp) => keep != null ? keep : sp != null ? '' : ' ');
+}
 // Split before a choice analysis, never at the head of its own paragraph.
 const CHOICE_LEAD = /(?!^)\s*(Choices?\s+[A-D](?:(?:,|\s+and)\s+[A-D])*\s+(?:is|are)\s+(?:in)?correct\b)/g;
 const ENDS_SENTENCE = /[.?!:”]["')\]]?\s*$/;
@@ -983,10 +1020,10 @@ function tidyExpl(html) {
   // whatever the next paragraph opened with, and a torn paragraph often opens on
   // its own punctuation (", or 17,136 miles per hour") - so tidying first only
   // means putting the artifact straight back.
-  return out.map(b => {
+  return tidySpace(out.map(b => {
     const p = b.match(P_BLOCK);
     return p ? '<p>' + p[1].trim().replace(CHOICE_LEAD, '</p><p>$1') + '</p>' : b;
-  }).join('').replace(PROSE, (m, keep, sp) => keep != null ? keep : sp != null ? '' : ' ');
+  }).join(''));
 }
 // --- end tidyExpl ---
 
@@ -1096,7 +1133,7 @@ async function load() {
         const a = typeof q.correct_answer === 'string' ? JSON.parse(q.correct_answer) : (q.correct_answer || []);
         q.answer = Array.isArray(a) ? a.join('') : String(a);
       } catch(e){ q.answer = q.correct_answer || ''; }
-      q.stem_html = demoji(q.stem_html).replace(LEAKED_RATIONALE, '');
+      q.stem_html = tidySpace(demoji(q.stem_html).replace(LEAKED_RATIONALE, ''));
       q.explanation_html = tidyExpl(demoji(q.explanation_html));
       q.answer = demoji(q.answer);
       q.choices.forEach((c, i) => {
@@ -2302,7 +2339,7 @@ function hlUnwrap(m) {
 
 const hlBarClose = () => { const b = $('hl-bar'); if (b) b.remove(); };
 
-function hlBar(x, y, onPick) {
+function hlBar(rect, onPick) {
   hlBarClose();
   const bar = document.createElement('div');
   bar.id = 'hl-bar';
@@ -2310,8 +2347,14 @@ function hlBar(x, y, onPick) {
     <button class="hl-p" data-c="hl-p" title="Pink"></button>
     <button class="hl-b" data-c="hl-b" title="Blue"></button>
     <button class="hl-x" data-c="" title="Remove">✕</button>`;
-  bar.style.left = Math.max(8, Math.min(x - 60, innerWidth - 140)) + 'px';
-  bar.style.top = Math.max(8, y - 44) + 'px';
+  // Above the selection, unless that would put it under the player's top bar -
+  // on a phone that bar owns the first 53px, so a highlight in the first line of
+  // a passage opened the swatches on top of the clock. Then it goes below.
+  const above = document.body.appendChild(bar).getBoundingClientRect().height + 8;
+  const top = document.querySelector('#view-test:not(.hide) .top');
+  const floor = top ? top.getBoundingClientRect().bottom + 6 : 8;
+  bar.style.left = Math.max(8, Math.min(rect.left + rect.width / 2 - 60, innerWidth - 140)) + 'px';
+  bar.style.top = (rect.top - above >= floor ? rect.top - above : rect.bottom + 8) + 'px';
   bar.onmousedown = (e) => e.preventDefault();   // keep the selection alive
   bar.onclick = (e) => {
     const b = e.target.closest('button');
@@ -2319,7 +2362,6 @@ function hlBar(x, y, onPick) {
     onPick(b.dataset.c);
     hlBarClose();
   };
-  document.body.appendChild(bar);
 }
 
 document.addEventListener('mouseup', (e) => {
@@ -2328,7 +2370,7 @@ document.addEventListener('mouseup', (e) => {
   const m = e.target.closest('mark.hl');
   if (m) {
     const r = m.getBoundingClientRect();
-    hlBar(r.left + r.width / 2, r.top, (c) => {
+    hlBar(r, (c) => {
       if (!c) return hlUnwrap(m);
       m.className = 'hl ' + c;
     });
@@ -2341,7 +2383,7 @@ document.addEventListener('mouseup', (e) => {
   const el = host.nodeType === 1 ? host : host.parentElement;
   if (!el || !el.closest(HL_ZONES) || !el.closest('#view-test')) return hlBarClose();
   const r = range.getBoundingClientRect();
-  hlBar(r.left + r.width / 2, r.top, (c) => {
+  hlBar(r, (c) => {
     if (!c) return;
     const mark = document.createElement('mark');
     mark.className = 'hl ' + c;
@@ -2458,14 +2500,21 @@ $('btn-more').onclick = (e) => {
   closeMenus();
   const m = document.createElement('div');
   m.className = 'more-menu';
-  m.style.top = '52px';
-  m.style.right = '18px';
+  // Measured off the button, not fixed at 52px: the top bar is two rows tall on
+  // a narrow phone, where a fixed offset dropped the menu on top of Calculator.
+  const r = e.currentTarget.getBoundingClientRect();
+  m.style.top = (r.bottom + 6) + 'px';
+  m.style.right = Math.max(8, innerWidth - r.right) + 'px';
   m.innerHTML = `
     <button id="mm-clear-ko">Clear eliminations</button>
-    <button id="mm-explanation">Show explanation</button>`;
+    <button id="mm-explanation">Show explanation</button>
+    <button id="mm-export">⧉ Copy for AI</button>`;
   $('overlay-root').appendChild(m);
   $('mm-clear-ko').onclick = () => { S.ko[curQ().id] = []; loadQuestion(); closeMenus(); };
   $('mm-explanation').onclick = () => { openExplanation(); closeMenus(); };
+  // Left open on purpose - exportQuestion writes "Copied" back into the button
+  // that was pressed, and the next click anywhere else closes the menu.
+  $('mm-export').onclick = (ev) => exportQuestion(ev.currentTarget);
 };
 $('btn-dash').onclick = () => confirmModal('End this practice session? ' + (authToken ? 'Progress on answered questions is saved.' : 'You are not signed in, so this session’s answers are not kept.'), () => { stopTimer(); S = null; showHome(); });
 function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
@@ -2665,9 +2714,10 @@ function exportPrompt(q) {
   return out.join('\n');
 }
 
-$('btn-export').onclick = async (e) => {
+$('btn-export').onclick = (e) => exportQuestion(e.currentTarget);
+async function exportQuestion(btn) {
   if (!S) return;
-  const btn = e.currentTarget, label = btn.textContent, text = exportPrompt(curQ());
+  const label = btn.textContent, text = exportPrompt(curQ());
   try {
     await navigator.clipboard.writeText(text);
     btn.textContent = '\u2713 Copied';
@@ -2685,7 +2735,7 @@ $('btn-export').onclick = async (e) => {
     $('xp-close').onclick = () => root.innerHTML = '';
     root.querySelector('.modal-bg').onclick = (ev) => { if (ev.target.classList.contains('modal-bg')) root.innerHTML = ''; };
   }
-};
+}
 
 // ---------------- auth (Supabase) ----------------
 // Progress belongs to the account, so requests carry the Supabase access token and
