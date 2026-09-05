@@ -1741,3 +1741,158 @@ Note the plan limit is account-wide and resets at midnight UTC: until it does,
 even though reading now works. The free tier is 100,000 rows written per day and
 index updates count toward it, so a full re-import of `questions` is a large
 fraction of a day's budget on its own.
+
+### Explanations that read wrong, and a phone layout (2026-09-04, later)
+
+`public/index.html` only. Two reports, one screenshot: an explanation "formatted
+really weirdly", and a request for a mobile UI. The screenshot was a phone.
+
+**The rationales carry three formatting artifacts.** All three are visible as
+prose rather than as an error, which is why every earlier sweep - none of which
+asked "does this *read* right", only "is it empty / broken / mojibake" - missed
+them. Measured over all 3,770 rows:
+
+| | rows |
+|---|---|
+| a space where a decoded notation run met the punctuation after it (`or 11 .`, `(0,0) , (3,-12)`) | 935 |
+| a paragraph break dropped mid-sentence, so one `<p>` ends on "the" and the next opens on "population of Iceland in 2014 was" | 1,101 |
+| two or more choice analyses run together in one paragraph | 2,090 |
+
+`tidyExpl()` fixes all three at load, beside `demoji()`. Not in the data: every
+consumer - the explanation modal, the browse preview, the mistakes teaser, the AI
+export - reads this one field, and D1's daily row-write budget is small enough
+that a 3,770-row migration costs a real fraction of a day of it.
+
+Four things the first attempt got wrong, all of which produce *plausible* output
+rather than an obvious failure:
+
+1. **The spacing pass has to run last.** Rejoining a torn paragraph puts a space
+   in front of whatever the next one opened with, and a torn paragraph very often
+   opens on its own punctuation (`d28c29e1`: "...is equal to an average speed of"
+   + ", or 17,136 miles per hour"). Tidying first just puts the artifact back -
+   measured, it left 1,671 of the 935 rows still wrong, because the merge had
+   created new ones.
+2. **A leading dot can be a decimal.** `1/6, .1666, .1667` is a list of accepted
+   grid-in entries, and stripping the space gives `,.1667`. The lookahead is
+   `\.(?!\d)`.
+3. **Collecting the paragraphs throws the lists away.** 229 rationales carry a
+   `<ul>`; pulling `<p>` out with `matchAll` and rebuilding from those alone
+   silently deleted them. It splits into blocks instead, so a non-paragraph
+   passes through untouched *and* separates its neighbours - which is also what
+   stops the rejoin reaching across a list.
+4. **The check has to mask math, not strip it.** Deleting `\( ... \)` outright to
+   look for " ," leaves the space that stood *in front of* the formula sitting
+   against the comma behind it, so a fixed row still reads as broken. Each tag
+   and formula collapses to one non-space character.
+
+`node test_tidy_expl.cjs` runs 14 cases; `--sweep` runs the function over the
+local D1 and asserts the three counts above go to 0 and that **no row's text
+moves** - every edit either deletes whitespace or inserts it, so the string with
+all whitespace removed is the invariant. Then all 3,770 were put through the
+app's own KaTeX path in the browser: **0 KaTeX errors before and after, 0 rows
+whose rendered text changed, 0 rows whose image count changed, 0 that render
+empty.** 3,182 rows are rewritten.
+
+The test lifts `tidyExpl` out of `public/index.html` by its `// --- tidyExpl`
+markers rather than keeping a copy, so it cannot drift from what ships. Note
+`new Function` is how it does that and the page's own CSP forbids `unsafe-eval`,
+so the browser half of the sweep needs the tidied HTML written out as a file and
+fetched, not evaluated in the page.
+
+**The phone layout.** At 375px the app was unusable, not merely cramped: the top
+bar alone measured 682px and pushed the whole page sideways, and the player's two
+panes were 187px each, so the stem wrapped every two or three words and a table
+was cut off mid-column. There was one breakpoint in the file, at 980px, and it
+only narrowed the rail.
+
+One `@media (max-width: 760px)` block, no markup and no JS:
+
+- **The rail lies flat along the bottom, as a real tab bar.** `#view-home`
+  becomes a column with `.nav` at `order: 2`; the brand, the spacer and the
+  avatar go, leaving five equal tabs - Dashboard, Mistakes, Practice, Browse,
+  Settings - and the sign-in arrow. The labels have to come back: they are
+  hidden at 980px because the rail is a 66px strip there, and a row of bare
+  glyphs reads as a toolbar rather than as navigation. Two of the five carry a
+  short label of their own, because "Question Bank" does not fit in a fifth of
+  375px and the gear has no label in the markup at all. `.board` needs an
+  explicit `min-height: 0` - a column flex item is `min-height: auto`, so
+  without it the board grows to its content and pushes the tab bar off the
+  bottom of the screen.
+- **The player is one column and one scroller.** `.work` takes the scrolling and
+  the panes stack. Two stacked panes with a scrollbar each would mean the passage
+  and the question about it can never be on screen together, which is the one
+  thing the split layout exists to allow.
+- Directions, Pause and Hide are dropped from the top bar - all three are
+  reachable from a desk and they cost the row Calculator and More need. "Copy for
+  AI" drops to its glyph, the way the rail's sign-in button already drops to an
+  arrow.
+- Desmos has no half-screen to dock into, so it is a sheet above the bottom bar,
+  and `.work.desmos-shift .panes` loses its 540px margin.
+- `100dvh`, not `100vh`: on a phone the browser's own chrome is inside `100vh`,
+  so a full-height flex column puts its bottom bar under the address bar.
+- Filters go one per row; the topic table drops the seen-count (the coverage bar
+  already went at 980px); Browse drops Domain and Skill, which are both in its
+  filters; settings rows stack so the AI textarea is not 187px wide.
+
+Verified in the browser at 375x812 in both themes: **0 horizontal overflow on all
+five tabs** (`document.body.scrollWidth === 375`), the tab bar pinned at 756 of
+812 with every label legible and the active one mint - and still no overflow at
+320px, where the five tabs are 50px each, a filter menu opening inside the viewport rather than clipped by its card,
+select-then-Check grading a choice green, the explanation modal ending exactly
+where the tab bar begins, the calculator sheet inside the margins with the panes
+back at `left: 0`, and `1ee962ec` - the question in the report - rendering its
+figure, its LaTeX and its now-tidy rationale with 0 KaTeX errors. Desktop
+re-checked at 1280px: panes still 640/640, every top and bottom bar button back.
+
+**A worktree needs its crops and its D1 before `wrangler dev` will show
+anything.** `public/qimg` and `.wrangler/` are gitignored, so a fresh worktree has
+neither: the crops were junctioned in and the local sqlite copied from the main
+checkout. That junction is exactly the trap recorded above - do not deploy from
+here; `tools/predeploy.cjs` refuses it, which is what that guard is for.
+
+### Account and legal in Settings, a welcome box, and the collapsed rail (2026-09-04, later)
+
+`public/index.html` only.
+
+**The collapsed rail's foot overflowed its own width.** At 761-980px `.nav` is a
+66px strip with 8px padding, so a nav item has 50px to sit in - but `.nav-user`
+is still a *row* of a 32px avatar, a 10px gap and a 34px gear, which is 76px.
+That is the "stranded, misaligned" cluster in the report: the two glyphs
+overflowed the strip and neither lined up with the tab icons above. The avatar
+names nobody once `.nav-um` is hidden, so it goes, and `.nav-user` stacks. The
+gear now measures x=8 w=50, identical to every tab icon.
+
+**Account and legal live in Settings.** The phone tab bar has five tabs and no
+room for a sign-in button, so `#btn-auth` is `display: none` under 760px and the
+Settings screen carries an Account row instead - the name/email it shows is the
+same `#nav-sub` text, and the button is the same `signOut()` / `authModal()`
+pair. Added for every width rather than behind the media query: one code path,
+and the desktop rail keeps its own button.
+
+Below it, a Legal row opening Terms of Service, Privacy Policy and Copyright /
+DMCA in the existing modal. The text is **draft boilerplate** and says so at the
+top of every one of them; `LEGAL_CONTACT` is a placeholder string, so search for
+`fill this in` before launch. What it covers is what this app actually does -
+Supabase auth, a practice record in D1, Cloudflare's cookieless analytics, the
+Desmos embed, and that the questions are College Board's, reproduced for study,
+with no affiliation claimed.
+
+**A welcome box on the first visit.** `authModal(true)` - same modal, heading
+"Welcome", and the close button reads "Continue as guest". Shown once from the
+boot IIFE when there is no session and no `satq_welcomed` key. The flag is
+written when the box opens, not when it is dismissed: it is a one-time offer
+either way, and a reload should not nag.
+
+`applySession()` redraws Settings when it is the open tab, or the Account row
+still says "Sign in" after signing in.
+
+Not built: "stay signed in". supabase-js already persists the session in
+localStorage indefinitely, so the checkbox would either do nothing or be an
+opt-out nobody asked for.
+
+Verified in the browser at 320, 375, 761, 900 and 1280px, both themes:
+0 horizontal overflow at every width, five even tabs on the phone bar (69px
+each at 375, 58px at 320) with the sign-in button gone, the collapsed rail's
+gear and arrow aligned with the tab icons, the desktop rail unchanged at 246px
+with its avatar and full-width button, all three legal modals opening and
+scrolling, and no console errors.

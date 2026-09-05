@@ -293,7 +293,9 @@ select:hover { border-color: var(--border2); }
   .nav { flex-basis: 66px; padding: 16px 8px; }
   .nav-brand > span, .nav-grp, .nav-i > span, .nav-um { display: none; }
   .nav-brand, .nav-i, .nav-user { justify-content: center; }
-  .nav-gear { margin-left: 0; }
+  .nav-av { display: none; }
+  .nav-user { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 0 0; }
+  .nav-gear { width: 100%; margin: 0; padding: 10px; }
   #btn-auth { font-size: 0; padding: 10px 0; }
   #btn-auth::after { content: "\2192"; font-size: 15px; }
   .board-h, .board-b { padding-left: 18px; padding-right: 18px; }
@@ -445,6 +447,10 @@ mark.hl-b { background: #bfe3ff; }
 .modal-bg { position: fixed; inset: 0; background: rgba(17,24,39,.45); display: flex; align-items: center; justify-content: center; z-index: 60; }
 .modal { background: var(--panel); border-radius: 16px; padding: 22px; width: min(560px, 92vw); max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 50px rgba(0,0,0,.25); }
 .modal h3 { margin: 0 0 14px; font-size: 16px; }
+.legal { font-size: 14px; line-height: 1.6; }
+.legal h4 { margin: 18px 0 6px; font-size: 14px; }
+.legal p, .legal li { margin: 8px 0; color: var(--text); }
+.legal ul { margin: 8px 0; padding-left: 20px; }
 .map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 8px; }
 .map-cell { position: relative; height: 40px; border-radius: 9px; border: 1.5px solid var(--border); background: var(--panel); font-weight: 600; font-size: 13.5px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .map-cell.correct { background: var(--green-bg); border-color: var(--green); color: var(--green); }
@@ -501,6 +507,130 @@ mark.hl-b { background: #bfe3ff; }
 .pill.red { background: var(--red-bg); color: var(--red); }
 .pill.orange { background: var(--orange-bg); color: var(--orange); }
 .pill.gray { background: var(--bg2); color: var(--dim); }
+
+/* ---------- PHONE ----------
+   Below 760px the two-column layouts have nowhere to go: at 375px the player's
+   panes are 187px each and the stem wraps every two words, while the top bar
+   alone is 682px wide and pushes the whole page sideways. Everything here is a
+   layout change on the existing markup - one column, one scroller, the rail laid
+   flat along the bottom the way a phone expects it.
+
+   100dvh, not 100vh: the browser's own chrome is inside 100vh on a phone, so a
+   full-height flex column puts its bottom bar under the address bar. */
+@media (max-width: 760px) {
+  html, body, #view-home, #view-test { height: 100dvh; }
+
+  /* ---- home: the rail becomes a bottom tab bar ---- */
+  #view-home { flex-direction: column; }
+  /* a column flex item is min-height:auto by default, so the board grows to
+     its content and pushes the tab bar off the bottom of the screen */
+  .board { min-height: 0; }
+  .nav { order: 2; flex: 0 0 auto; flex-direction: row; align-items: center;
+         justify-content: space-around; gap: 4px; overflow: visible;
+         padding: 5px 8px; padding-bottom: calc(5px + env(safe-area-inset-bottom));
+         border-top: 1px solid var(--nav-line); }
+  /* A bottom nav is an icon over its label, and the labels have to come back:
+     they are hidden at 980px because the rail is a 66px strip there, but here
+     there is a whole row for them and a bare glyph row reads as a toolbar.
+     Five equal tabs plus the sign-in button; "Question Bank" does not fit in a
+     fifth of 375px and the gear has no label in the markup at all, so those two
+     carry a short one of their own. */
+  .nav-i, .nav-user { flex: 1 1 0; min-width: 0; }
+  .nav-i { flex-direction: column; justify-content: center; gap: 3px;
+           margin: 0; padding: 6px 2px; border-radius: 12px; }
+  .nav-i > span, .nav-gear::after { display: block; font-size: 10px; font-weight: 600;
+                                    line-height: 1.2; white-space: nowrap; }
+  .nav-i[data-tab="practice"] > span { font-size: 0; }
+  .nav-i[data-tab="practice"] > span::after { content: "Practice"; font-size: 10px; }
+  .nav-gear::after { content: "Settings"; }
+  .nav-i.on > span, .nav-i.on::after { color: var(--mint); }
+  .nav-brand, .nav-sp, .nav-av { display: none; }
+  .nav-user { border-top: 0; padding: 0; gap: 0; }
+  .nav-gear { width: 100%; margin: 0; }
+  #btn-auth { display: none; }
+
+  .board-h { padding: 16px 16px 12px; }
+  .board-h h1 { font-size: 21px; }
+  .board-b { padding: 0 16px 24px; }
+  .panel { margin-bottom: 14px; }
+  .panel-h { padding: 14px 16px; }
+  .panel-h h3 { font-size: 17px; }
+  .panel-b, .ctrls, .empty { padding: 14px 16px; }
+  .ctrls { grid-template-columns: 1fr; gap: 10px; }
+  /* the menu is as wide as the card it hangs off, not 340px of a 375px screen */
+  .dd-p { max-width: none; right: 0; }
+  .cards, #db-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .card { padding: 14px 15px; }
+  .card .v { font-size: 24px; }
+  .startbar { flex-wrap: wrap; }
+
+  /* the coverage bar went at 980px; the seen-count goes here, leaving the topic
+     and the number a student actually reads off this table */
+  .tl-head, .tl-row { grid-template-columns: minmax(0, 1fr) 76px; padding-left: 16px; padding-right: 16px; }
+  .tl-head span:nth-child(3), .tl-row .tl-c { display: none; }
+  .dom-h { padding: 15px 16px 12px; font-size: 17px; }
+  .prog-item { grid-template-columns: minmax(0, 1fr) 96px; padding: 10px 16px; }
+
+  /* domain and skill are the two widest columns and both are in the filters */
+  .browse-table th, .browse-table td { padding: 9px 12px; font-size: 12.5px; }
+  .browse-table th:nth-child(3), .browse-table td:nth-child(3),
+  .browse-table th:nth-child(4), .browse-table td:nth-child(4) { display: none; }
+
+  .chart-wrap { padding: 14px 12px 0; }
+  .chart-cap, .heat-key { padding-left: 16px; padding-right: 16px; }
+  .heat-wrap { padding: 14px 16px 0; }
+  .mk-card { padding: 14px 16px; }
+
+  .set-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .set-row select, .set-row textarea { width: 100%; }
+
+  /* ---- test player ---- */
+  .top { flex-wrap: wrap; gap: 8px; padding: 8px 12px; }
+  .top-l, .top-r { gap: 6px; }
+  /* Directions, Pause and Hide are all reachable from a desk. On a phone they
+     cost the row that Calculator and More need. */
+  #btn-directions, #btn-hide-timer, #btn-pause, .top .theme-toggle { display: none; }
+  .tbtn { padding: 7px 10px; font-size: 13px; }
+  .timer { font-size: 17px; }
+  .tdiv { display: none; }
+
+  /* One column that scrolls as a whole. Two stacked panes with a scrollbar each
+     means the passage and the question it asks about can never be on screen
+     together, which is the one thing the split layout exists to allow. */
+  .work { display: block; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .work.desmos-shift .panes { margin-left: 0; }
+  .panes { display: block; }
+  .pane { overflow: visible; padding: 18px 16px 24px; }
+  .pane-q { border-right: 0; border-bottom: 1px solid var(--border); }
+  .panes.solo .pane-a > * { max-width: none; }
+  .passage { font-size: 16px; line-height: 1.7; }
+  .qhead { gap: 10px; margin-bottom: 14px; }
+  .choices { gap: 10px; max-width: none; }
+  .choice { padding: 13px 14px; gap: 12px; font-size: 15.5px; }
+  .badge { flex-basis: 26px; width: 26px; height: 26px; font-size: 13.5px; }
+  .gridin-wrap { max-width: none; }
+
+  .bot { gap: 8px; padding: 8px 10px; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .bot-l, .bot-r { gap: 6px; }
+  #pos-lbl { font-size: 12px; }
+  #btn-back, #btn-next { min-width: 0; padding: 9px 13px; }
+  /* the label does not fit beside Explanation, Back and Next; the glyph carries
+     it, the same way the rail's sign-in button drops to an arrow */
+  #btn-export { min-width: 0; padding: 9px 11px; font-size: 0; }
+  #btn-export::after { content: "\29C9"; font-size: 15px; }
+
+  /* the calculator has no half of the screen to dock into: it is a sheet */
+  .desmos-panel { left: 8px; right: 8px; width: auto; min-width: 0; bottom: 68px;
+                  height: min(58vh, 420px); resize: none; }
+
+  .modal { padding: 18px; max-height: 88vh; border-radius: 14px; }
+  .map-grid { grid-template-columns: repeat(auto-fill, minmax(38px, 1fr)); gap: 6px; }
+  .lb img { max-width: 96vw; max-height: 80vh; }
+  .res-wrap { padding: 26px 16px; }
+  .res-hero h1 { font-size: 23px; }
+  #hl-bar { padding: 8px; }
+  #hl-bar button { width: 30px; height: 30px; }
+}
 </style>
 </head>
 <body>
@@ -812,6 +942,54 @@ const demoji = (h) => MOJIBAKE.reduce((a, [bad, good]) => a.split(bad).join(good
 // and leaving it in the stem prints the answer above the choices.
 const LEAKED_RATIONALE = /<p>\s*(?:<strong>\s*)?Rationale\b[\s\S]*$/i;
 
+// --- tidyExpl (test_tidy_expl.cjs reads this block) ---
+// The rationales carry three formatting artifacts out of the PDF, all of them
+// visible as prose rather than as an error:
+//     935 rows print a space where a decoded notation run was joined to the
+//         punctuation after it - "or 11 ." , "(0,0) , (3,-12)";
+//   1,101 rows drop a paragraph break mid-sentence, so a <p> ends on "the" and
+//         the next one opens on "population of Iceland in 2014 was";
+//   2,090 rows run two or more choice analyses together in one paragraph, which
+//         on a phone is a wall of text where every other row is four paragraphs.
+// Done at load, not in the data: every consumer - the explanation modal, the
+// browse preview, the mistakes teaser, the AI export - reads this one field, and
+// D1's daily row-write budget is small enough that a 3,770-row migration costs
+// a real fraction of it.
+// Tags and \( ... \) spans are matched first so the rewrite only ever touches
+// prose. A space inside LaTeX is the author's; \, is a thin space, not an artifact.
+const PROSE = /(<[^>]*>|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\])|([ \t]+)(?=[,;:!?]|\.(?!\d))|[ \t]{2,}/g;
+// Split before a choice analysis, never at the head of its own paragraph.
+const CHOICE_LEAD = /(?!^)\s*(Choices?\s+[A-D](?:(?:,|\s+and)\s+[A-D])*\s+(?:is|are)\s+(?:in)?correct\b)/g;
+const ENDS_SENTENCE = /[.?!:”]["')\]]?\s*$/;
+
+const P_BLOCK = /^<p>([\s\S]*)<\/p>$/;
+
+function tidyExpl(html) {
+  // Split into blocks rather than pulling the paragraphs out: 229 rationales
+  // carry a <ul>, and anything not collected would be dropped on the floor. A
+  // non-paragraph block also separates its neighbours, so the rejoin below can
+  // never reach across a list.
+  const out = [];
+  for (const b of (html || '').split(/(<p>[\s\S]*?<\/p>)/)) {
+    if (!b.trim()) continue;
+    const p = b.match(P_BLOCK);
+    const prev = out.length ? out[out.length - 1].match(P_BLOCK) : null;
+    // Rejoin the torn paragraphs before splitting on choices: a tear can land in
+    // the middle of "Choice B is incorrect", and the split must see it whole.
+    if (p && prev && !ENDS_SENTENCE.test(prev[1].replace(/<[^>]+>/g, '').trim())) out[out.length - 1] = '<p>' + prev[1] + ' ' + p[1] + '</p>';
+    else out.push(b);
+  }
+  // The spacing pass runs last. Rejoining a tear puts a space in front of
+  // whatever the next paragraph opened with, and a torn paragraph often opens on
+  // its own punctuation (", or 17,136 miles per hour") - so tidying first only
+  // means putting the artifact straight back.
+  return out.map(b => {
+    const p = b.match(P_BLOCK);
+    return p ? '<p>' + p[1].trim().replace(CHOICE_LEAD, '</p><p>$1') + '</p>' : b;
+  }).join('').replace(PROSE, (m, keep, sp) => keep != null ? keep : sp != null ? '' : ' ');
+}
+// --- end tidyExpl ---
+
 // Progress belongs to the account, and only to the account. It is fetched on its
 // own so a sign-in or sign-out can swap accounts without pulling all 3,770
 // questions down again. A guest's answers live in memory for that sitting only:
@@ -919,7 +1097,7 @@ async function load() {
         q.answer = Array.isArray(a) ? a.join('') : String(a);
       } catch(e){ q.answer = q.correct_answer || ''; }
       q.stem_html = demoji(q.stem_html).replace(LEAKED_RATIONALE, '');
-      q.explanation_html = demoji(q.explanation_html);
+      q.explanation_html = tidyExpl(demoji(q.explanation_html));
       q.answer = demoji(q.answer);
       q.choices.forEach((c, i) => {
         if (c.content) c.content = demoji(c.content);
@@ -1056,6 +1234,123 @@ function setTab(t) {
 }
 NAV.forEach(b => b.onclick = () => setTab(b.dataset.tab));
 
+// ---------------- legal ----------------
+// Draft boilerplate. Nobody here is a lawyer; the modal says so and the contact
+// address is a placeholder until one is chosen.
+const LEGAL_CONTACT = '[contact email \u2014 fill this in]';
+const LEGAL = {
+  terms: { t: 'Terms of Service', h: `
+    <p>By using this site you agree to these terms. If you do not agree, do not use it.</p>
+    <h4>1. What this is</h4>
+    <p>A free, unofficial SAT&reg; practice tool. It is not affiliated with, endorsed by, or
+    sponsored by the College Board. SAT is a registered trademark of the College Board.</p>
+    <h4>2. Accounts</h4>
+    <p>An account is optional; without one your answers are kept only for the sitting. If you
+    create one, keep your password to yourself and tell us at ${LEGAL_CONTACT} if you think it
+    has been used by someone else. If you are under 13, ask a parent or guardian first.</p>
+    <h4>3. Acceptable use</h4>
+    <ul>
+      <li>Do not scrape, bulk-download or mirror the question bank.</li>
+      <li>Do not resell, relicense or redistribute the content.</li>
+      <li>Do not attack, overload or attempt to gain unauthorized access to the service.</li>
+      <li>Do not use automated tools to create accounts or submit answers.</li>
+    </ul>
+    <h4>4. Content</h4>
+    <p>The practice questions and explanations come from officially released College Board
+    materials, reproduced here for study. All rights in those materials remain with their
+    owner. The site's own code, design and data processing are owned by the operator.</p>
+    <h4>5. No warranty</h4>
+    <p>The service is provided "as is", without warranty of any kind. Question text, answers
+    and explanations are machine-extracted and may contain errors. Nothing here guarantees
+    any score, and nothing here is a substitute for the official test materials.</p>
+    <h4>6. Limitation of liability</h4>
+    <p>To the maximum extent permitted by law, the operator is not liable for any indirect,
+    incidental or consequential damages, or for any loss of data, arising from your use of
+    the service.</p>
+    <h4>7. Termination</h4>
+    <p>Access may be suspended or removed at any time, in particular for a breach of section 3.
+    You may stop using the service and request deletion of your account at any time.</p>
+    <h4>8. Changes</h4>
+    <p>These terms may change. Continued use after a change means you accept the new version.</p>
+    <h4>9. Contact</h4>
+    <p>${LEGAL_CONTACT}</p>` },
+
+  privacy: { t: 'Privacy Policy', h: `
+    <p>This site collects as little as it can and sells nothing.</p>
+    <h4>What is collected</h4>
+    <ul>
+      <li><b>If you sign in:</b> your email address, and your display name if you sign in with
+      Google. Authentication is handled by Supabase; passwords are stored by them, never here.</li>
+      <li><b>Your practice record:</b> which questions you answered, whether each was right,
+      how long it took, and your settings. Stored against your account id.</li>
+      <li><b>If you do not sign in:</b> nothing leaves your browser. Your answers live in the
+      page for that sitting and are gone when you reload.</li>
+    </ul>
+    <h4>Cookies and local storage</h4>
+    <p>Your browser stores your sign-in session and your settings (theme, retry mode, and
+    whether you have seen the welcome box). No advertising or cross-site tracking cookies
+    are set.</p>
+    <h4>Who processes it</h4>
+    <ul>
+      <li><b>Cloudflare</b> &mdash; hosting, the database holding your practice record, and
+      aggregate traffic analytics that set no cookies and identify no individual.</li>
+      <li><b>Supabase</b> &mdash; accounts and sign-in.</li>
+      <li><b>Google</b> &mdash; only if you choose to sign in with Google.</li>
+      <li><b>Desmos</b> &mdash; the College Board calculator is embedded from desmos.com and
+      loads when you open it.</li>
+    </ul>
+    <h4>What is never done</h4>
+    <p>Your data is not sold, rented, or shared with advertisers, and no profile is built for
+    any purpose other than showing you your own progress.</p>
+    <h4>Keeping and deleting it</h4>
+    <p>Your record is kept while your account exists. Write to ${LEGAL_CONTACT} to have your
+    account and everything attached to it deleted.</p>
+    <h4>Children</h4>
+    <p>Accounts are not knowingly created for children under 13. If you believe one has been,
+    write to ${LEGAL_CONTACT} and it will be removed.</p>
+    <h4>Contact</h4>
+    <p>${LEGAL_CONTACT}</p>` },
+
+  dmca: { t: 'Copyright / DMCA', h: `
+    <p>If you own the copyright in material shown here and believe it is used without
+    authorization, send a notice and it will be acted on.</p>
+    <h4>Sending a notice</h4>
+    <p>Email ${LEGAL_CONTACT} with:</p>
+    <ul>
+      <li>Your physical or electronic signature.</li>
+      <li>Identification of the work you say is infringed.</li>
+      <li>Identification of the material on this site and enough detail to locate it &mdash;
+      the question id is the most useful thing you can give.</li>
+      <li>Your address, telephone number and email address.</li>
+      <li>A statement that you believe in good faith that the use is not authorized by the
+      copyright owner, its agent, or the law.</li>
+      <li>A statement, under penalty of perjury, that the information is accurate and that you
+      are the owner or authorized to act for the owner.</li>
+    </ul>
+    <h4>What happens next</h4>
+    <p>Material identified in a complete notice is removed or disabled promptly.</p>
+    <h4>Counter-notice</h4>
+    <p>If your material was removed and you believe that was a mistake or a misidentification,
+    you may send a counter-notice to the same address containing your signature, identification
+    of the removed material and where it appeared, a statement under penalty of perjury that
+    you believe in good faith it was removed by mistake, and your name, address, telephone
+    number and consent to the jurisdiction of your local federal district court.</p>
+    <h4>Repeat infringers</h4>
+    <p>Accounts of repeat infringers are terminated.</p>` },
+};
+
+function legalModal(k) {
+  const root = $('modal-root'), d = LEGAL[k];
+  root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(680px,94vw)">
+    <h3>${d.t}</h3>
+    <div class="sub" style="margin:-8px 0 14px">Draft &mdash; not legal advice. Have a lawyer review before launch.</div>
+    <div class="legal">${d.h}</div>
+    <div class="frow" style="justify-content:flex-end;margin-top:18px"><button id="lg-x">Close</button></div>
+  </div></div>`;
+  root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML = ''; };
+  $('lg-x').onclick = () => root.innerHTML = '';
+}
+
 function drawSettings() {
   const row = (k, title, note, control) =>
     `<div class="set-row" data-k="${k}"><div class="set-l"><b>${title}</b><span>${note}</span></div>${control}</div>`;
@@ -1063,6 +1358,9 @@ function drawSettings() {
   const opt = (v, lab, cur) => `<option value="${esc(v)}"${String(cur)===String(v)?' selected':''}>${esc(lab)}</option>`;
 
   $('set-body').innerHTML =
+    row('account', uid ? 'Account' : 'Sign in',
+      uid ? $('nav-sub').textContent : 'Save your progress and pick it up on any device.',
+      `<button class="btn-p" id="set-auth">${uid ? 'Sign out' : 'Sign in'}</button>`) +
     row('theme', 'Appearance', 'System follows your device setting.',
       `<select data-set="theme">${['system','light','dark'].map(v => opt(v, v[0].toUpperCase()+v.slice(1), SET.theme)).join('')}</select>`) +
     row('retry', 'Retry mode', 'A wrong answer marks only the choice you picked and leaves the question open. The correct answer is never revealed for you.', sw('retry')) +
@@ -1070,7 +1368,12 @@ function drawSettings() {
     row('count', 'Default questions per set', 'What the Questions dropdown starts on.',
       `<select data-set="count">${[['10','10'],['20','20'],['30','30'],['50','50'],['0','All']].map(([v,l]) => opt(v, l, SET.count)).join('')}</select>`) +
     row('ai', 'AI instructions', 'Personalization passed to the AI assistant. Nothing reads this yet.',
-      `<textarea data-set="ai" placeholder="e.g. Explain like I am new to algebra. Keep it short.">${esc(SET.ai)}</textarea>`);
+      `<textarea data-set="ai" placeholder="e.g. Explain like I am new to algebra. Keep it short.">${esc(SET.ai)}</textarea>`) +
+    row('legal', 'Legal', 'Terms, privacy and copyright.',
+      `<div class="frow">${Object.entries(LEGAL).map(([k, v]) => `<button data-legal="${k}">${v.t}</button>`).join('')}</div>`);
+
+  $('set-auth').onclick = () => { if (uid) signOut(); else authModal(); };
+  $('set-body').querySelectorAll('[data-legal]').forEach(b => b.onclick = () => legalModal(b.dataset.legal));
 
   $('set-body').querySelectorAll('[data-sw]').forEach(b => b.onclick = () => {
     const on = !SET[b.dataset.sw];
@@ -2447,16 +2750,17 @@ function applySession(session) {
   $('nav-av').textContent = nm[0].toUpperCase();
   $('nav-sub').textContent = u ? (u.email || 'Signed in') : 'Not signed in';
   $authBtn.textContent = u ? 'Sign out' : 'Sign in';
+  if (TAB === 'settings') drawSettings();
   greet();
 }
 
-function authModal() {
+function authModal(first) {
   const root = $('modal-root');
   let signup = false;
   const draw = () => {
     root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(400px,92vw)">
-      <h3>${signup ? 'Create an account' : 'Sign in'}</h3>
-      <p class="sub" style="margin:-8px 0 16px">Your answers, markers and stars are saved to your account and follow you to any device.</p>
+      <h3>${signup ? 'Create an account' : first ? 'Welcome' : 'Sign in'}</h3>
+      <p class="sub" style="margin:-8px 0 16px">Your answers, markers and stars are saved to your account and follow you to any device.${first ? ' Without one they are kept only for this sitting.' : ''}</p>
       <button class="btn-p" id="au-g" style="width:100%">Continue with Google</button>
       <div class="sub" style="text-align:center;margin:14px 0">or</div>
       <form id="au-f" style="display:flex;flex-direction:column;gap:10px">
@@ -2468,7 +2772,7 @@ function authModal() {
       <div id="au-msg" class="sub" style="margin-top:12px;min-height:18px"></div>
       <div class="frow" style="justify-content:space-between;margin-top:6px">
         <button id="au-t">${signup ? 'I already have an account' : 'Create an account'}</button>
-        <button id="au-x">Close</button>
+        <button id="au-x">${first ? 'Continue as guest' : 'Close'}</button>
       </div>
     </div></div>`;
     root.querySelector('.modal-bg').onclick = (e) => { if (e.target.classList.contains('modal-bg')) root.innerHTML=''; };
@@ -2509,7 +2813,16 @@ function authModal() {
 // go
 // Guest work is session-only now; an older build left it in localStorage.
 ['satq_progress', 'satq_log'].forEach(k => localStorage.removeItem(k));
-(async () => { await initAuth(); await load(); })();
+(async () => {
+  await initAuth();
+  await load();
+  // Flag first, not on dismiss: the box is a one-time offer either way, and a
+  // reload should not nag.
+  if (!uid && !localStorage.getItem('satq_welcomed')) {
+    try { localStorage.setItem('satq_welcomed', '1'); } catch (e) {}
+    authModal(true);
+  }
+})();
 
 })();
 </script>
