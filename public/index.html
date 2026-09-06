@@ -422,6 +422,12 @@ img.minl { mix-blend-mode: multiply; }
 mark.hl { background: #fff3a3; color: #111827; border-radius: 3px; padding: 0 1px; cursor: pointer; }
 mark.hl-p { background: #ffc2e0; }
 mark.hl-b { background: #bfe3ff; }
+/* Unsaved answers. Fixed to the bottom because it must be visible on the test
+   player as well as on the home screens, and it sits above the phone tab bar. */
+#sync-bar { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 90; margin: 0 auto; max-width: 520px;
+  padding: 10px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 500; text-align: center;
+  background: var(--red-bg); color: var(--red); border: 1px solid var(--red); box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+@media (max-width: 760px) { #sync-bar { bottom: 76px; } }
 #hl-bar { position: fixed; z-index: 80; display: flex; align-items: center; gap: 6px; padding: 6px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
 #hl-bar button { width: 24px; height: 24px; padding: 0; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); }
 #hl-bar .hl-y { background: #fff3a3; } #hl-bar .hl-p { background: #ffc2e0; } #hl-bar .hl-b { background: #bfe3ff; }
@@ -1105,27 +1111,89 @@ function refresh() {
 }
 
 // One row or many. Signed out there is no account to put it in and the answer
-// stays in memory. A save that the server refuses is a lost answer, so it is
-// reported rather than swallowed.
+// stays in memory.
+//
+// A refused write used to be a lost answer: push() reported it and dropped the
+// rows on the floor, and a `warned` flag gated every later message, so after the
+// first failure the rest of the session saved nothing and said nothing. That is
+// what leaves the mistakes page holding some of a session's mistakes and not
+// others. D1's daily row-write cap is account-wide and lasts until midnight UTC,
+// so the first failure is usually followed by hundreds.
+// Rows are queued and re-sent instead, and the banner stays up while any wait.
+// --- sync
+const PENDING = { '/api/progress': [], '/api/attempts': [] };
+const PUSH_MAX = 200;          // the Worker caps a request at 500 rows
+let retryTimer = null;
+
 function saveProgress(rows) { push('/api/progress', rows); }
 function saveLog(rows) { push('/api/attempts', rows); }
 
-let warned = false;
-function warnSync(msg) { if (!warned) { warned = true; alert(msg); } }
-
-async function push(url, rows) {
+function push(url, rows) {
   if (!authToken) return;
+  const q = PENDING[url];
+  // A progress row is the question's whole current state, so a later answer to the
+  // same question replaces the one waiting rather than queueing behind it. Attempts
+  // are history and every one of them is kept.
+  rows.forEach(r => {
+    const i = url === '/api/progress' ? q.findIndex(x => x.question_id === r.question_id) : -1;
+    if (i >= 0) q[i] = r; else q.push(r);
+  });
+  return flush(url);
+}
+
+// One request per endpoint at a time. Answering while a flush is in the air would
+// otherwise send the same rows twice, and a duplicate write costs a row against
+// D1's daily cap - the thing that makes a save fail in the first place.
+const inflight = {};
+
+async function flush(url) {
+  const q = PENDING[url];
+  if (!authToken || !q.length || inflight[url]) return;
+  inflight[url] = true;
+  const batch = q.slice(0, PUSH_MAX);
+  let sent = false;
   try {
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...(await sbHeaders()) },
-      body: JSON.stringify(rows)
+      body: JSON.stringify(batch)
     });
     if (!r.ok) throw new Error(r.status);
+    q.splice(0, batch.length);
+    sent = true;
   } catch (e) {
-    warnSync('Your last answer did not save. Sign in again to keep your progress.');
+    // Keep the rows. The next answer flushes them, and this timer covers a student
+    // who answers their last question and then sits still.
+    if (!retryTimer) retryTimer = setTimeout(() => {
+      retryTimer = null;
+      Object.keys(PENDING).forEach(u => flush(u));
+    }, 15000);
   }
+  inflight[url] = false;
+  syncBanner();
+  if (sent && q.length) return flush(url);    // more than one batch was waiting
 }
+
+const unsaved = () => Object.values(PENDING).reduce((n, q) => n + q.length, 0);
+addEventListener('visibilitychange', () => { if (!document.hidden) Object.keys(PENDING).forEach(u => flush(u)); });
+
+// alert() blocks the page's JS thread - in the automation logs that reads as a
+// frozen renderer, and it is trivially dismissed and never seen again. A banner
+// says the same thing, stays for as long as it is true, and clears itself.
+let readWarn = '';
+function warnSync(msg) { readWarn = msg; syncBanner(); }
+
+function syncBanner() {
+  const n = unsaved();
+  const text = [readWarn, n ? `${n} answer${n === 1 ? '' : 's'} not saved yet \u2014 retrying. Keep this tab open.` : '']
+    .filter(Boolean).join(' ');
+  let b = $('sync-bar');
+  if (!text) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('div'); b.id = 'sync-bar'; document.body.appendChild(b); }
+  b.textContent = text;
+}
+
+// --- end sync ---
 
 async function load() {
   try {
@@ -1815,6 +1883,8 @@ wrongSet.one = (q) => {
   return true;
 };
 
+const MK_LABEL = { wrong: 'Needs work', fixed: 'Corrected', all: 'All' };
+
 function drawMistakes() {
   // Built with every filter except the topic one, so choosing a topic does not
   // empty the dropdown it was chosen from, and no topic is offered with nothing
@@ -1841,6 +1911,14 @@ function drawMistakes() {
     opts: Object.keys(groups).sort().flatMap(d =>
       [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d })))),
     get: () => MK.skills, set: (x) => { MK.skills = x; drawMistakes(); } });
+
+  // A mistake you have since got right becomes Orange and moves to Corrected, so
+  // the default view legitimately stops showing it. The counts say that out loud;
+  // without them a corrected question reads as a mistake that never arrived.
+  const nAt = (st) => { const was = MK.status; MK.status = st; const n = QS.filter(wrongSet.one).length; MK.status = was; return n; };
+  document.querySelectorAll('#mk-status button').forEach(b => {
+    b.textContent = `${MK_LABEL[b.dataset.s]} (${nAt(b.dataset.s).toLocaleString()})`;
+  });
 
   const list = wrongSet();
   $('mk-count').textContent = `${list.length.toLocaleString()} question${list.length === 1 ? '' : 's'}`;

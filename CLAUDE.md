@@ -1967,6 +1967,59 @@ One caveat that could not be measured here: the highlighter is bound to `mouseup
 only. The emulator translates mouse to touch so it passes, but a real phone makes
 a selection with OS handles and may never fire it. Needs a device to tell.
 
+### The mistake log kept some mistakes and dropped others (2026-09-05)
+
+Reported as "the mistake log isn't updating with my mistakes", signed in, some
+showing and some not. Two causes, one of them the reason the report said *some*.
+
+**A refused write was a lost answer, silently.** `push()` reported a failure
+through `warnSync()` and threw the rows away, and `warnSync` was gated by a
+module-level `warned` flag that never resets - so the *first* failed save in a
+page load alerted once and every save after it, for the rest of the session, was
+dropped without a word. D1's daily row-write cap is account-wide and lasts until
+midnight UTC (this account hit it on 2026-09-04, recorded above), so that first
+failure is normally followed by hundreds. The answers before the cap are in the
+database and the ones after it are not, which is exactly a mistakes page holding
+half a session.
+
+Rows are queued per endpoint and re-sent now: on the next answer, on
+`visibilitychange`, and on a 15s timer for a student who answers their last
+question and then sits still. A progress row is the question's whole current
+state, so a second answer to the same question replaces the one waiting; attempts
+are history and every one is kept. Batches of 200 (the Worker takes 500), and one
+request per endpoint at a time - answering while a flush is in the air would send
+the same rows twice, and a duplicate write costs a row against the very cap that
+caused the failure.
+
+`alert()` is gone with it. It blocks the page's JS thread (which is what the
+"renderer may be frozen" note above was), and it is dismissed once and never seen
+again. `#sync-bar` says "N answers not saved yet - retrying", stays up for as long
+as it is true, and removes itself when the queue drains. A read failure is its own
+sticky message and is not cleared by a write succeeding.
+
+`node test_sync.cjs` lifts the block out of `public/index.html` by its `// --- sync`
+markers (a copy would drift) and asserts: an accepted write leaves nothing queued,
+a refused one is kept and reported, the next push re-sends it with the answer that
+followed, progress dedupes by question and attempts do not, a 450-row queue drains
+as 200/200/50, signed out queues nothing, and a read warning survives a successful
+write.
+
+**The other half is not a bug.** A mistake you have since got right becomes
+`Orange` and moves out of the default "Needs work" view into "Corrected". The
+three status buttons now carry their counts, so a corrected question reads as
+corrected rather than as a mistake that never arrived.
+
+**And the mistakes page now updates on the Check, not on the way home.** `grade()`
+calls `refresh()` after it has moved `PROG` and `LOG`; before this the four home
+screens were only redrawn by `showHome()`, so a wrong answer reached the mistakes
+page when the session ended.
+
+Not verified here: production. This session has no Cloudflare credentials, so the
+remote D1 and `wrangler tail` could not be read, and `wrangler dev` cannot run in
+a fresh clone (`public/qimg` and `.wrangler/` are gitignored). The queue is
+covered by `test_sync.cjs` against a stubbed `fetch`; the D1 cap is inference from
+the source and from the 2026-09-04 entry, not a measurement of this account today.
+
 ### The mistake log only updated when you left practice (2026-09-06)
 
 Reported as the mistake log not picking up mistakes. Not persistence and not the
@@ -1992,4 +2045,3 @@ question and its correction still logs an attempt without walking the record to
 Green, an earlier Red going right gives Orange, and an unscorable question
 writes nothing so it draws nothing. Confirmed the test fails with the fix
 reverted, not just that it passes with it.
-

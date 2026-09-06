@@ -10,7 +10,7 @@ const fs = require('fs');
 const assert = require('assert');
 
 const page = fs.readFileSync(__dirname + '/public/index.html', 'utf8');
-const block = page.slice(page.indexOf('// --- grade\n'), page.indexOf('// --- end grade ---'));
+const block = page.slice(page.indexOf('// --- grade'), page.indexOf('// --- end grade ---'));
 if (!block) throw new Error('grade block not found in public/index.html');
 const grade = new Function(block + '\nreturn grade;')();
 
