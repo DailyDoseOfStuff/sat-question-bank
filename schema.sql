@@ -52,3 +52,14 @@ CREATE TABLE IF NOT EXISTS settings (
   json TEXT NOT NULL DEFAULT '{}',
   updated_at TEXT
 );
+
+-- One note per question per user, free text, edited in place. Bounded by its own
+-- primary key once question_id has to name a real question, exactly as `progress`
+-- is - so no per-account row ceiling is needed here.
+CREATE TABLE IF NOT EXISTS notes (
+  user_id TEXT NOT NULL,
+  question_id TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  updated_at TEXT,
+  PRIMARY KEY (user_id, question_id)
+);

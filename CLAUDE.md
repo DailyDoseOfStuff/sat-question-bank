@@ -2045,3 +2045,69 @@ question and its correction still logs an attempt without walking the record to
 Green, an earlier Red going right gives Orange, and an unscorable question
 writes nothing so it draws nothing. Confirmed the test fails with the fix
 reverted, not just that it passes with it.
+
+### Per-question notes, and the mistake the bank could not see (2026-09-06)
+
+Two things, one cause between them.
+
+**A mistake with no marker.** `progress` and `attempts` are written to different
+endpoints with different queues, so a refused `progress` write next to an accepted
+`attempts` one leaves a question you got wrong with **no marker at all** - invisible
+to the mistake bank while the attempt behind it sits in the database. Measured on
+the account's remote D1: 7 progress rows, 1 attempt row, and that attempt
+(`9391b7cc`, wrong, 2026-09-05) has no progress row. That is the report.
+
+`backfillProgress()` is the mirror of `backfillLog()` and rebuilds the marker from
+the attempts - `Red` if the last one was wrong, `Orange` if it was later corrected.
+In memory only: a stored row always wins, nothing is written back, so a later real
+answer overwrites it cleanly and a rebuild costs nothing against D1's daily
+row-write cap, which is what refused the write in the first place. It self-heals
+every future refusal too, not just this one.
+
+Anything that failed *both* writes left no trace anywhere and is not recoverable -
+guest keys are wiped at boot and D1 never saw it. Ceiling: 1 question here.
+
+**Notes.** New `notes` table (`migrations/0008_notes.sql`), one row per
+(user, question), `/api/notes` GET/POST shaped exactly like `/api/progress` -
+`WHERE EXISTS(SELECT 1 FROM questions ...)` so the primary key bounds what an
+account can write, and an emptied note DELETEs rather than storing a blank row.
+Notes ride the existing retry queue; a later edit replaces the one waiting, which
+is why `push()`'s dedupe is now "everything except `/api/attempts`" rather than
+"only `/api/progress`".
+
+**The explanation is a docked panel, not a modal.** A note about a question you are
+looking at should not cover the question. Desmos docks left, this docks right
+(`.work.expl-shift .panes { margin-right: 540px }`), and opening either closes the
+other - two 520px panels leave 200px of question on a 1280px screen. Under 760px
+both are the same bottom sheet. The note box lives in that panel, above the
+rationale; `#btn-note` opens it focused, `#btn-expl` opens it as before.
+
+**One rule for auto-open, covering both modes:** the panel opens when a question
+CLOSES and it was missed at least once. Normal mode, a wrong Check closes it.
+Retry mode, the eventual right answer closes it - so nothing opens while a retry
+question is still live and the answer is never revealed early. Right first try,
+never. Leaving a retry question you never solved is a miss too, so the first Next
+opens the panel and holds; a second Next moves on. Settings toggle
+`noteOnWrong`, default on.
+
+A saved note renders in the question itself as `#note-chip` under the answer area,
+and on its mistake card. **Export notes** on the Mistakes page downloads every note
+as Markdown - every note, not the filtered view: an export is of what you wrote, a
+filter is a view.
+
+`node test_notes.cjs` lifts `backfillProgress` and `notesMd` out of the page by
+their markers (a copy would drift) - 6 cases: the real defect rebuilt as Red, a
+stored row never overwritten, wrong-then-right as Orange, only-ever-right left
+alone, every note exported, and a whitespace-only note dropped while a note whose
+question has left the bank is still exported. Confirmed it fails with the
+`if (PROG[id]) return` guard removed. `test_worker_sql.cjs` gained the notes upsert
+(fake id writes nothing, edit overwrites in place, empty deletes).
+
+Verified in the browser at 1280, 375 and 320px: panel docks right at 520px with the
+panes at `margin-right: 540px`; bottom sheet at 8/8 above the bar on a phone;
+**0 overflow at 320px with Next fully inside** (the note button pushed the row 1px
+over until it took `#btn-expl`'s narrow padding under 360px); note saves on blur and
+on the button, survives Next → Back, reappears in the chip and on the mistake card;
+retry mode marks only the picked choice with no panel, then opens on the right
+answer; give-up Next opens once then advances; calculator and panel close each
+other both ways round; 0 console errors, 0 KaTeX errors.

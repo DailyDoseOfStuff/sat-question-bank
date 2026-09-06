@@ -120,6 +120,8 @@ const MAX_ATTEMPTS = 100000;
 // stores something that will never parse again - the read side then silently
 // hands back {} and the account's preferences are gone. Refuse it instead.
 const MAX_SETTINGS = 8000;
+// A note is prose about one question, not a document.
+const MAX_NOTE = 4000;
 const str = (v, n) => (typeof v === 'string' ? v.slice(0, n) : '');
 
 export default {
@@ -228,6 +230,42 @@ export default {
       await env.DB.batch(rows.map(r => stmt.bind(
         u.id, str(r.question_id, 64), str(r.ts, 32), r.correct ? 1 : 0, r.time_taken_ms | 0,
         str(r.question_id, 64))));
+      return json({ ok: true, saved: rows.length });
+    }
+
+    // One note per question: why you missed it, in your own words. Same shape as
+    // progress - keyed on (user, question), rewritten in place, and bounded by that
+    // primary key once question_id has to name a real question.
+    if (p === '/api/notes' && req.method === 'GET') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
+      const r = await env.DB.prepare(
+        'SELECT question_id, body, updated_at FROM notes WHERE user_id = ?').bind(u.id).all();
+      return json(r.results || []);
+    }
+
+    if (p === '/api/notes' && req.method === 'POST') {
+      const u = await whoami(req, env);
+      if (!u) return json({ error: 'unauthorized' }, 401);
+      const b = await req.json().catch(() => null);
+      const rows = (Array.isArray(b) ? b : [b])
+        .filter(r => r && typeof r.question_id === 'string' && r.question_id)
+        .slice(0, MAX_ROWS);
+      if (!rows.length) return json({ ok: true, saved: 0 });
+      // An emptied note is a delete, not a blank row - otherwise clearing one still
+      // costs a row and the export has to filter empties back out.
+      const del = env.DB.prepare('DELETE FROM notes WHERE user_id = ? AND question_id = ?');
+      const put = env.DB.prepare(
+        `INSERT INTO notes (user_id, question_id, body, updated_at)
+           SELECT ?,?,?,datetime('now') WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
+         ON CONFLICT(user_id, question_id) DO UPDATE SET
+           body=excluded.body, updated_at=excluded.updated_at`
+      );
+      await env.DB.batch(rows.map(r => {
+        const body = str(r.body, MAX_NOTE).trim();
+        const qid = str(r.question_id, 64);
+        return body ? put.bind(u.id, qid, body, qid) : del.bind(u.id, qid);
+      }));
       return json({ ok: true, saved: rows.length });
     }
 

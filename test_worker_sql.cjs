@@ -26,6 +26,20 @@ A.run('u1', 'real1', 'T0', 1, 5, 'real1');
 A.run('u1', 'FAKE',  'T0', 1, 5, 'FAKE');
 A.run('u1', 'real1', 'T0', 1, 5, 'real1');   // same (question, ts) — append-only, ignored
 
+const NP = db.prepare(`INSERT INTO notes (user_id, question_id, body, updated_at)
+   SELECT ?,?,?,datetime('now') WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
+ ON CONFLICT(user_id, question_id) DO UPDATE SET
+   body=excluded.body, updated_at=excluded.updated_at`);
+const ND = db.prepare('DELETE FROM notes WHERE user_id = ? AND question_id = ?');
+NP.run('u1', 'real1', 'first', 'real1');
+NP.run('u1', 'FAKE',  'nope',  'FAKE');
+NP.run('u1', 'real1', 'second', 'real1');
+const nt = db.prepare('SELECT * FROM notes').all();
+assert.strictEqual(nt.length, 1, 'notes accepted an id the bank does not have');
+assert.strictEqual(nt[0].body, 'second', 'note upsert did not overwrite in place');
+ND.run('u1', 'real1');
+assert.strictEqual(db.prepare('SELECT * FROM notes').all().length, 0, 'emptying a note must delete the row');
+
 const pr = db.prepare('SELECT * FROM progress').all();
 const at = db.prepare('SELECT * FROM attempts').all();
 assert.strictEqual(pr.length, 1, 'progress accepted an id the bank does not have');
