@@ -2287,6 +2287,7 @@ function isRight(q, val) {
   return a === String(val).trim().toUpperCase();
 }
 
+// --- grade
 function grade(q) {
   const ok = isRight(q, S.ans[q.id]);
   const first = !S.tried[q.id];
@@ -2327,8 +2328,15 @@ function grade(q) {
   LOG.push(ev);
   saveLog([ev]);
 
+  // The home screens are behind the player, and nothing redrew them until the
+  // session ended - so a question missed at 09:00 was absent from the mistake log
+  // until you left practice. They read PROG and LOG, which have just moved, so
+  // they are redrawn here rather than on the way out.
+  refresh();
+
   renderAnswerArea(q);
 }
+// --- end grade ---
 
 // ---------------- highlighter ----------------
 // Session-only: a re-render of the question drops the marks with it, which is

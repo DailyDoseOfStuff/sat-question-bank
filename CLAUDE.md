@@ -1966,3 +1966,30 @@ tables at 14.5px.
 One caveat that could not be measured here: the highlighter is bound to `mouseup`
 only. The emulator translates mouse to touch so it passes, but a real phone makes
 a selection with OS handles and may never fire it. Needs a device to tell.
+
+### The mistake log only updated when you left practice (2026-09-06)
+
+Reported as the mistake log not picking up mistakes. Not persistence and not the
+grading: `grade()` sets `PROG[id].marker = 'Red'` and POSTs it the moment a wrong
+Check lands. The home screens sit behind the player and nothing redrew them until
+`showHome()` ran, so a question missed at 09:00 was absent from the Mistakes page
+until the session ended. Reproduced in the player before touching anything -
+`#mk-count` read "0 questions" with the choice already marked wrong, and flipped
+to "1 question" only on Confirm-end-session.
+
+`grade()` now calls `refresh()` after `PROG` and `LOG` move. That is the function
+that exists for exactly this ("every screen reads the same PROG/LOG, so they are
+redrawn together rather than each caller picking a subset"), so the dashboard,
+the home cards and the topic list are current too. Measured at 27ms per Check
+over the whole 3,770-row bank - a click, once.
+
+`node test_grade.cjs` lifts `grade()` out of the page by its `// --- grade`
+markers (the same trick `test_tidy_expl.cjs` uses, so the test cannot drift from
+what ships) and stubs its free variables. Six cases: a wrong answer marks Red
+*and* redraws, the redraw happens **after** the record moves rather than before
+it, a right answer redraws too, retry mode marks and redraws without closing the
+question and its correction still logs an attempt without walking the record to
+Green, an earlier Red going right gives Orange, and an unscorable question
+writes nothing so it draws nothing. Confirmed the test fails with the fix
+reverted, not just that it passes with it.
+
