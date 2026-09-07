@@ -333,6 +333,9 @@ select:hover { border-color: var(--border2); }
 .panes.solo .pane-a > * { max-width: 920px; margin-left: auto; margin-right: auto; }
 
 .qhead { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+.chip-ai { display:inline-block; padding:3px 9px; border-radius:999px; font-size:11.5px;
+  font-weight:600; letter-spacing:.02em; background:var(--mint); color:var(--mint-ink);
+  border:1px solid rgba(0,0,0,.08); }
 .qnum { min-width: 34px; height: 34px; padding: 0 8px; border-radius: 9px; background: var(--text); color: var(--bg); font-weight: 700; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; }
 .flag-btn { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 500; color: var(--dim); border: 0; background: transparent; padding: 6px 8px; }
 .flag-btn .fi { font-size: 15px; }
@@ -1269,6 +1272,8 @@ async function load() {
         if (!String(c.letter == null ? '' : c.letter).trim()) c.letter = 'ABCD'[i] || String(i + 1);
       });
       q.spr = !q.choices.length;
+      q.ai = q.source === 'AI';
+      q.level = levelOf(q);
       if (q.choices.length) {
         const m = q.answer.match(/^\s*([A-D])\s*[\u2014\u2013-]\s*\S/);
         if (m) q.answer = m[1];
@@ -1289,7 +1294,8 @@ async function load() {
     });
     await loadProgress();
     await loadSettings();
-    $('src-pill').textContent = `${QS.length.toLocaleString()} official College Board questions · synced with Cloudflare D1`;
+    const nAI = QS.filter(q => q.ai).length;
+    $('src-pill').textContent = `${(QS.length - nAI).toLocaleString()} official College Board questions · ${nAI.toLocaleString()} AI questions harder than the official Hard · synced with Cloudflare D1`;
   } catch(e) {
     $('src-pill').textContent = 'Could not reach the server — is server.js running?';
   }
@@ -1606,6 +1612,55 @@ function tally(list) {
   });
   return t;
 }
+
+// --- metrics (test_metrics.cjs reads this block)
+// Official rows carry no `level`; their difficulty is the rank. AI rows carry 4 or 5.
+const LVL = { easy: 1, medium: 2, hard: 3 };
+const levelOf = (q) => q.level || LVL[String(q.difficulty || '').toLowerCase()] || 2;
+
+// SAT pacing: 35 minutes for 22 Math questions, 32 for 27 Reading & Writing.
+const TARGET_MS = { Math: 95000, 'Reading & Writing': 71000 };
+const targetOf = (q) => TARGET_MS[q.section] || 85000;
+
+// Which trap each miss walked into. The wrong pick is looked up in that question's
+// own choices, so the tag travels with the question rather than being re-derived.
+function trapCounts() {
+  const byId = new Map(QS.map(q => [q.id, q]));
+  const n = {};
+  LOG.forEach(x => {
+    if (x.correct || !x.picked) return;
+    const q = byId.get(x.question_id); if (!q || !q.choices) return;
+    const c = q.choices.find(c => c.letter === x.picked);
+    if (c && c.trap) n[c.trap] = (n[c.trap] || 0) + 1;
+  });
+  return Object.entries(n).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+// Under 60% of the section target is rushed, over 140% is slow, between is on pace.
+function pacing() {
+  const byId = new Map(QS.map(q => [q.id, q]));
+  const out = { rushed: 0, onPace: 0, slow: 0, ms: {}, n: {} };
+  LOG.forEach(x => {
+    const q = byId.get(x.question_id); if (!q || !x.time_taken_ms) return;
+    const t = targetOf(q), r = x.time_taken_ms / t;
+    out[r < 0.6 ? 'rushed' : r > 1.4 ? 'slow' : 'onPace']++;
+    out.ms[q.section] = (out.ms[q.section] || 0) + x.time_taken_ms;
+    out.n[q.section] = (out.n[q.section] || 0) + 1;
+  });
+  return out;
+}
+
+// Second-guessing: how often a selection is switched before Check, and whether
+// switching helps. Attempts logged before this shipped carry no `changes` at all.
+function guessing() {
+  const seen = LOG.filter(x => x.changes != null);
+  const tot = seen.reduce((n, x) => n + (x.changes | 0), 0);
+  const ch = seen.filter(x => (x.changes | 0) > 0), st = seen.filter(x => !(x.changes | 0));
+  const acc = (l) => l.length ? Math.round(l.filter(x => x.correct).length / l.length * 100) : null;
+  return { mean: seen.length ? tot / seen.length : 0, n: seen.length,
+           changedAcc: acc(ch), steadyAcc: acc(st), changedN: ch.length };
+}
+// --- end metrics
 
 const pctOf = (v) => v.a ? Math.round(v.c/v.a*100) : null;
 const accHTML = (pct) => pct == null ? '&mdash;'
@@ -2134,7 +2189,7 @@ function start(items) {
   S = {
     items, i: 0,
     ans: {}, checked: {}, flags: {}, ko: {},
-    sel: {}, miss: {}, tried: {}, noted: {},
+    sel: {}, miss: {}, tried: {}, noted: {}, changes: {},
     started: Date.now(), ended: null,
     qStart: Date.now(),
     paused: false, timerHidden: false,
@@ -2332,6 +2387,7 @@ function renderPanes(q) {
 
   const qhead = `<div class="qhead">
     <span class="qnum">${S.i+1}</span>
+    ${q.ai ? `<span class="chip-ai">AI &middot; Level ${q.level}</span>` : ''}
     <button class="flag-btn ${S.flags[q.id]?'on':''}" id="btn-flag"><span class="fi">⚑</span> Mark for Review</button>
   </div>`;
 
@@ -2408,6 +2464,9 @@ function renderAnswerArea(q) {
       const bindCheck = (b) => b.onclick = (ev) => { ev.stopPropagation(); S.ans[q.id] = letter; grade(q); };
       el.onclick = (e) => {
         if (e.target.closest('.ko-btn, .chk-btn, mark')) return;
+        // Switches, not first picks: choosing for the first time is not a second
+        // guess. Read back by the dashboard's Second-guessing panel.
+        if (S.sel[q.id] && S.sel[q.id] !== letter) S.changes[q.id] = (S.changes[q.id] || 0) + 1;
         S.sel[q.id] = letter;
         target.querySelectorAll('.choice').forEach(x => {
           if (x !== el) x.classList.remove('sel');
@@ -2497,7 +2556,9 @@ function grade(q) {
   }
 
   // The attempt log is the history, and a retry is work that was really done.
-  const ev = { question_id: q.id, ts: now, correct: ok === true ? 1 : 0, time_taken_ms: ms };
+  const ev = { question_id: q.id, ts: now, correct: ok === true ? 1 : 0, time_taken_ms: ms,
+               picked: String(S.ans[q.id] == null ? '' : S.ans[q.id]).slice(0, 32),
+               changes: S.changes[q.id] | 0 };
   LOG.push(ev);
   saveLog([ev]);
 
