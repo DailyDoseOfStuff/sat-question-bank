@@ -23,7 +23,15 @@ function setup(opts) {
   global.PROG = opts.prog || {};
   global.LOG = [];
   global.SET = { retry: !!opts.retry };
-  global.S = { ans: {}, sel: {}, miss: {}, tried: {}, checked: {}, qStart: Date.now() };
+  global.S = { ans: {}, sel: {}, miss: {}, tried: {}, checked: {}, changes: {},
+               qStart: Date.now(),
+               // Focus fields: the ladder only runs when `focus` is set, so an
+               // ordinary session leaves S.lvl and S.streak alone.
+               focus: !!opts.focus, lvl: opts.lvl || 3, streak: 0,
+               items: opts.items || [Q], i: 0 };
+  global.levelOf = (q) => q.level || 3;
+  global.nextLevel = (lvl, streak, ok) =>
+    ok ? (streak >= 2 ? Math.min(5, lvl + 1) : lvl) : Math.max(1, lvl - 1);
   drawn = 0; saved = []; logged = [];
   global.refresh = () => { drawn++; drawnAt = { marker: (PROG[Q.id]||{}).marker, log: LOG.length }; };
   global.saveProgress = (r) => saved.push(...r);

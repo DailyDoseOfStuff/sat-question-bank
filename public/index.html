@@ -820,6 +820,7 @@ mark.hl-b { background: #bfe3ff; }
           <div class="ctrls" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">
             <div class="dd" id="md-sec"></div>
             <div class="dd" id="md-diff"></div>
+            <div class="dd" id="md-bank"></div>
             <div class="dd" id="md-topic"></div>
           </div>
         </div>
@@ -2125,7 +2126,7 @@ document.querySelectorAll('#db-range button').forEach(b => b.onclick = () => {
 });
 
 // ---------------- mistakes ----------------
-const MK = { sec:null, diff:null, skills:null, status:'wrong' };
+const MK = { sec:null, diff:null, skills:null, status:'wrong', bank:null };
 // Tags out, then entities decoded, or the preview prints "Wigan&#x27;s". The
 // decode goes through a textarea because its content is raw text: no elements are
 // built and no <img> in the stem gets fetched just to read a two-line preview.
@@ -2145,6 +2146,7 @@ wrongSet.one = (q) => {
   const fixed = PROG[q.id].marker === 'Orange';
   if (MK.status === 'wrong' && fixed) return false;
   if (MK.status === 'fixed' && !fixed) return false;
+  if (MK.bank && !MK.bank.includes(q.ai ? 'ai' : 'official')) return false;
   if (MK.sec && !MK.sec.includes(q.section)) return false;
   if (MK.diff && !MK.diff.map(d => d.toLowerCase()).includes((q.difficulty||'').toLowerCase())) return false;
   if (MK.skills && !MK.skills.includes(q.skill || 'Other')) return false;
@@ -2175,6 +2177,9 @@ function drawMistakes() {
   dd($('md-diff'), { label: 'Difficulty', allLabel: 'All difficulties',
     opts: DIFFS.map(v => ({ v, label: v })),
     get: () => MK.diff, set: (x) => { MK.diff = x; drawMistakes(); } });
+  dd($('md-bank'), { label: 'Bank', allLabel: 'Both banks',
+    opts: [{ v: 'official', label: 'Official' }, { v: 'ai', label: 'AI' }],
+    get: () => MK.bank, set: (x) => { MK.bank = x; drawMistakes(); } });
   dd($('md-topic'), { label: 'Topic', allLabel: 'All topics',
     opts: Object.keys(groups).sort().flatMap(d =>
       [{ v: d, label: d, head: true }].concat([...groups[d]].sort().map(sk => ({ v: sk, label: sk, group: d })))),
