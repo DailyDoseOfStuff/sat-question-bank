@@ -190,7 +190,15 @@ function localDbs() {
     const db = new Database(path.join(dir, f));
     const cols = db.prepare('PRAGMA table_info(questions)').all().map(c => c.name);
     if (!cols.length) { db.close(); continue; }
-    if (cols.includes('level')) ai = db; else main = db;
+    if (cols.includes('level')) {
+      // Changing `database_id` in wrangler.toml re-keys the local miniflare file, so
+      // the old one is left behind holding the rows while the binding points at a new
+      // empty database. Two candidates here means exactly that, and picking either
+      // silently is how the local bank appears to empty itself.
+      if (ai) throw new Error('two local AI databases in ' + dir +
+        ' - the database_id in wrangler.toml changed. Delete the stale file and re-run.');
+      ai = db;
+    } else main = db;
   }
   if (!ai) throw new Error('no local AI database - run: npx wrangler d1 execute AI_DB --local --file=schema_ai.sql');
   if (!main) throw new Error('no local main database');

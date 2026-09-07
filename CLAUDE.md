@@ -2258,3 +2258,14 @@ crops.
 `window.__qa()` joins `window.__dd` as a hook for the DOM assertions: the render,
 grading and focus paths live inside the page's IIFE, so a sweep can only drive the
 real ones through it.
+
+**One trap the verification loop caught, worth remembering:** setting the real
+`database_id` in `wrangler.toml` after `d1 create` **re-keys the local miniflare
+file**. Miniflare names each local sqlite by a hash of the id, so the binding then
+points at a brand-new empty database while the old file keeps the rows, and
+`/api/questions` quietly drops back to 3,770 with no error anywhere. Re-import from
+`tools/aiq/*.jsonl` and delete the stale file; `localDbs()` in `tools/apply_ai.cjs`
+now throws when it finds two AI-shaped databases rather than picking one at random,
+because picking either silently is exactly how this hides. Stop `wrangler dev`
+first — it holds the local D1 in memory and flushes on shutdown over anything
+written underneath it.
