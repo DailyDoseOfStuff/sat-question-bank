@@ -16,6 +16,13 @@ const RW_TRAPS = ['out-of-scope', 'too-extreme', 'true-but-irrelevant',
   'transition-reversal', 'pronoun-ambiguity'];
 const TRAPS = new Set([...MATH_TRAPS, ...RW_TRAPS]);
 
+// The skills whose answer is decided by what the passage says. A Boundaries or
+// Transitions answer is decided by the sentence's structure instead, so those are
+// not required to quote.
+const EVIDENCE = new Set(['Command of Evidence', 'Central Ideas and Details',
+  'Inferences', 'Cross-Text Connections', 'Words in Context',
+  'Text Structure and Purpose']);
+
 const text = (h) => String(h || '').replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ')
   .replace(/\s+/g, ' ').trim();
 
@@ -52,8 +59,10 @@ function validate(r, seen) {
     if (!isRight && c.trap && !TRAPS.has(c.trap)) bad.push(`unknown trap "${c.trap}"`);
     if (isRight && c.trap) bad.push(`the correct choice ${c.letter} carries a trap tag`);
   }
-  // Four choices that read the same are four ways of being unanswerable.
-  const bodies = ch.map(c => text(c.content).toLowerCase());
+  // Four choices that read the same are four ways of being unanswerable. Compared
+  // raw rather than through text(): a Boundaries question's choices differ only by
+  // punctuation, and stripping entities would make two of them look identical.
+  const bodies = ch.map(c => String(c.content).replace(/\s+/g, ' ').trim().toLowerCase());
   if (bodies.length && new Set(bodies).size !== bodies.length) bad.push('two choices are identical');
 
   const ex = r.explanation_html || '';
@@ -81,14 +90,21 @@ function validate(r, seen) {
   if (svgs.length && !/<title>/i.test(r.stem_html)) bad.push('an <svg> with no <title>');
   if (/(stroke|fill)="#(0{3}|0{6})"/i.test(all)) bad.push('an SVG hardcodes black - use currentColor');
 
-  // A Reading & Writing answer has to be provable from the passage, not from taste:
-  // some run of five or more words in the rationale must appear in the stem.
-  if (r.section !== 'Math' && !spr) {
-    const stem = text(r.stem_html).toLowerCase();
-    const words = text(ex).toLowerCase().split(' ');
+  // An evidence question's answer has to be provable from the passage, not from
+  // taste: some run of five or more words in the rationale must appear in the stem.
+  // Grammar and synthesis questions are excluded - a Boundaries answer is proved by
+  // the clause structure and a Rhetorical Synthesis answer by the notes, so demanding
+  // a quotation there would reject correct rows. Compared on words alone, because a
+  // quotation that ends on a comma where the passage ends on a period is still a
+  // quotation.
+  const words5 = (s2) => text(s2).toLowerCase().replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  if (EVIDENCE.has(r.skill) && !spr) {
+    const stem = words5(r.stem_html);
+    const w = words5(ex).split(' ');
     let quoted = false;
-    for (let i = 0; i + 5 <= words.length && !quoted; i++)
-      if (stem.includes(words.slice(i, i + 5).join(' '))) quoted = true;
+    for (let i = 0; i + 5 <= w.length && !quoted; i++)
+      if (stem.includes(w.slice(i, i + 5).join(' '))) quoted = true;
     if (!quoted) bad.push('the rationale never quotes the passage');
   }
   return bad;
