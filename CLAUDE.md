@@ -2111,3 +2111,150 @@ on the button, survives Next → Back, reappears in the chip and on the mistake 
 retry mode marks only the picked choice with no panel, then opens on the right
 answer; give-up Next opens once then advances; calculator and panel close each
 other both ways round; 0 console errors, 0 KaTeX errors.
+
+### A second bank: 100 AI questions, attempt analytics, adaptive focus practice (2026-09-07)
+
+Spec `docs/superpowers/specs/2026-09-07-ai-question-bank-design.md`, plan
+`docs/superpowers/plans/2026-09-07-ai-question-bank.md`.
+
+**The AI bank is a second D1 database**, `sat_ai_bank`, bound as `AI_DB`
+(`ce533bdc-…`). Its `questions` table carries the same column names as the main
+bank's plus `level`, so `/api/questions` runs the same SELECT twice and
+concatenates. Two consequences drove the design:
+
+- **D1's daily row-write cap is account-wide.** A second database isolates the AI
+  content from whatever else is editing the official bank; it buys no extra budget.
+- **D1 cannot join across databases.** `progress`, `attempts` and `notes` bound what
+  an account may write with `WHERE EXISTS (SELECT 1 FROM questions WHERE id = ?)`.
+  An AI id fails that guard in the main DB, so **every answer to an AI question would
+  have been dropped in silence**. `tools/apply_ai.cjs` therefore also writes a
+  one-column registry `ai_ids` into the *main* DB and each guard became
+  `EXISTS questions OR EXISTS ai_ids`. 100 tiny rows, and the bound stays exact.
+  Rejected: putting the user tables in the AI DB as well — that splits one account's
+  history across two databases and doubles every read, write and backfill path.
+
+**The rows.** 100 questions, 75 Reading & Writing / 25 Math, `source='AI'`,
+`difficulty='Hard'` (so every existing filter, dropdown and dashboard order array
+keeps working untouched) and `level` 4 or 5, which is the rank the focus ladder
+climbs. Official rows have no `level`; the client derives Easy/Medium/Hard = 1/2/3
+at load, so no official row changed.
+
+Each wrong choice carries a `trap` tag inside `choices_json` — an extra key the
+existing render ignores and the dashboard reads. The vocabulary is fixed (12 Math,
+12 Reading & Writing tags in `tools/apply_ai.cjs`) precisely so the tags aggregate.
+Explanations follow one template: a **Traps in this question** block first, then
+*Why A/B/C/D is right/wrong*, then the clean path.
+
+**Graphs are inline `<svg>`**, not crops: theme-aware through `currentColor`,
+nothing added to `/qimg`, no asset-cap risk, and none of the worktree-junction trap
+that has broken two deploys. 6 rows carry one; 1 carries an HTML table.
+
+**The validator is the thing that stops a bad question shipping.**
+`node tools/apply_ai.cjs <batch.jsonl>` refuses a batch on: a malformed id, a
+duplicate, a skill outside the official taxonomy, `level` outside 4–5, not exactly
+one correct choice, an answer letter absent from the choices, a grid-in answer the
+player's own `isRight()` could never accept, an empty or duplicated choice, a wrong
+choice with no trap tag or a tag outside the vocabulary, a trap tag on the *correct*
+choice, a missing Traps block, a missing per-choice paragraph, unbalanced `\(`,
+mojibake, an `<img>`, an `<svg>` with no `viewBox`/`role`/`<title>` or hardcoded
+black, and — for the evidence skills only — a rationale that never quotes the
+passage. `--check` validates without writing; `--test` is its self-check.
+
+Three calibration bugs in the validator itself, all of which rejected *correct*
+rows, and all worth remembering:
+
+1. **The quote check compared tokens with their punctuation attached**, so a
+   rationale ending a quotation on a comma where the passage ended on a period read
+   as not quoting at all. It compares words only now.
+2. **It demanded a quotation from every Reading & Writing row.** A Boundaries answer
+   is proved by clause structure and a Rhetorical Synthesis answer by the notes;
+   only the six evidence skills are asked to quote.
+3. **The duplicate-choice check ran on entity-stripped text**, so a Boundaries
+   question whose choices differ only by `&mdash;` looked like it had two identical
+   choices. It compares raw content.
+
+`tools/aiq/*.jsonl` is the source of record and is tracked (`.gitignore` negation);
+`d1_ai/` is regenerable and is not.
+
+**Metrics.** `migrations/0009_ai_bank.sql` adds `attempts.picked` (the letter, or
+the grid-in entry) and `attempts.changes` (selection switches before Check), plus
+`ai_ids`. Pacing needs no column — it is `time_taken_ms` against a section target
+(Math 95s, Reading & Writing 71s). `changes` counts *switches*, not first picks:
+choosing for the first time is not a second guess.
+
+The dashboard gains four panels, each a number and a graph: **Traps you fall for**
+(the wrong pick looked up in that question's own choices, ranked), **Pacing**
+(rushed under 60% of target / on pace / slow over 140%, plus mean time vs target per
+section), **Second-guessing** (mean switches, and accuracy when you changed against
+when you did not), and **Accuracy by level** (1–5, where 4 and 5 are the AI bank).
+All four read the attempt log, so a re-drill counts twice there exactly as it does
+in the activity chart.
+
+**Focus practice.** A mode switch beside Start practice opens a popup: Section,
+Bank (Official / AI / Both), 30 / 35 / 40 questions, Timing (Untimed / Whole set /
+Per question at 1×, 1.5×, 2×) and, under per-question timing only, auto-advance.
+Weakness per skill is `(misses + 1) / (attempts + 2)` — Laplace-smoothed, so an
+untouched skill scores 0.5 and surfaces instead of being invisible — and slots are
+allocated across skills in proportion to it. The ladder starts at the set's median
+level, `+1` after two consecutive correct (cap 5), `-1` on a miss (floor 1), and
+what is left of the set is reordered so the next question is the one nearest the new
+target.
+
+One bug worth keeping: **the round-robin ignored its own quota after the first
+pass**, so a 28/2 split came out 15/15 and the "weak skill" was not weighted at all.
+It is two phases now — quota first, then a free top-up so a skill running out of
+questions cannot shorten the set. `node test_focus.cjs` is what caught it.
+
+Per-question timing counts *down* and turns red past the target rather than cutting
+you off: the timing mistake is recorded, not punished, unless auto-advance is asked
+for.
+
+**Mistakes** gains a Bank dropdown (Official / AI / both), built with the same `dd()`
+component as the others, so `null` still means everything.
+
+**Legal.** Terms gains section 5, *AI-generated questions* — labeled in the app,
+filterable, in a separate database, not College Board material, not endorsed, may
+contain errors, and where they disagree with an official item the official item is
+the one to trust. Privacy now says the record includes which choice was picked and
+how many times the selection was changed, and what those are used for.
+
+**Verification.** `node test_metrics.cjs`, `test_focus.cjs`, `test_grade.cjs`
+(extended: the attempt now carries `picked`/`changes`, and the ladder promotes,
+demotes, caps, floors and stays off outside focus mode), `test_notes.cjs`,
+`test_sync.cjs`, `test_backfill.cjs`, `test_tidy_expl.cjs`, `test_worker_sql.cjs`
+(extended: the widened guard accepts a registered AI id and refuses an unregistered
+one on all three tables) and `tools/apply_ai.cjs --test` all pass.
+
+All 100 AI rows through the app's own render path in the browser: **0 empty, 0 KaTeX
+errors, 0 duplicate choice sets, 0 mojibake, 0 that fail to grade, 0 where a wrong
+choice grades right, 0 wrong choices without a trap tag, 0 explanations missing the
+Traps block or a per-choice paragraph.** The Math answers are additionally checked by
+arithmetic in the builder before the file is written.
+
+Driven by hand in the real player: the focus popup (per-question options disabled
+until Per question is chosen, question count and estimated minutes live), a focus set
+started over the AI bank with a 1.5× per-question countdown, a wrong Check recording
+`picked:"B"`, `changes:1` and marking Red, the four dashboard panels filling from that
+one attempt, the Bank filter cutting the mistake list to 0 when the bank the mistake
+belongs to is deselected, and two correct answers in a row advancing the set cleanly.
+0 horizontal overflow on all five tabs at 1280, 375 and 320px, the popup fitting
+inside the viewport at every one of them, and the AI chip measuring 7.25:1 contrast in
+both themes.
+
+**Applying it.** `node tools/apply_ai.cjs tools/aiq/*.jsonl` validates, writes the
+local AI D1, registers the ids in the local main DB, and emits `d1_ai/questions.sql`
+and `d1_ai/ids.sql` for the remote *from the whole table*, not from that run's diff.
+Remote order: `schema_ai.sql` → `d1_ai/questions.sql` on `AI_DB`, then
+`migrations/0009_ai_bank.sql` → `d1_ai/ids.sql` on `DB`.
+
+Remote state after this pass, verified against the remote rather than the tool that
+wrote it: AI DB 100 rows (Math 4×L4 + 21×L5, RW 24×L4 + 51×L5, identical to local),
+main DB `ai_ids` 100, `questions` still 3,770, and `progress` 7 / `attempts` 1 /
+`settings` 1 unchanged. **The application code is not deployed** — this worktree's
+`public/qimg` is a junction and `tools/predeploy.cjs` refuses it — so the live site
+still serves the official bank alone until a deploy from a checkout that has the
+crops.
+
+`window.__qa()` joins `window.__dd` as a hook for the DOM assertions: the render,
+grading and focus paths live inside the page's IIFE, so a sweep can only drive the
+real ones through it.
