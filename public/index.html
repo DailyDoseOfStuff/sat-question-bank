@@ -780,6 +780,10 @@ mark.hl-b { background: #bfe3ff; }
         <div class="panel"><div class="panel-h"><h3>Accuracy by section</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-sections"></div></div>
         <div class="panel"><div class="panel-h"><h3>Accuracy by domain</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-domains"></div></div>
         <div class="panel"><div class="panel-h"><h3>Accuracy by skill</h3><span class="sub" style="color:var(--dim);font-size:13px">Bar is accuracy &middot; right / answered</span></div><div id="db-skills"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Traps you fall for</h3><span class="sub" id="db-trap-sub" style="color:var(--dim);font-size:13px"></span></div><div id="db-traps"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Pacing</h3><span class="sub" id="db-pace-sub" style="color:var(--dim);font-size:13px"></span></div><div id="db-pace"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Second-guessing</h3><span class="sub" id="db-guess-sub" style="color:var(--dim);font-size:13px"></span></div><div id="db-guess"></div></div>
+        <div class="panel"><div class="panel-h"><h3>Accuracy by level</h3><span class="sub" style="color:var(--dim);font-size:13px">Levels 4 and 5 are the AI bank</span></div><div id="db-levels"></div></div>
       </div>
 
       <div id="tab-mistakes" class="hide">
@@ -1942,6 +1946,57 @@ function drawDash() {
   $('db-sections').innerHTML = bars(t.sec);
   $('db-domains').innerHTML = bars(t.dom);
   $('db-skills').innerHTML = bars(t.skill);
+
+  // Which distractor a miss walked into. The bar is that trap's share of the worst
+  // one, so the ranking is readable without a second axis.
+  const traps = trapCounts();
+  $('db-trap-sub').textContent = traps.length
+    ? `${traps.reduce((n, x) => n + x[1], 0)} miss${traps.reduce((n, x) => n + x[1], 0) === 1 ? '' : 'es'} tagged · worst: ${traps[0][0]}`
+    : '';
+  $('db-traps').innerHTML = traps.length
+    ? traps.slice(0, 10).map(([name, n]) => `<div class="prog-item"><b>${esc(name)}</b>
+        <span class="bar"><i style="width:${Math.round(n / traps[0][1] * 100)}%"></i></span>
+        <span class="tl-a mono">${n}</span></div>`).join('')
+    : '<div class="empty">Nothing yet. Miss a question and the trap it used shows up here.</div>';
+
+  const pc = pacing(), pn = pc.rushed + pc.onPace + pc.slow;
+  $('db-pace-sub').textContent = pn ? `${Math.round(pc.onPace / pn * 100)}% on pace` : '';
+  $('db-pace').innerHTML = pn
+    ? [['rushed', 'Rushed'], ['onPace', 'On pace'], ['slow', 'Slow']].map(([k, lab]) =>
+        `<div class="prog-item"><b>${lab}</b>
+          <span class="bar"><i style="width:${Math.round(pc[k] / pn * 100)}%"></i></span>
+          <span class="tl-a mono">${Math.round(pc[k] / pn * 100)}% &middot; ${pc[k]}</span></div>`).join('')
+      + Object.keys(pc.n).sort().map(sec =>
+        `<div class="prog-item"><b>${esc(sec)} mean</b>
+          <span class="bar"><i style="width:${Math.min(100, Math.round(pc.ms[sec] / pc.n[sec] / (TARGET_MS[sec] || 85000) * 100))}%"></i></span>
+          <span class="tl-a mono">${Math.round(pc.ms[sec] / pc.n[sec] / 1000)}s vs ${Math.round((TARGET_MS[sec] || 85000) / 1000)}s</span></div>`).join('')
+    : '<div class="empty">No timed answers yet.</div>';
+
+  const g = guessing();
+  $('db-guess-sub').textContent = g.n ? `${g.mean.toFixed(2)} switches per question` : '';
+  $('db-guess').innerHTML = g.n
+    ? `<div class="prog-item"><b>Changed answer</b>
+         <span class="bar"><i style="width:${g.changedAcc || 0}%"></i></span>
+         <span class="tl-a mono">${accHTML(g.changedAcc)} &middot; ${g.changedN}</span></div>
+       <div class="prog-item"><b>Kept first pick</b>
+         <span class="bar"><i style="width:${g.steadyAcc || 0}%"></i></span>
+         <span class="tl-a mono">${accHTML(g.steadyAcc)} &middot; ${g.n - g.changedN}</span></div>`
+    : '<div class="empty">No answers logged since switch tracking shipped.</div>';
+
+  // Accuracy by level, over the log rather than the marker, so a re-drill counts
+  // twice here exactly as it does in the chart above.
+  const lv = {};
+  LOG.forEach(x => {
+    const q = qid.get(x.question_id); if (!q) return;
+    const v = lv[levelOf(q)] = lv[levelOf(q)] || { a: 0, c: 0 };
+    v.a++; if (x.correct) v.c++;
+  });
+  const lks = Object.keys(lv).sort();
+  $('db-levels').innerHTML = lks.length
+    ? lks.map(k => `<div class="prog-item"><b>Level ${k}${k >= 4 ? ' &middot; AI' : ''}</b>
+        <span class="bar"><i style="width:${pctOf(lv[k]) || 0}%"></i></span>
+        <span class="tl-a mono">${accHTML(pctOf(lv[k]))} &middot; ${lv[k].c}/${lv[k].a}</span></div>`).join('')
+    : '<div class="empty">No attempts yet.</div>';
 }
 
 // One tooltip node for the whole dashboard, following the pointer. Delegated
