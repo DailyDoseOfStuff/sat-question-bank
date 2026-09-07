@@ -220,6 +220,19 @@ select:hover { border-color: var(--border2); }
 .browse-table tbody tr:hover td { background: var(--bg2); cursor: pointer; }
 
 /* segmented range picker, shared by the dashboard and the mistakes page */
+#q-clock.over { color: var(--red); }
+.fx-h { margin: 0 0 4px; font-size: 19px; font-weight: 700; }
+.fx-sub { margin: 0 0 18px; color: var(--dim2); font-size: 13px; line-height: 1.5; }
+.fx-row { margin-bottom: 15px; }
+.fx-lab { display: block; margin-bottom: 8px; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+.fx-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.fx-o { padding: 9px 15px; border-radius: 12px; border: 1.5px solid var(--border);
+  background: transparent; color: var(--text); font-size: 13.5px; font-weight: 500; }
+.fx-o.on { border-color: var(--mint); box-shadow: inset 0 0 0 1px var(--mint); font-weight: 700; }
+.fx-o:disabled { opacity: .38; }
+.fx-n { margin: 14px 0 0; font-size: 12.5px; color: var(--dim); }
+@media (max-width: 760px) { .fx-o { flex: 1 1 auto; text-align: center; } }
 .seg { display: inline-flex; background: var(--bg2); border: 1px solid var(--border); border-radius: 11px; padding: 3px; gap: 2px; }
 .seg button { border: 0; background: transparent; border-radius: 8px; padding: 6px 13px; font-size: 12.5px; font-weight: 600; color: var(--dim); }
 .seg button:hover:not(:disabled) { background: transparent; color: var(--text); }
@@ -732,6 +745,10 @@ mark.hl-b { background: #bfe3ff; }
           <div class="panel-h">
             <h3>Build your practice set</h3>
             <div class="startbar">
+              <div class="seg" id="mode-seg">
+                <button data-mode="all" class="on">All questions</button>
+                <button data-mode="focus">Focus</button>
+              </div>
               <span id="start-count" class="sub" style="color:var(--dim);font-size:13px"></span>
               <button class="btn-p" id="btn-start">Start practice</button>
             </div>
@@ -1599,6 +1616,78 @@ function pool() {
   return F.count > 0 ? a.slice(0, F.count) : a;
 }
 
+// --- focus (test_focus.cjs reads this block)
+// How likely this skill is to be missed next, Laplace-smoothed so a skill with no
+// attempts scores 0.5 and surfaces instead of being invisible.
+function weakness(list) {
+  const acc = new Map();
+  const byId = new Map();
+  list.forEach(q => {
+    const k = q.skill || 'Other';
+    if (!acc.has(k)) acc.set(k, { a: 0, m: 0 });
+    byId.set(q.id, k);
+  });
+  Object.entries(PROG).forEach(([id, p]) => {
+    const k = byId.get(id); if (!k || !p.attempts) return;
+    const v = acc.get(k);
+    v.a += p.attempts; v.m += p.attempts - (p.corrects || 0);
+  });
+  const out = new Map();
+  acc.forEach((v, k) => out.set(k, (v.m + 1) / (v.a + 2)));
+  return out;
+}
+
+// The set: slots allocated across skills in proportion to how weak they are, then
+// filled with never-seen questions before ones already drilled.
+function focusSet(cfg) {
+  const secs = cfg.sections ? new Set(cfg.sections) : null;
+  const pool = QS.filter(q =>
+    (!secs || secs.has(q.section)) &&
+    (cfg.bank === 'both' || (cfg.bank === 'ai' ? q.source === 'AI' : q.source !== 'AI')));
+  if (!pool.length) return [];
+  const w = weakness(pool);
+  const skills = [...new Set(pool.map(q => q.skill || 'Other'))]
+    .sort((a, b) => w.get(b) - w.get(a) || a.localeCompare(b));
+  const total = skills.reduce((n, k) => n + w.get(k), 0);
+  const bySkill = {};
+  pool.forEach(q => (bySkill[q.skill || 'Other'] = bySkill[q.skill || 'Other'] || []).push(q));
+  // Unseen first, then longest since last seen, then easiest - the ladder raises the
+  // level as the set is played, so each skill starts at the bottom of its range.
+  skills.forEach(k => bySkill[k].sort((a, b) => {
+    const pa = PROG[a.id], pb = PROG[b.id];
+    return (pa ? 1 : 0) - (pb ? 1 : 0)
+      || String(pa && pa.last_reviewed || '').localeCompare(String(pb && pb.last_reviewed || ''))
+      || levelOf(a) - levelOf(b);
+  }));
+  const want = {};
+  skills.forEach(k => (want[k] = Math.max(1, Math.round(cfg.n * w.get(k) / total))));
+  // Two phases. The first honours each skill's quota, so the weakest skill really
+  // does get most of the set; the second ignores the quotas and tops the set up from
+  // whatever is left, so a skill running out of questions cannot shorten the set.
+  const out = [];
+  const fill = (byQuota) => {
+    while (out.length < cfg.n) {
+      let moved = false;
+      for (const k of skills) {
+        if (out.length >= cfg.n) break;
+        if (byQuota && want[k] <= 0) continue;
+        const q = bySkill[k].shift();
+        if (!q) continue;
+        out.push(q); want[k]--; moved = true;
+      }
+      if (!moved) break;
+    }
+  };
+  fill(true);
+  fill(false);
+  return out.slice(0, cfg.n);
+}
+
+// Two straight correct promotes, any miss demotes. Bounded to the 1-5 range.
+const nextLevel = (lvl, streak, ok) =>
+  ok ? (streak >= 2 ? Math.min(5, lvl + 1) : lvl) : Math.max(1, lvl - 1);
+// --- end focus
+
 // One pass over a list of questions and the progress rows. The dashboard reads
 // the whole bank, the topic list reads only what the dropdowns left.
 function tally(list) {
@@ -1762,7 +1851,19 @@ function drawTopics() {
   });
 }
 
-$('btn-start').onclick = () => start(pool());
+let PRACTICE_MODE = LS.get('mode', 'all');
+document.querySelectorAll('#mode-seg button').forEach(b => {
+  b.classList.toggle('on', b.dataset.mode === PRACTICE_MODE);
+  b.onclick = () => {
+    PRACTICE_MODE = b.dataset.mode;
+    LS.set('mode', PRACTICE_MODE);
+    document.querySelectorAll('#mode-seg button').forEach(x => x.classList.toggle('on', x === b));
+    $('btn-start').textContent = PRACTICE_MODE === 'focus' ? 'Start focus set' : 'Start practice';
+    $('btn-start').disabled = false;
+  };
+});
+$('btn-start').textContent = PRACTICE_MODE === 'focus' ? 'Start focus set' : 'Start practice';
+$('btn-start').onclick = () => (PRACTICE_MODE === 'focus' ? focusModal() : start(pool()));
 
 // ---------------- dashboard ----------------
 // Dates are bucketed on the local calendar, not UTC: a question answered at
@@ -2239,8 +2340,9 @@ function previewQuestion(id) {
 }
 
 // ---------------- session ----------------
-function start(items) {
+function start(items, opts) {
   if (!items.length) return;
+  const o = opts || {};
   S = {
     items, i: 0,
     ans: {}, checked: {}, flags: {}, ko: {},
@@ -2248,7 +2350,14 @@ function start(items) {
     started: Date.now(), ended: null,
     qStart: Date.now(),
     paused: false, timerHidden: false,
-    fromResults: false
+    fromResults: false,
+    // Focus mode only. `lvl` is the ladder's target, `streak` counts consecutive
+    // correct answers toward the next promotion.
+    focus: !!o.focus, timing: o.timing || 'off', mult: o.mult || 1, auto: !!o.auto,
+    lvl: o.focus ? Math.round(items.reduce((n, q) => n + levelOf(q), 0) / items.length) : 3,
+    streak: 0,
+    setEnds: o.timing === 'set'
+      ? Date.now() + items.reduce((n, q) => n + targetOf(q), 0) : null
   };
   $('view-home').classList.add('hide');
   $('view-results').classList.add('hide');
@@ -2268,9 +2377,24 @@ function startTimer() {
 function stopTimer() { if (S && S._int) clearInterval(S._int); }
 function renderQTimer() {
   if (!S) return;
-  const s = Math.round((Date.now() - S.qStart) / 1000);
+  const el = $('q-clock');
+  const q = curQ();
+  let s, over = false;
+  if (S.timing === 'perq' && q) {
+    // Past the target the clock keeps running and turns red: the timing mistake is
+    // recorded, not punished, unless auto-advance was asked for.
+    const left = targetOf(q) * S.mult - (Date.now() - S.qStart);
+    over = left < 0; s = Math.round(Math.abs(left) / 1000);
+    if (over && S.auto && !S.checked[q.id]) { $('btn-next').click(); return; }
+  } else if (S.timing === 'set' && S.setEnds) {
+    const left = S.setEnds - Date.now();
+    over = left < 0; s = Math.round(Math.abs(left) / 1000);
+  } else {
+    s = Math.round((Date.now() - S.qStart) / 1000);
+  }
   const m = Math.floor(s/60), sec = s%60;
-  $('q-clock').textContent = `${m}:${String(sec).padStart(2,'0')}`;
+  el.textContent = `${over ? '+' : ''}${m}:${String(sec).padStart(2,'0')}`;
+  el.classList.toggle('over', over);
 }
 
 $('btn-pause').onclick = () => {
@@ -2617,6 +2741,20 @@ function grade(q) {
   LOG.push(ev);
   saveLog([ev]);
 
+  // The ladder. Two straight correct answers raise the target level, any miss
+  // lowers it, and what is left of the set is reordered so the next question is the
+  // one nearest that target.
+  if (S.focus && ok !== null) {
+    S.streak = ok === true ? S.streak + 1 : 0;
+    S.lvl = nextLevel(S.lvl, S.streak, ok === true);
+    if (S.streak >= 2) S.streak = 0;    // one promotion per two, not per answer
+    const rest = S.items.slice(S.i + 1);
+    if (rest.length > 1) {
+      rest.sort((a, b) => Math.abs(levelOf(a) - S.lvl) - Math.abs(levelOf(b) - S.lvl));
+      S.items = S.items.slice(0, S.i + 1).concat(rest);
+    }
+  }
+
   // The home screens are behind the player, and nothing redrew them until the
   // session ended - so a question missed at 09:00 was absent from the mistake log
   // until you left practice. They read PROG and LOG, which have just moved, so
@@ -2884,6 +3022,65 @@ $('btn-more').onclick = (e) => {
 $('btn-dash').onclick = () => confirmModal('End this practice session? ' + (authToken ? 'Progress on answered questions is saved.' : 'You are not signed in, so this session’s answers are not kept.'), () => { stopTimer(); S = null; showHome(); });
 function closeMenus(){ document.querySelectorAll('.more-menu').forEach(x=>x.remove()); }
 document.addEventListener('click', (e) => { if (!e.target.closest('.more-menu')) closeMenus(); });
+
+// The focus set is configured here rather than through the practice filters: it is
+// chosen for you, so the only decisions left are scope, size and the clock.
+const FX_DEFAULT = { sections: null, bank: 'both', n: 35, timing: 'off', mult: 1, auto: false };
+let FX = Object.assign({}, FX_DEFAULT, LS.get('focus', {}));
+
+function focusModal() {
+  const root = $('modal-root');
+  const draw = () => {
+    const perQ = FX.timing === 'perq';
+    const sec = FX.sections ? FX.sections[0] : 'both';
+    const opt = (k, v, lab, dis) =>
+      `<button class="fx-o${String(FX[k]) === String(v) ? ' on' : ''}" data-k="${k}" data-v="${v}"${dis ? ' disabled' : ''}>${lab}</button>`;
+    const items = focusSet({ n: FX.n, sections: FX.sections, bank: FX.bank });
+    const mins = Math.round(items.reduce((n, q) => n + targetOf(q) * (perQ ? FX.mult : 1), 0) / 60000);
+    root.innerHTML = `<div class="modal-bg"><div class="modal" style="width:min(560px,92vw);">
+      <h2 class="fx-h">Focus practice</h2>
+      <p class="fx-sub">Drills the skills you are most likely to miss, and steps the difficulty up as you get them right.</p>
+      <div class="fx-row"><span class="fx-lab">Section</span><div class="fx-opts">
+        <button class="fx-o${sec === 'Reading & Writing' ? ' on' : ''}" data-sec="rw">Reading &amp; Writing</button>
+        <button class="fx-o${sec === 'Math' ? ' on' : ''}" data-sec="math">Math</button>
+        <button class="fx-o${sec === 'both' ? ' on' : ''}" data-sec="both">Both</button></div></div>
+      <div class="fx-row"><span class="fx-lab">Bank</span><div class="fx-opts">
+        ${opt('bank', 'official', 'Official')}${opt('bank', 'ai', 'AI')}${opt('bank', 'both', 'Both')}</div></div>
+      <div class="fx-row"><span class="fx-lab">Questions</span><div class="fx-opts">
+        ${opt('n', 30, '30')}${opt('n', 35, '35')}${opt('n', 40, '40')}</div></div>
+      <div class="fx-row"><span class="fx-lab">Timing</span><div class="fx-opts">
+        ${opt('timing', 'off', 'Untimed')}${opt('timing', 'set', 'Whole set')}${opt('timing', 'perq', 'Per question')}</div></div>
+      <div class="fx-row"><span class="fx-lab">Per-question limit</span><div class="fx-opts">
+        ${opt('mult', 1, 'Realistic', !perQ)}${opt('mult', 1.5, '1.5&times;', !perQ)}${opt('mult', 2, '2&times;', !perQ)}</div></div>
+      <div class="fx-row"><span class="fx-lab">Out of time</span><div class="fx-opts">
+        ${opt('auto', false, 'Keep going', !perQ)}${opt('auto', true, 'Auto-advance', !perQ)}</div></div>
+      <p class="fx-n">${items.length} question${items.length === 1 ? '' : 's'} selected${FX.timing === 'off' ? '' : ` · about ${mins} min`}</p>
+      <div class="frow" style="justify-content:flex-end;margin-top:16px;"><button data-x="1">Cancel</button>
+        <button class="btn-p" data-go="1"${items.length ? '' : ' disabled'}>Start focus set</button></div>
+    </div></div>`;
+    root.querySelectorAll('[data-sec]').forEach(b => b.onclick = () => {
+      FX.sections = b.dataset.sec === 'both' ? null
+        : [b.dataset.sec === 'math' ? 'Math' : 'Reading & Writing'];
+      draw();
+    });
+    root.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const v = b.dataset.v;
+      FX[b.dataset.k] = v === 'true' ? true : v === 'false' ? false : (isNaN(+v) ? v : +v);
+      draw();
+    });
+    root.querySelector('[data-x]').onclick = () => (root.innerHTML = '');
+    root.querySelector('[data-go]').onclick = () => {
+      LS.set('focus', FX);
+      const set = focusSet({ n: FX.n, sections: FX.sections, bank: FX.bank });
+      if (!set.length) return;
+      root.innerHTML = '';
+      start(set, { focus: true, timing: FX.timing, mult: FX.mult, auto: FX.auto });
+    };
+    const bg = root.querySelector('.modal-bg');
+    bg.onclick = (e) => { if (e.target === bg) root.innerHTML = ''; };
+  };
+  draw();
+}
 
 function confirmModal(msg, onYes) {
   const root = $('modal-root');
