@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS attempts (
   ts TEXT NOT NULL,
   correct INTEGER NOT NULL DEFAULT 0,
   time_taken_ms INTEGER DEFAULT 0,
+  picked TEXT,
+  changes INTEGER DEFAULT 0,
   UNIQUE (user_id, question_id, ts)
 );
 CREATE INDEX IF NOT EXISTS attempts_user_ts ON attempts (user_id, ts);
@@ -63,3 +65,8 @@ CREATE TABLE IF NOT EXISTS notes (
   updated_at TEXT,
   PRIMARY KEY (user_id, question_id)
 );
+
+-- The ids of the AI bank, whose rows live in a second D1 database. D1 cannot join
+-- across databases, so this registry is what lets the progress/attempts/notes write
+-- guards stay exact for a question `questions` has never heard of.
+CREATE TABLE IF NOT EXISTS ai_ids (id TEXT PRIMARY KEY);

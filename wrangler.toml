@@ -32,3 +32,11 @@ SUPABASE_ANON_KEY = "sb_publishable_jG8GJoT0puI7Roflw6yiFQ_IL7lSifr"
 binding = "DB"
 database_name = "sat_question_bank"
 database_id = "bb6bfa7f-2687-4e52-94e7-eedccd1fa05b"
+
+# The AI-authored bank, in its own database so the session auditing the official
+# bank cannot collide with it. D1's daily row-write cap is account-wide, so this
+# buys isolation, not extra budget. User data stays in DB - see the ai_ids table.
+[[d1_databases]]
+binding = "AI_DB"
+database_name = "sat_ai_bank"
+database_id = "PLACEHOLDER_UNTIL_CREATED"
