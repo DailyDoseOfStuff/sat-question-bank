@@ -20,6 +20,10 @@ tools/*
 !tools/apply_answerable.cjs
 !tools/d1_dump.cjs
 !tools/predeploy.cjs
+!tools/apply_ai.cjs
+# The authored AI questions are the only copy of themselves - the local D1 they
+# are imported into is not tracked, so this directory is the source of record.
+!tools/aiq/
 !tools/restore_bluebook.cjs
 !tools/bluebook_explanations.json
 !tools/bluebook_stem_fixes.json
@@ -27,3 +31,5 @@ tools/*
 tools/templates.npz
 backup/
 d1_chunks/
+# Regenerable from tools/aiq/*.jsonl by tools/apply_ai.cjs.
+d1_ai/
