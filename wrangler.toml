@@ -39,4 +39,4 @@ database_id = "bb6bfa7f-2687-4e52-94e7-eedccd1fa05b"
 [[d1_databases]]
 binding = "AI_DB"
 database_name = "sat_ai_bank"
-database_id = "PLACEHOLDER_UNTIL_CREATED"
+database_id = "ce533bdc-0621-477e-8ea8-a375bf943623"
