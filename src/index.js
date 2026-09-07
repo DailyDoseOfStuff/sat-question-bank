@@ -140,10 +140,18 @@ export default {
     if (p === '/api/questions' && req.method === 'GET') {
       // Not SELECT *: stem_text is a legacy OCR column nothing renders, and it
       // is 15% of a payload the client downloads whole.
-      const r = await env.DB.prepare(
-        'SELECT id, external_id, section, domain, difficulty, skill, stem_html,' +
-        ' choices_json, correct_answer, explanation_html, source, source_page,' +
-        ' has_figure FROM questions').all();
+      const cols = 'id, external_id, section, domain, difficulty, skill, stem_html,' +
+        ' choices_json, correct_answer, explanation_html, source, source_page, has_figure';
+      // The AI bank is a second D1 database, and D1 cannot join across one, so the
+      // two banks are concatenated here rather than in SQL. `level` exists only there;
+      // the client derives a level for the official rows from their difficulty.
+      const [core, ai] = await Promise.all([
+        env.DB.prepare(`SELECT ${cols} FROM questions`).all(),
+        env.AI_DB
+          ? env.AI_DB.prepare(`SELECT ${cols}, level FROM questions`).all().catch(() => ({ results: [] }))
+          : Promise.resolve({ results: [] })
+      ]);
+      const r = { results: [...(core.results || []), ...(ai.results || [])] };
       // 8.3MB, identical for everyone, and it needs no session. Uncached that is a
       // full table scan and 8.3MB of egress for every request anyone cares to make,
       // which is a cost attack that costs the attacker a curl loop. Let Cloudflare
@@ -186,6 +194,7 @@ export default {
       const stmt = env.DB.prepare(
         `INSERT INTO progress
            SELECT ?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
+                                     OR EXISTS(SELECT 1 FROM ai_ids   WHERE id = ?)
          ON CONFLICT(user_id, question_id) DO UPDATE SET
            attempts=excluded.attempts, corrects=excluded.corrects, marker=excluded.marker,
            last_reviewed=excluded.last_reviewed, time_taken_ms=excluded.time_taken_ms,
@@ -194,7 +203,7 @@ export default {
       await env.DB.batch(rows.map(r => stmt.bind(
         u.id, str(r.question_id, 64), r.attempts | 0, r.corrects | 0,
         str(r.marker, 16) || 'Red', str(r.last_reviewed, 32) || null,
-        r.time_taken_ms | 0, r.stars | 0, str(r.question_id, 64))));
+        r.time_taken_ms | 0, r.stars | 0, str(r.question_id, 64), str(r.question_id, 64))));
       return json({ ok: true, saved: rows.length });
     }
 
@@ -205,7 +214,7 @@ export default {
       const u = await whoami(req, env);
       if (!u) return json({ error: 'unauthorized' }, 401);
       const r = await env.DB.prepare(
-        'SELECT question_id, ts, correct, time_taken_ms FROM attempts WHERE user_id = ? ORDER BY ts'
+        'SELECT question_id, ts, correct, time_taken_ms, picked, changes FROM attempts WHERE user_id = ? ORDER BY ts'
       ).bind(u.id).all();
       return json(r.results || []);
     }
@@ -224,12 +233,15 @@ export default {
         .bind(u.id).first();
       if ((held?.n || 0) + rows.length > MAX_ATTEMPTS) return json({ error: 'log full' }, 429);
       const stmt = env.DB.prepare(
-        `INSERT OR IGNORE INTO attempts (user_id, question_id, ts, correct, time_taken_ms)
-         SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)`
+        `INSERT OR IGNORE INTO attempts
+           (user_id, question_id, ts, correct, time_taken_ms, picked, changes)
+         SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
+                                 OR EXISTS(SELECT 1 FROM ai_ids   WHERE id = ?)`
       );
       await env.DB.batch(rows.map(r => stmt.bind(
         u.id, str(r.question_id, 64), str(r.ts, 32), r.correct ? 1 : 0, r.time_taken_ms | 0,
-        str(r.question_id, 64))));
+        str(r.picked, 32) || null, r.changes | 0,
+        str(r.question_id, 64), str(r.question_id, 64))));
       return json({ ok: true, saved: rows.length });
     }
 
@@ -258,13 +270,14 @@ export default {
       const put = env.DB.prepare(
         `INSERT INTO notes (user_id, question_id, body, updated_at)
            SELECT ?,?,?,datetime('now') WHERE EXISTS(SELECT 1 FROM questions WHERE id = ?)
+                                            OR EXISTS(SELECT 1 FROM ai_ids   WHERE id = ?)
          ON CONFLICT(user_id, question_id) DO UPDATE SET
            body=excluded.body, updated_at=excluded.updated_at`
       );
       await env.DB.batch(rows.map(r => {
         const body = str(r.body, MAX_NOTE).trim();
         const qid = str(r.question_id, 64);
-        return body ? put.bind(u.id, qid, body, qid) : del.bind(u.id, qid);
+        return body ? put.bind(u.id, qid, body, qid, qid) : del.bind(u.id, qid);
       }));
       return json({ ok: true, saved: rows.length });
     }
