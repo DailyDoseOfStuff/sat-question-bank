@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SAT Question Bank — Official College Board</title>
+<title>SAT Question Bank — Official College Board + AI</title>
 <!-- Pinned and hashed. supabase-js used to float on the @2 tag, so a bad release —
      or a bad day at the CDN — would have run arbitrary code in the page that holds
      the signed-in session token. integrity makes the browser refuse anything else. -->
@@ -1411,6 +1411,9 @@ document.addEventListener('click', ddCloseAll);
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ddCloseAll(); });
 
 window.__dd = dd;   // reachable for the DOM assertions; harmless in production
+// Same reason: the render, grading and focus paths are inside this closure, so a
+// sweep over the bank can only drive the real ones through here.
+window.__qa = () => ({ QS, PROG, LOG, renderStem, isRight, focusSet, weakness, levelOf, pacing, trapCounts, guessing });
 
 const NAV = document.querySelectorAll('.nav-i');
 const TABS = ['practice','dash','browse','mistakes','settings'];
