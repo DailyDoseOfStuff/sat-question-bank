@@ -2358,3 +2358,92 @@ for all 400 but were not applied - the remote still has the 100 rows from
 2026-09-07. Applying them is `wrangler d1 execute` against `AI_DB` then `DB`, in
 that order, and the app itself still cannot be deployed from this worktree
 (`public/qimg` is a junction and `tools/predeploy.cjs` refuses it).
+
+### Reading all 400 AI questions, one at a time (2026-09-08)
+
+Every automated check the bank has was green - `apply_ai.cjs --check`,
+`audit_ai.cjs`, all eight `test_*.cjs`, a render sweep and a 400-question walk
+through the real player. Reading the questions found **34 that were still
+wrong**, in three classes none of those checks can see, because each one renders
+perfectly and is only wrong to *answer*.
+
+**1. Two grammatically correct choices (4 Boundaries items).** The prompt asks
+which choice "conforms to the conventions of Standard English", so a distractor
+that conforms is a second right answer however badly it fits the meaning. Four
+items offered a comma-plus-coordinating-conjunction or a comma appositive that
+is simply correct English - `ai_rw009` (`, and the`), `ai_rw034` (`, and`),
+`ai_rw168` (`, but below`), `ai_rw240` (`, and the`), `ai_rw215` (`, a`, a plain
+appositive against a keyed colon). Two of the four **said so in their own
+explanation** ("Choice C is grammatical. It is still wrong for this sentence"),
+which is the tell: an explanation that has to argue the distractor is legal but
+unwanted is describing a broken item. Each distractor keeps its teaching point
+with the comma removed, or becomes a splice.
+
+Deliberately left alone: colon against semicolon between two independent clauses
+where the second explains the first (`ai_rw053`, `ai_rw090`, `ai_rw118`,
+`ai_rw190`). Both marks are conventionally allowed there and College Board keys
+the colon anyway, so those follow the real test rather than a stricter rule.
+
+**2. Five stems no choice could complete.** `ai_rw291` opened a nonrestrictive
+clause the stem never closed, so *every* choice left the sentence ungrammatical,
+the keyed one included. `ai_rw245`, `ai_rw270` and `ai_rw295` are
+modifier-attachment items whose introductory participial phrase had no comma
+after it - every other item of that shape in the bank has one. `ai_rw124` keys
+the phrase "The remaining" against a stem reading `______ the other four were
+abandoned`, i.e. "The remaining the other four".
+
+**3. Three stems asked about "the underlined sentence" and underlined nothing**
+(`ai_rw020`, `ai_rw045`, `ai_rw075`). `audit_ai.cjs` matched `underlined
+portion` only, so it passed all three; it matches `underlined` now.
+
+**21 more rows were duplicates of an earlier row.** `math_02` turned out to
+mirror `math_01` almost question for question, and `math_04` repeats several
+again: the same cylinder scaling, the same `x^2+kx+36`, the same 30%-down-then-up
+(both 91%), the same `-5t^2+20t` projectile, the same 9-12-15 triangle asked for
+a sine, three copies of linear-`f`-from-two-points. RW had a second
+"Written in a shorthand no one could read" modifier item (the same sentence as
+`ai_rw145`), and a second Roman concrete, Voynich, Florence Price and
+medieval-account-book synthesis. A duplicate is not broken; it is worth nothing,
+because the second copy tests nothing the first did not. All 21 were rewritten in
+place, keeping id, section, domain, skill, difficulty and level so no filter and
+no part of the focus ladder moves.
+
+Note the **Jaccard scan on stems is useless for Math** and was not what found
+these: math stems are so formulaic that stripping the LaTeX leaves only
+boilerplate, and it reports `1.00` for pairs that share nothing but "What is the
+solution to the given equation?". It works on RW, where it found the shorthand
+pair and the Voynich pair at 0.45-0.56, and a surveyors-and-storm past-perfect
+pair at 0.32. Reading is what found the Math ones.
+
+**Two bugs introduced and caught while fixing, both worth remembering:**
+
+- **A bare `<` inside maths is markup.** `-8\lt k\lt 8` was first written
+  `-8<k<8`, and in HTML `<k` opens a tag whose name runs to the next `>`, so the
+  browser swallows the rest of the paragraph. `audit_ai.cjs`'s tag-balance check
+  caught it as "unclosed `<k>`". The dangerous form is `<` followed by a
+  **letter**; the ten other spans in the bank are all `<` before a digit, which
+  parsers leave as text.
+- **This shell eats one backslash inside a quoted heredoc.** A `python - <<'PY'`
+  patch containing `\angle` reached Python as `\angle`, where `\a` is BEL, so
+  the row shipped a control character and KaTeX left its `\( \)` unparsed. Use
+  the Write tool for anything containing backslashes, or build them with
+  `String.fromCharCode(92)`. `audit_ai.cjs` now fails any row carrying a control
+  character, which is what a LaTeX command that lost its backslash always leaves.
+
+**Verification.** `apply_ai.cjs --check`, `audit_ai.cjs` and
+`balance_ai_answers.cjs --test` are clean over all 400, and the answer key is
+still 99/99/99/99. All 33 rows changed after the first commit went through the
+app's own KaTeX path in the browser: 0 `.katex-error`, 0 spans of raw LaTeX
+(exclude `.katex` subtrees before this test - KaTeX keeps the source TeX in a
+hidden MathML annotation, so reading `textContent` flags every formula that
+rendered correctly), 0 control characters, 0 mojibake, four distinct lettered
+choices with the key among them and untagged, and a Traps block plus a
+per-choice paragraph in every one.
+
+**Not done: the local D1 import.** `tools/aiq/*.jsonl` is the source of record
+and is current; the local database still holds the pre-fix version of those 34
+rows. `wrangler dev` keeps the local D1 in memory and flushes it on shutdown, and
+two dev servers were running on 8787 and 8788 during this pass, so an import
+would have been overwritten. Stop them, then
+`node tools/apply_ai.cjs tools/aiq/*.jsonl`. The remote is still the 100 rows
+from 2026-09-07, as recorded above.
