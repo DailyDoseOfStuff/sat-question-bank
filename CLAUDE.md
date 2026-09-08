@@ -2269,3 +2269,92 @@ now throws when it finds two AI-shaped databases rather than picking one at rand
 because picking either silently is exactly how this hides. Stop `wrangler dev`
 first — it holds the local D1 in memory and flushes on shutdown over anything
 written underneath it.
+
+### The AI bank finished at 400, and the answer key that was 90% A (2026-09-08)
+
+`tools/aiq/*.jsonl` is 400 rows: 300 Reading & Writing, 100 Math. Local D1 holds
+them (`node tools/apply_ai.cjs tools/aiq/*.jsonl`), `/api/questions` returns
+4,170 = 3,770 official + 400 AI.
+
+**A Bank filter on the Question Bank screen.** Reported as "I can't see any
+option to choose the focus sessions or to go through the AI question bank". The
+Focus switch was already there beside Start practice; what was missing was any
+way to *select* the AI bank, so 400 rows were reachable only by luck of the
+shuffle. `dd-bank` is the same `dd()` multiselect the other filters use, `null`
+means both, and `F.bank` is migrated in at load so a returning visitor keeps
+their set. Picking AI alone reads "400 matching questions".
+
+**355 of the 396 multiple-choice rows had A as the correct answer.** Each
+question was authored with its answer written first, so A it was, every time -
+always picking A scored 90% and the bank was useless as practice. Found by
+counting the key, not by reading the questions; no single row looks wrong.
+
+`tools/balance_ai_answers.cjs` rotates each row's choices so the answer lands on
+`'ABCD'[n % 4]` for the nth multiple-choice row in file-then-line order. It is
+99/99/99/99 now, and the whole-bank walk below confirms it in the running app:
+picking A on all 400 gives 99 right and 297 wrong.
+
+Rotation rather than a shuffle, because the rotation amount is *measured from
+where the answer currently sits*: running the pass twice is a no-op, and a batch
+regenerated from its builder can be rebalanced without disturbing the others.
+Everything that names a letter moves with the choices - the choice content and
+its trap tag, the per-choice `Why X is right/wrong` paragraph, and the 20
+`Choice X` references inside Traps blocks. Those are remapped **in one pass**;
+doing A->B and then B->C in sequence carries the first substitution into the
+second.
+
+**`tools/audit_ai.cjs`** is the structural check `apply_ai.cjs` is not.
+`apply_ai.cjs` is the gate a batch must pass to be written (no answer, a trap tag
+off the vocabulary, an `<svg>` with no `<title>`); this one looks for what makes
+a row render or read wrong: markup balance in the stem, every choice and the
+explanation; a bar chart's `<rect>` heights against its own printed value labels,
+matched by x position; a label outside its `viewBox`; ragged table rows; a
+question naming an underlined portion with nothing underlined, or an underline
+swallowing the question sentence; unpaired `\( ... \)`; a bare `&`; mojibake;
+choice letters ABCD in order, non-empty and distinct; the key against the
+explanation's own "Why X is right"; a trap tag on the correct choice; a reference
+to a letter that does not exist. 400 rows, 0 findings.
+
+Two calibration notes. The bare-`&` check has to mask `\( ... \)` first: an
+`aligned` environment uses `&` as its alignment marker and the HTML parser leaves
+it alone when it does not open an entity, so `ai_m028` and `ai_m054` are correct
+as they stand. And an `<svg>` count taken after KaTeX runs is not the authored
+count - KaTeX emits its own `<svg>` for surds and stretchy delimiters, and those
+carry no `<title>` by design. Filter on `!s.closest('.katex')`.
+
+**`ai_rw080` named an underlined portion and underlined nothing**, carrying the
+text again in an italic "Underlined: ..." note below the passage. It is a real
+`<u>` span now. Four rows use one; all four render underlined in both themes,
+with the underline in the passage rather than over the question sentence.
+
+**Verified in the browser, all 400, twice over.**
+
+1. Through the app's own render path off `window.__qa()` - stem, choices and
+   rationale into the DOM, `renderMathInElement` over them: 0 KaTeX errors,
+   0 empty renders, 0 duplicate choice sets, 0 mojibake, 0 raw LaTeX, every
+   stored answer grading right and no distractor grading right, a Traps block in
+   every explanation, 13 authored `<svg>`s with a title, `role="img"`, a sensible
+   size and nothing drawn outside the viewBox.
+2. Through the **real player**, one question at a time: select a choice, press
+   Check, open the explanation, press Next - **400 walked, 0 skipped, 0
+   failures.** 396 multiple-choice and 4 grid-ins; exactly one choice marked
+   correct every time and the picked choice marked wrong exactly when it was; no
+   horizontal overflow; 13 graphs, the tables and the 4 underlines all rendering.
+
+Read by eye as well: all 13 graphs in a gallery in both themes (axes, tick
+labels, value labels and bar heights agreeing), the 4 tables (headers, borders,
+alignment) and the 4 underlined passages.
+
+Two traps in the *test harness*, both of which produce a false report rather than
+an obvious failure. Grading re-renders the choice list, so a node captured before
+Check is detached and still reads `sel` - re-query after pressing Check. And
+`btn-next` does not always advance by one: the explanation panel that opens on a
+miss eats the first press, so an advance loop keyed on "the position changed"
+races and silently skips questions. Wait for the position to reach exactly `i+1`
+and record anything skipped.
+
+**Not done: the remote.** `d1_ai/questions.sql` and `d1_ai/ids.sql` are written
+for all 400 but were not applied - the remote still has the 100 rows from
+2026-09-07. Applying them is `wrangler d1 execute` against `AI_DB` then `DB`, in
+that order, and the app itself still cannot be deployed from this worktree
+(`public/qimg` is a junction and `tools/predeploy.cjs` refuses it).
