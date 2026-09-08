@@ -113,7 +113,10 @@ function checkRow(r) {
 
   // A question that names an underlined portion must have one, in the passage
   // rather than in the question sentence.
-  const saysUnderlined = /underlined portion/i.test(r.stem_html);
+  // Match "underlined" itself, not "underlined portion": three items asked
+  // about "the underlined sentence" and underlined nothing, and the narrower
+  // pattern passed all three.
+  const saysUnderlined = /underlined/i.test(r.stem_html);
   const hasU = /<u>[\s\S]*?<\/u>/.test(r.stem_html);
   if (saysUnderlined && !hasU) bad.push('names an underlined portion but underlines nothing');
   if (hasU && !saysUnderlined) bad.push('underlines text no question asks about');
