@@ -22,6 +22,7 @@ tools/*
 !tools/predeploy.cjs
 !tools/apply_ai.cjs
 !tools/balance_ai_answers.cjs
+!tools/audit_ai.cjs
 # The authored AI questions are the only copy of themselves - the local D1 they
 # are imported into is not tracked, so this directory is the source of record.
 !tools/aiq/
