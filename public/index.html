@@ -417,6 +417,10 @@ img.minl { mix-blend-mode: multiply; }
 .chk-btn { flex: 0 0 auto; padding: 5px 12px; font-size: 13px; font-weight: 600; background: var(--blue); border-color: var(--blue); color: #fff; border-radius: 8px; }
 .chk-btn:hover:not(:disabled) { background: var(--blue-dark); border-color: var(--blue-dark); }
 
+/* The portion a Reading question asks about. The default underline sits on the
+   baseline, which at 13px on a phone crosses every descender in "disputing,". */
+.cb u, .choice u { text-decoration-thickness: 1px; text-underline-offset: .18em; }
+
 /* highlighter - the three colours Bluebook offers. mark.hl sets its ink
    explicitly: the pastels are light backgrounds and --text is near-white in dark. */
 mark.hl { background: #fff3a3; color: #111827; border-radius: 3px; padding: 0 1px; cursor: pointer; }
@@ -2928,6 +2932,9 @@ function toText(html) {
       const src = (m.match(/src\s*=\s*"([^"]*)"/i) || [])[1];
       return src ? ' [image: ' + new URL(src, location.href).href + '] ' : ' [image] ';
     })
+    // 145 Reading questions ask about an underlined portion; without a marker
+    // the exported prompt names a sentence the model cannot pick out.
+    .replace(/<\/?u>/gi, '_')
     .replace(/<\/(td|th)>/gi, ' | ')
     .replace(/<\/(tr|p|div|li|h[1-6]|table)>/gi, '\n');
   return d.textContent.replace(/[ \t]+/g, ' ').replace(/ *\n\s*\n+/g, '\n').trim();

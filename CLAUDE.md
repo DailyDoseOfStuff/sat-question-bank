@@ -2111,3 +2111,51 @@ on the button, survives Next → Back, reappears in the chip and on the mistake 
 retry mode marks only the picked choice with no panel, then opens on the right
 answer; give-up Next opens once then advances; calculator and panel close each
 other both ways round; 0 console errors, 0 KaTeX errors.
+
+### The underline the Reading questions ask about (2026-09-07)
+
+100 RW stems say "the underlined sentence" / "the underlined portion" and 45
+more (Words in Context, mostly) underline the word being asked about. **Not one
+of them carried a mark** - "which choice best describes the function of the
+underlined portion" against a passage with nothing underlined. `<u>` appeared in
+0 rows; the 204 that grep as `<u` are `<ul>` on the Rhetorical Synthesis notes.
+
+Root cause: an underline in these PDFs is a **filled rect 0.8pt tall drawn under
+the glyphs**, not a font attribute, so it is in `page.get_drawings()` and nothing
+ever looked for it there. `tools/underline.py` finds those rects inside a
+question's stem band, reads off which characters sit above them, and wraps the
+same text in `<u>` in `stem_html`. 145 rows, `migrations/0009_rw_underline.sql`.
+
+Three things separate a real mark from a false one:
+
+1. **A table's ruling is the same shape as an underline.** 68 of the 213
+   questions with a hairline in the stem band are data questions whose "mark" is
+   the grid of a table, picked up because the header text sits right above it.
+   Any rect inside a `P.figures()` cluster is dropped, which is exactly those 68
+   and nothing else.
+2. **The word is in the prompt too.** 35 marks are a single word that the
+   question then quotes ("what does the word `clear` most nearly mean?"), so the
+   text occurs twice in the same stem. Each mark carries the 40 characters of
+   page text in front of it and the occurrence whose own lead-in matches that
+   best wins - 0 of the 145 landed in the Prompt paragraph.
+3. **A mark can run across a block boundary.** `809addda` underlines three lines
+   of a poem and each line is its own `<p>`, so the span matches nothing whole. A
+   span that fails is retried one pdf line at a time, which wraps each `<p>`'s
+   share separately rather than opening a `<u>` the parser has to close for it.
+
+`python tools/underline.py --selftest` covers the splicing (repeats, entities,
+the block boundary, two marks on one stem spliced back to front). `--emit` writes
+the migration from the repaired table rather than the run's own diff, so it still
+produces the whole change after `--write` has already been made.
+
+Frontend: `.cb u, .choice u` gets `text-underline-offset: .18em` - the default
+sits on the baseline and at 13px on a phone it strikes through every descender in
+"disputing,". `toText()` renders `<u>` as `_`, or the AI export names a sentence
+the model cannot pick out. `renderStem` and `tidySpace` both pass tags through
+untouched, so nothing else needed changing.
+
+**`wrangler dev` holds the local D1 in memory and flushes on shutdown**, and the
+first `--write` here ran with the server up. It survived (the flush wrote the
+same rows back), but stop the server before writing - and note the re-run then
+found 0 rows to change and truncated the migration to 0 statements, which is why
+`--emit` exists as its own step.
