@@ -755,6 +755,7 @@ mark.hl-b { background: #bfe3ff; }
           </div>
           <div class="ctrls">
             <div class="dd" id="dd-sec"></div>
+            <div class="dd" id="dd-bank"></div>
             <div class="dd" id="dd-diff"></div>
             <div class="dd" id="dd-count"></div>
             <label class="set-row" style="border:0;padding:0;gap:10px">
@@ -1002,13 +1003,14 @@ applyTheme();
 
 // F holds the practice-set filters. It reads SET.count, so it is initialised after
 // the settings block rather than beside the other top-level state.
-F = LS.get('filters', { sec:null, diff:null, skills:null, count:SET.count, rand:SET.rand });
+F = LS.get('filters', { sec:null, bank:null, diff:null, skills:null, count:SET.count, rand:SET.rand });
 // sec/diff were single-value strings ('all' | 'Math'). Carry them into the array
 // shape the multiselects use; 'all' becomes null, which means everything.
 if (typeof F.sec === 'string') F.sec = F.sec === 'all' ? null : [F.sec];
 if (typeof F.diff === 'string') F.diff = F.diff === 'all' ? null : [F.diff];
 if (typeof F.count !== 'number') F.count = SET.count;
 if (typeof F.rand !== 'boolean') F.rand = SET.rand;
+if (F.bank === undefined) F.bank = null;
 LS.set('filters', F);
 
 // ---------------- data ----------------
@@ -1616,6 +1618,7 @@ function base() {
   return QS.filter(q => {
     if (secs && !secs.has(q.section)) return false;
     if (diffs && !diffs.has((q.difficulty || '').toLowerCase())) return false;
+    if (F.bank && !F.bank.includes(q.ai ? 'ai' : 'official')) return false;
     return true;
   });
 }
@@ -1793,6 +1796,12 @@ function drawFilters() {
   dd($('dd-sec'), { label: 'Section', allLabel: 'Both sections',
     opts: SECTIONS.map(v => ({ v, label: v })),
     get: () => F.sec, set: (x) => { F.sec = x; F.skills = null; saveF(); } });
+
+  // Which bank to draw from. null is both, the same convention the other
+  // multiselects use, so a returning visitor is never filtered down to nothing.
+  dd($('dd-bank'), { label: 'Bank', allLabel: 'Both banks',
+    opts: [{ v: 'official', label: 'Official' }, { v: 'ai', label: 'AI' }],
+    get: () => F.bank, set: (x) => { F.bank = x; F.skills = null; saveF(); } });
 
   dd($('dd-diff'), { label: 'Difficulty', allLabel: 'Any difficulty',
     opts: DIFFS.map(v => ({ v, label: v })),
