@@ -2447,3 +2447,100 @@ two dev servers were running on 8787 and 8788 during this pass, so an import
 would have been overwritten. Stop them, then
 `node tools/apply_ai.cjs tools/aiq/*.jsonl`. The remote is still the 100 rows
 from 2026-09-07, as recorded above.
+
+### A second reading of all 400, and the distractor that proves nothing (2026-09-08)
+
+Every automated check was green - `apply_ai.cjs --check`, `audit_ai.cjs`, all
+eight `test_*.cjs`, a 400-row render sweep and a walk through the real player.
+Reading the questions again found **49 rows still wrong**, in two classes that
+every one of those checks passes, because each renders perfectly, grades
+correctly, and is only wrong to *read*. `tools/fix_ai_reasoning.cjs` applies all
+of it; it is idempotent and every edit is asserted.
+
+**1. A distractor whose value does not follow from its own derivation (25 Math
+rows).** The explanation names an error and prints a number the error does not
+produce. `ai_m052`: "4 comes from cross-multiplying against the wrong
+denominators, \(3(x-2)=5(x+6)\), **which gives \(-36=2x\) and not 4**" - the
+paragraph says outright that the button is wrong and ships anyway. A student who
+works the named error out lands on a value that is not offered, so the
+distractor teaches nothing and the explanation teaches the student to distrust
+it. Every one is fixed the same way: move the choice to the value the derivation
+actually produces (`ai_m052` -> -18, `ai_m033` B -> -6 and C -> -5, `ai_m082`
+A -> -19 and D -> 20, `ai_m090` A -> 140), or name the error that produces the
+printed value (`ai_m076`, whose B and C explanations were each other's).
+
+The tell, every time, is a sentence that has to argue around its own arithmetic:
+"and not 4", "No consistent computation produces it", "adjusting by 2 gives 4".
+Grep for the hedge, not for the number.
+
+**2. `ai_m053` could not be answered at all.** Line \(\ell\) is \(3x+4y=20\) and
+line \(k\) was "parallel to \(\ell\) and passes through \((8,-1)\)" - a point
+that satisfies \(3(8)+4(-1)=20\), so \(k\) **is** \(\ell\). The keyed answer
+\(4/3\) came from an arithmetic slip in the worked solution
+(\(x=\frac{20}{3}\cdot\frac{1}{5}\)), and the true intercept \((20/3,0)\) was
+sitting in choice D, tagged as a trap. The point is now \((4,6)\), off \(\ell\);
+\(k\) is \(y=-\frac{3}{4}x+9\) and crosses at \((12,0)\). Nothing structural can
+see this: four distinct choices, one key, a rationale that names it.
+
+**3. Stale bare-letter cross-references (23 RW rows, ~39 references).** Root
+cause, and it is in a tool: `tools/balance_ai_answers.cjs` rotates the choices
+and remaps `Choice X`, but a reference written as a bare "D contains 'grief'" or
+"A gives the edge contrast" is invisible to it, so it stayed pointing at whatever
+now sits at that letter. Every one is corrected *and* rewritten into `Choice X`
+form, so the next rotation moves it with the choice it names.
+
+**The root-cause fix is an audit rule**, not a smarter rebalancer: a bare A-D in
+explanation prose is now a finding. Three calibration notes, all of which cost a
+pass each:
+
+- **The `Why X is`/`Why X is wrong` headers are prose after `strip()`**, so the
+  first version flagged 396 of 400 rows. Mask them first.
+- **A question that labels its own material with letters talks about those
+  letters throughout** - "Program A", "set B", "Hospital A", "press B". Letters
+  the *stem* uses as labels are exempt, which is what separates a real reference
+  from `ai_m069`'s "so B has the greater standard deviation".
+- **"A" is also the indefinite article.** It is only flagged before a
+  third-person verb (a word ending in s, excluding `-ous`/`-ss`/`-us`/`-is`) and
+  never before a possessive, or "A publisher's list" and "A meticulous ledger"
+  read as references.
+
+**This shell eats one backslash inside a quoted heredoc, again.** A `python -
+<<'PY'` patch containing `\b` reached Python as `\b`, which is a **backspace
+character**, so the regex `/\b[A-Za-z]{2,}\s+([A-D])\b/` shipped with two control
+characters in it and silently matched nothing - while `\s` survived, because
+`\s` is not a valid Python escape and is left alone (that is what the
+`SyntaxWarning` is). The same trap is recorded above for `\angle`. Use the Write
+or Edit tool for anything containing backslashes. `audit_ai.cjs` catches this in
+the *data*; nothing was checking the tools, so check the tool file too:
+`[...s.matchAll(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g)]`.
+
+Also: `ai_rw067`'s distractor said neighborhoods were "already 9 percent below"
+where the stem and the explanation both say 8, and `ai_rw001` read "an
+judgement".
+
+**Verified.** `fix_ai_reasoning.cjs` run twice (49 rows, 100 edits, then 0);
+`apply_ai.cjs --check` 400 validated; `audit_ai.cjs` 400 audited, 0 findings, and
+confirmed to *fail* when one fixed row is reverted; `balance_ai_answers.cjs
+--test` OK with the key still 99/99/99/99; all eight `test_*.cjs` pass. Local D1
+re-imported (4,170 = 3,770 + 400 over `/api/questions`). All 400 AI rows through
+the app's own render path in the browser: **0 KaTeX errors, 0 raw LaTeX, 0
+mojibake, 0 empty renders, 0 duplicate choice sets, 0 rows where a distractor
+grades right or the key grades wrong**, 13 rows with an authored `<svg>`.
+
+**The new features, driven by hand in the real player.** Bank filter on the
+Question Bank: AI 400 / Official 3,770 / both 4,170 / neither 0. Focus popup:
+per-question options disabled until Per question is picked, then a 30-question
+AI set with a 1.5x countdown starting at 2:22 (Math target 95s). A wrong Check
+recorded `picked:"B"`, `changes:1`, `correct:0` and marked the row Red, and six
+attempts filled all four dashboard panels - Traps you fall for (worst tag),
+Pacing (rushed 100%, mean vs target per section), Second-guessing (0.17 switches;
+changed 0% against kept 40%), Accuracy by level (L4 40% 2/5, L5 0% 0/1). The
+Mistakes page's own Bank dropdown (`#md-bank`, separate from the practice one)
+cut 4 mistakes to 0 with AI deselected.
+
+Two harness notes worth keeping: the practice, mistakes and dashboard screens all
+live inside one `.board`, so `document.querySelector('#dd-bank')` finds the
+*practice* filter while the Mistakes tab is open - scope to `#tab-mistakes`. And
+matching the on-screen question back to a `QS` row by its stem text does not
+work, because `renderStem`/`tidySpace` rewrite the text; read the id off the
+attempt log after the Check instead.

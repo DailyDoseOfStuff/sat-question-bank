@@ -85,6 +85,38 @@ function raggedTable(html) {
   return null;
 }
 
+// A standalone A-D in explanation prose that is not "Choice X". The letter is
+// allowed after a noun that labels something else in the question ("Text A",
+// "Program B", "point C"), and a bare "A" is only a reference when the word
+// after it is a third-person verb - otherwise it is the article, which opens a
+// great many perfectly good sentences.
+const LABEL = new Set(['choice', 'choices', 'text', 'texts', 'program', 'programs',
+  'set', 'sets', 'site', 'table', 'class', 'column', 'row', 'group', 'point',
+  'plate', 'option', 'passage', 'part', 'section', 'figure', 'sample', 'vitamin',
+  'type', 'and', 'or', 'nor', 'neither', 'both', 'from', 'to', 'plan', 'model',
+  'method', 'trial', 'student', 'city', 'region', 'species']);
+function bareLetterRefs(prose, skip) {
+  const out = [];
+  const words = prose.split(/\s+/).filter(Boolean);
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i].replace(/^[("'‘“]+|["'’”).,;:]+$/g, '');
+    if (!/^[A-D]$/.test(w)) continue;
+    if (skip && skip.has(w)) continue;
+    const prev = (words[i - 1] || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (LABEL.has(prev)) continue;
+    if (w === 'A') {
+      const raw = words[i + 1] || '';
+      const next = raw.toLowerCase().replace(/[^a-z]/g, '');
+      // The article, not a reference. A reference takes a third-person verb;
+      // a possessive ("A publisher's list") only looks like one once the
+      // apostrophe is stripped.
+      if (/['’]/.test(raw) || !/(?<!ou|s|u|i)s$/.test(next)) continue;
+    }
+    out.push(w + ' ' + (words[i + 1] || '').replace(/[^A-Za-z]/g, ''));
+  }
+  return out;
+}
+
 function checkRow(r) {
   const bad = [];
   const choices = JSON.parse(r.choices_json || '[]');
@@ -169,6 +201,19 @@ function checkRow(r) {
     // A reference to a letter must name a letter that exists.
     for (const m of r.explanation_html.matchAll(/\b[Cc]hoice ([A-D])\b/g))
       if (!letters.includes(m[1])) bad.push(`refers to a choice ${m[1]} that does not exist`);
+    // A choice must be referred to as "Choice X", never as a bare "X". A bare
+    // letter is invisible to balance_ai_answers.cjs, which remaps "Choice X"
+    // when it rotates the choices, so a rotation leaves it pointing at whatever
+    // now sits at that letter. Twenty rows had one.
+    // A question that labels its own material with letters - "Program A",
+    // "set B", "Hospital A" - talks about those letters throughout its
+    // explanation, and none of those mentions is a choice reference. Those
+    // letters are exempt.
+    const labelled = new Set([...strip(r.stem_html)
+      .matchAll(/\b[A-Za-z]{2,}\s+([A-D])\b/g)].map(m => m[1]));
+    for (const m of bareLetterRefs(strip(r.explanation_html)
+      .replace(/Why [A-D] is (?:right|wrong)/g, ' '), labelled))
+      bad.push(`a bare "${m}" where "Choice ${m[0]}" is meant`);
   }
 
   // The rationale must not have leaked into the question.

@@ -22,6 +22,7 @@ tools/*
 !tools/predeploy.cjs
 !tools/apply_ai.cjs
 !tools/fix_ai_defects.cjs
+!tools/fix_ai_reasoning.cjs
 !tools/balance_ai_answers.cjs
 !tools/audit_ai.cjs
 # The authored AI questions are the only copy of themselves - the local D1 they
