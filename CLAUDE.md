@@ -2544,3 +2544,34 @@ live inside one `.board`, so `document.querySelector('#dd-bank')` finds the
 matching the on-screen question back to a `QS` row by its stem text does not
 work, because `renderStem`/`tidySpace` rewrite the text; read the id off the
 attempt log after the Check instead.
+
+### Focus practice: 0.75x, and the ladder that had nothing to climb (2026-09-08)
+
+Per-question limit gains **0.75x**, and 1x is labelled `1x SAT pace` so the number
+being multiplied is visible. The target was already right - `TARGET_MS` is 35
+minutes over 22 Math questions (95s) and 32 over 27 Reading & Writing (71s).
+Measured live: Math 0.75x starts at 1:11, 2x at 3:10; RW 1x at 1:11, 1.5x at 1:46.
+
+**The adaptive difficulty was decorative.** `focusSet` fills round-robin over
+skills, so each skill contributes about one question, and each skill's list is
+sorted unseen-first - with thousands of unseen rows that collapses to "this
+skill's easiest unseen question", every time. A 35-question Math set came out 19
+level-1 and 16 level-2, and answering eight straight correct walked `S.lvl` from 1
+to 5 while **every question served stayed level 1**. The reorder was working; the
+set had one level in it.
+
+Balance the levels across the *set*, not within a skill: `take(k)` picks from the
+skill the question whose level is least represented so far, the existing
+unseen-first order still deciding ties. Same set is now 7/7/7/7/7 over levels 1-5,
+and the walk tracks - correct answers serve 1, 3, 4, 4, 5, 5; four misses then
+serve 4, 3, 2, 1.
+
+Interleaving *within* each skill was tried first and does nothing, for the same
+reason: the whole set comes out of the first round-robin pass, so only the rank-0
+question of each skill is ever reached.
+
+`test_focus.cjs` asserts the set spans >=3 levels and that a harder question lands
+in the first six; confirmed to fail with the fix reverted. `window.__qa()` now
+exposes the live session `S`, because reading the ladder's target off the rendered
+stem is impossible - KaTeX triples the text (HTML plus the MathML annotation) and
+a math stem stripped of its notation is generic enough to match a dozen rows.
