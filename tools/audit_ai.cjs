@@ -104,6 +104,11 @@ function checkRow(r) {
   const prose = all.replace(/\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/g, ' ');
   if (/&(?![a-zA-Z]+;|#\d+;)/.test(prose)) bad.push('a bare & that is not an entity');
   if (/�|Γ[êåÇ]|Ã[©¨¤]|â€/.test(all)) bad.push('mojibake or a replacement character');
+  // A control character means a backslash was eaten somewhere upstream and a
+  // LaTeX command was read as an escape: "\angle" arrives as BEL + "ngle",
+  // which renders as a stray word and leaves the \( \) around it unparsed.
+  const ctl = all.match(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g);
+  if (ctl) bad.push('a control character (' + JSON.stringify(ctl[0]) + '), so a LaTeX command lost its backslash');
   if (/\$/.test(all.replace(/\\\$/g, ''))) bad.push('a bare $ (KaTeX is not bound to it, but the stem should escape it)');
 
   // Inline maths has to be paired, or KaTeX swallows the rest of the paragraph.
