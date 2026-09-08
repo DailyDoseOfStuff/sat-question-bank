@@ -1415,7 +1415,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') ddCloseAll
 window.__dd = dd;   // reachable for the DOM assertions; harmless in production
 // Same reason: the render, grading and focus paths are inside this closure, so a
 // sweep over the bank can only drive the real ones through here.
-window.__qa = () => ({ QS, PROG, LOG, renderStem, isRight, focusSet, weakness, levelOf, pacing, trapCounts, guessing });
+window.__qa = () => ({ QS, PROG, LOG, S, renderStem, isRight, focusSet, weakness, levelOf, pacing, trapCounts, guessing });
 
 const NAV = document.querySelectorAll('.nav-i');
 const TABS = ['practice','dash','browse','mistakes','settings'];
@@ -1684,13 +1684,32 @@ function focusSet(cfg) {
   // does get most of the set; the second ignores the quotas and tops the set up from
   // whatever is left, so a skill running out of questions cannot shorten the set.
   const out = [];
+  // Round-robin over skills gives each skill about one slot, so ordering a skill's
+  // own questions by level does nothing - the whole set comes out of the first pass,
+  // at whatever level that skill's easiest unseen question happens to be. Balance
+  // the levels across the set instead: take from the skill the question whose level
+  // is least represented so far, unseen-first still deciding ties. Without this the
+  // ladder has nothing to climb into.
+  const used = {};
+  const take = (k) => {
+    const a = bySkill[k];
+    let bi = -1, bs = Infinity;
+    for (let i = 0; i < a.length; i++) {
+      const n = used[levelOf(a[i])] || 0;
+      if (n < bs) { bs = n; bi = i; if (!n) break; }
+    }
+    if (bi < 0) return null;
+    const q = a.splice(bi, 1)[0];
+    used[levelOf(q)] = (used[levelOf(q)] || 0) + 1;
+    return q;
+  };
   const fill = (byQuota) => {
     while (out.length < cfg.n) {
       let moved = false;
       for (const k of skills) {
         if (out.length >= cfg.n) break;
         if (byQuota && want[k] <= 0) continue;
-        const q = bySkill[k].shift();
+        const q = take(k);
         if (!q) continue;
         out.push(q); want[k]--; moved = true;
       }
@@ -3080,7 +3099,7 @@ function focusModal() {
       <div class="fx-row"><span class="fx-lab">Timing</span><div class="fx-opts">
         ${opt('timing', 'off', 'Untimed')}${opt('timing', 'set', 'Whole set')}${opt('timing', 'perq', 'Per question')}</div></div>
       <div class="fx-row"><span class="fx-lab">Per-question limit</span><div class="fx-opts">
-        ${opt('mult', 1, 'Realistic', !perQ)}${opt('mult', 1.5, '1.5&times;', !perQ)}${opt('mult', 2, '2&times;', !perQ)}</div></div>
+        ${opt('mult', 0.75, '0.75&times;', !perQ)}${opt('mult', 1, '1&times; SAT pace', !perQ)}${opt('mult', 1.5, '1.5&times;', !perQ)}${opt('mult', 2, '2&times;', !perQ)}</div></div>
       <div class="fx-row"><span class="fx-lab">Out of time</span><div class="fx-opts">
         ${opt('auto', false, 'Keep going', !perQ)}${opt('auto', true, 'Auto-advance', !perQ)}</div></div>
       <p class="fx-n">${items.length} question${items.length === 1 ? '' : 's'} selected${FX.timing === 'off' ? '' : ` · about ${mins} min`}</p>

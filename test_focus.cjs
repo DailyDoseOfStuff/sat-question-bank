@@ -54,6 +54,14 @@ assert.ok(official.every(q => q.source !== 'AI'), 'the official filter let an AI
 assert.deepStrictEqual(f.focusSet({ n: 10, sections: ['Nonexistent'], bank: 'both' }), [],
   'an impossible combination must give an empty set, not a wrong one');
 
+// The ladder can only move if the set spans levels. With thousands of unseen rows
+// the unseen-first sort used to collapse every skill onto its easiest questions, so
+// every focus set was one level deep and the ladder was decorative.
+const spread = new Set(mathOnly.map(q => q.level));
+assert.ok(spread.size >= 3, 'the set must span levels for the ladder to climb, got ' + [...spread]);
+assert.ok(mathOnly.slice(0, 6).some(q => q.level > 3),
+  'a harder question must appear early enough for the ladder to reach it');
+
 assert.strictEqual(f.nextLevel(3, 1, true), 3, 'one correct answer does not promote');
 assert.strictEqual(f.nextLevel(3, 2, true), 4, 'two in a row promotes');
 assert.strictEqual(f.nextLevel(5, 2, true), 5, 'level is capped at 5');
