@@ -75,7 +75,8 @@ const FIXES = {
   // --- 2. a stem no choice can complete ------------------------------------
   ai_rw291: [['stem_html', 'since 1994 has never recorded', 'since 1994, has never recorded']],
   ai_rw245: [['stem_html', 'two thousand years ______', 'two thousand years, ______']],
-  ai_rw270: [['stem_html', 'could read ______', 'could read, ______']],
+  // ai_rw270 had the same defect and was repaired here first, then replaced
+  // outright: its sentence was a near-copy of ai_rw145's. Nothing to patch now.
   ai_rw295: [['stem_html', 'the scent ______', 'the scent, ______']],
   ai_rw124: [['stem_html', '______ the other four were abandoned', '______ four were abandoned']],
 
